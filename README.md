@@ -79,7 +79,7 @@ config = {
         ['g?'] = {"<Cmd>lua require'dirtree.core'.help()<CR>",              desc="Show help"},
     },
     visual_keymaps = {
-        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark_visual()<CR>", desc="Toggle marks"},
+        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark_visual()<CR><Esc>", desc="Toggle marks"},
     },
     -- Whether hidden files should be shown when dirtree opens
     show_hidden = true,
