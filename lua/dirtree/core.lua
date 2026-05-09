@@ -211,6 +211,22 @@ local function current_row(state)
 end
 
 ---@param state DirtreeState
+---@param path string
+---@return boolean
+local function set_cursor_path(state, path)
+    if vim.endswith(path, util.sep) then
+        path = path:sub(1, -2)
+    end
+    for i, row in ipairs(state.rows or {}) do
+        if row.path == path then
+            api.nvim_win_set_cursor(0, {i, 0})
+            return true
+        end
+    end
+    return false
+end
+
+---@param state DirtreeState
 ---@param row DirtreeTreeRow?
 ---@return string?
 local function create_default(state, row)
@@ -749,7 +765,7 @@ function M.create()
                 util.err(msg)
             else
                 render(state)
-                util.set_cursor_pos(fs.basename(path))
+                set_cursor_path(state, path)
             end
         end
     end)
