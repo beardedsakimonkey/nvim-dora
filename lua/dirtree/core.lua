@@ -173,6 +173,7 @@ local function render(state)
             api.nvim_buf_set_extmark(0, ns, i-1, #file.display_name, {
                 virt_text = {{virttext, 'DirtreeVirtText'}},
                 virt_text_pos = 'overlay',
+                hl_mode = 'combine',
             })
         end
         if file.tree_prefix_len > 0 then
