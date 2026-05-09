@@ -11,6 +11,7 @@ local MAX_DELETE_PATHS = 10
 local MAX_DELETE_WIDTH = 96
 local LINE_PREFIX = ' '
 local LINE_PREFIX_LEN = #LINE_PREFIX
+local RIGHT_PADDING = 1
 local ELLIPSIS = '…'
 local ELLIPSIS_WIDTH = vim.fn.strdisplaywidth(ELLIPSIS)
 
@@ -54,7 +55,7 @@ end
 ---@return integer
 local function max_display_width()
     local float_width = math.min(MAX_DELETE_WIDTH, math.max(20, vim.o.columns - 4))
-    return math.max(0, float_width - LINE_PREFIX_LEN)
+    return math.max(0, float_width - LINE_PREFIX_LEN - RIGHT_PADDING)
 end
 
 ---@param display string
@@ -190,7 +191,7 @@ local function width(confirm_title, rendered_lines)
     for _, line in ipairs(rendered_lines) do
         max_width = math.max(max_width, #line)
     end
-    return math.max(32, math.min(MAX_DELETE_WIDTH, max_width))
+    return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
 end
 
 ---@param paths string[]
