@@ -55,6 +55,14 @@ local function current_line()
     return api.nvim_get_current_line()
 end
 
+local function find_line_index(search_lines, pattern)
+    for i, line in ipairs(search_lines) do
+        if line:match(pattern) then
+            return i
+        end
+    end
+end
+
 local function win_title(win)
     local title = api.nvim_win_get_config(win).title
     if type(title) == 'string' then
@@ -728,6 +736,10 @@ do
     assert(table.concat(help_lines, '\n'):match('y%s+Yank path'), 'help should include the yank path mapping')
     assert(table.concat(help_lines, '\n'):match('Y%s+Yank path to clipboard'), 'help should include the clipboard yank mapping')
     assert(table.concat(help_lines, '\n'):match('<S%-Tab>%s+Clear marks'), 'help should include the clear marks mapping')
+    assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),
+        'help should follow configured normal keymap order')
+    assert(find_line_index(help_lines, '^  h%s+Up directory$') < find_line_index(help_lines, '^  %-%s+Up directory$'),
+        'help should preserve ordered punctuation keymaps')
 
     local marks = api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})
     local has_header, has_key, has_desc = false, false, false
@@ -751,6 +763,7 @@ do
     local old_visual_keymaps = config.visual_keymaps
     config.keymaps = {
         x = "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>",
+        z = {"<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }
     config.visual_keymaps = {
         y = "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'visual'<CR>",
@@ -760,9 +773,12 @@ do
     assert_eq(vim.fn.maparg('x', 'n', false, true).rhs, "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>")
     assert_eq(vim.fn.maparg('y', 'x', false, true).rhs, "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'visual'<CR>")
     core.help()
-    local help_lines = table.concat(api.nvim_buf_get_lines(0, 0, -1, false), '\n')
-    assert(help_lines:match("x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(help_lines:match("y%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'visual'<CR>"), 'help should include legacy visual mappings')
+    local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    local help_text = table.concat(help_lines, '\n')
+    assert(help_text:match("x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
+    assert(help_text:match("y%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'visual'<CR>"), 'help should include legacy visual mappings')
+    assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
+        'help should sort unordered custom mappings after local order')
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
 

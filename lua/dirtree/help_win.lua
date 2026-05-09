@@ -5,6 +5,19 @@ local api = vim.api
 
 local M = {}
 
+local KEYMAP_ORDER = {
+    'q', 'h', '-', 'J', 'K',
+    'o', 'O', 'u', 'U',
+    'l', '<CR>', 's', 'v', 't', 'gx',
+    'R', 'i', 'y', 'Y',
+    'd', 'a', 'm', 'c',
+    '<Tab>', '<S-Tab>', 'gh', 'g?',
+}
+
+local VISUAL_KEYMAP_ORDER = {
+    '<Tab>',
+}
+
 ---@class DirtreeHelpRow
 ---@field lhs? string
 ---@field desc? string
@@ -26,15 +39,32 @@ end
 
 ---@param label string
 ---@param keymaps? table<string, DirtreeKeymapSpec>
+---@param order? string[]
 ---@return DirtreeHelpRow[]
-local function keymap_rows(label, keymaps)
+local function keymap_rows(label, keymaps, order)
     local rows = {}
-    for lhs, rhs in pairs(keymaps or {}) do
+    local handled = {}
+    local function add(lhs, rhs)
         local action = type(rhs) == 'table' and rhs[1] or rhs
         local desc = type(rhs) == 'table' and rhs.desc or nil
         rows[#rows+1] = {lhs=lhs, desc=desc or tostring(action)}
     end
-    table.sort(rows, function(a, b) return a.lhs < b.lhs end)
+    for _, lhs in ipairs(order or {}) do
+        if keymaps and keymaps[lhs] then
+            add(lhs, keymaps[lhs])
+            handled[lhs] = true
+        end
+    end
+    local unordered = {}
+    for lhs, rhs in pairs(keymaps or {}) do
+        if not handled[lhs] then
+            unordered[#unordered+1] = {lhs=lhs, rhs=rhs}
+        end
+    end
+    table.sort(unordered, function(a, b) return a.lhs < b.lhs end)
+    for _, entry in ipairs(unordered) do
+        add(entry.lhs, entry.rhs)
+    end
     if #rows == 0 then
         return {}
     end
@@ -46,8 +76,8 @@ end
 ---@param config DirtreeConfig
 ---@return DirtreeHelpRow[]
 local function rows(config)
-    local normal_rows = keymap_rows('Normal', config.keymaps)
-    local visual_rows = keymap_rows('Visual', config.visual_keymaps)
+    local normal_rows = keymap_rows('Normal', config.keymaps, KEYMAP_ORDER)
+    local visual_rows = keymap_rows('Visual', config.visual_keymaps, VISUAL_KEYMAP_ORDER)
     if #normal_rows > 0 and #visual_rows > 0 then
         normal_rows[#normal_rows+1] = {blank=true}
     end
