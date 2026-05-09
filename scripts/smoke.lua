@@ -917,6 +917,22 @@ do
     core.expand()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 're-expand should restore previous tree state')
 
+    set_cursor_line('file%.txt$')
+    core.collapse()
+    assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapsing file should hide sibling rows below its parent directory')
+    assert(state.expanded_dirs[root .. '/alpha'], 'collapsing file should leave grandparent expanded')
+    assert(not state.expanded_dirs[root .. '/alpha/one'], 'collapsing file should fold its parent directory')
+    assert_match(current_line(), 'one/$', 'collapsing file should move cursor to its parent directory')
+
+    core.collapse()
+    assert(not vim.tbl_contains(lines(), '├── one/'), 'collapsing an already collapsed directory should fold its parent')
+    assert(not state.expanded_dirs[root .. '/alpha'], 'collapsing an already collapsed directory should clear parent expansion')
+    assert_match(current_line(), 'alpha/$', 'collapsing child directory should move cursor to its parent directory')
+
+    core.expand()
+    core.expand()
+    assert(vim.tbl_contains(lines(), '│   └── file.txt'), 'recursive state should be restorable after parent fallback collapse')
+
     set_cursor_line('one/$')
     core.collapse()
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapsing child should hide child contents')

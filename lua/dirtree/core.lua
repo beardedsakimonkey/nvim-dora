@@ -244,6 +244,23 @@ local function create_default(state, row)
 end
 
 ---@param state DirtreeState
+---@param row DirtreeTreeRow?
+---@return string?
+local function collapse_target_path(state, row)
+    if not row or not row.path then
+        return nil
+    end
+    if row.type == 'directory' and state.expanded_dirs[row.path] then
+        return row.path
+    end
+    local parent = fs.get_parent_dir(row.path)
+    if parent == state.cwd then
+        return nil
+    end
+    return parent
+end
+
+---@param state DirtreeState
 ---@param step integer
 local function move_to_directory(state, step)
     local line = api.nvim_win_get_cursor(0)[1] + step
@@ -579,12 +596,13 @@ end
 function M.collapse()
     local state = store.get()
     local row = current_row(state)
-    if not row or not row.path or row.type ~= 'directory' or not state.expanded_dirs[row.path] then
+    local path = collapse_target_path(state, row)
+    if not path or not state.expanded_dirs[path] then
         return
     end
-    state.expanded_dirs[row.path] = nil
+    state.expanded_dirs[path] = nil
     render(state)
-    util.set_cursor_pos(row.display_name)
+    set_cursor_path(state, path)
 end
 
 function M.collapse_reset()
