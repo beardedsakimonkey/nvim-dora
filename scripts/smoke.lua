@@ -516,12 +516,14 @@ do
     end
     assert(has_sign, 'marked rows should render a sign marker')
     assert(has_file_hl, 'marked rows should highlight filenames')
+    util.set_cursor_pos('dest')
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        local dest = opts.validate('dest')
-        cb('dest', dest)
+        assert_eq(opts.default, 'dest/', 'bulk copy should prefill the hovered destination directory')
+        local dest = opts.validate(opts.default)
+        cb(opts.default, dest)
     end
     core.copy()
     prompt.input = old_input
