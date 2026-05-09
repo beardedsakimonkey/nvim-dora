@@ -327,6 +327,7 @@ do
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/child/file.txt'), 'create should create below the selected directory')
+    assert_match(current_line(), 'file%.txt$', 'cursor should move to the created nested file')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -355,6 +356,39 @@ do
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/child/sibling.txt'), 'create should create beside the hovered file')
+    assert_match(current_line(), 'sibling%.txt$', 'cursor should move to the created sibling file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/beta', tonumber('755', 8)))
+    touch(tmp .. '/alpha/duplicate.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('alpha')
+    core.expand()
+    util.set_cursor_pos('beta')
+    core.expand()
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.default, 'beta/', 'create should prefill the selected directory path')
+        local input = opts.default .. 'duplicate.txt'
+        cb(input, opts.validate(input))
+    end
+    core.create()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/beta/duplicate.txt'), 'create should create the duplicate filename in beta')
+    assert_match(current_line(), 'duplicate%.txt$', 'cursor should move to the newly created duplicate file')
+    local row = store.get().rows[api.nvim_win_get_cursor(0)[1]]
+    assert_eq(row.path, store.get().cwd .. '/beta/duplicate.txt')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
