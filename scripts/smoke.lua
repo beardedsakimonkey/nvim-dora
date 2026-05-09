@@ -124,7 +124,7 @@ do
     assert_eq(confirm_cfg.border[1][2], 'DirtreePromptBorderInvalid')
     assert_match(vim.wo[confirm_win].winhighlight, 'Cursor:DirtreeDeleteCursor')
     assert_eq(vim.o.guicursor, 'a:block-DirtreeDeleteCursor')
-    assert_match(win_title(confirm_win), 'Delete 12 files%? %(y/n%)')
+    assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], '  foo.js')
     assert_eq(confirm_lines[2], '  dir/')
@@ -307,6 +307,62 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root/child', tonumber('755', 8)))
+    touch(tmp .. '/root/child/existing.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('root')
+    core.expand()
+    set_cursor_line('child/$')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.default, 'root/child/', 'create should prefill the selected directory path')
+        local input = opts.default .. 'file.txt'
+        cb(input, opts.validate(input))
+    end
+    core.create()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/root/child/file.txt'), 'create should create below the selected directory')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root/child', tonumber('755', 8)))
+    touch(tmp .. '/root/child/existing.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('root')
+    core.expand_recursive()
+    set_cursor_line('existing%.txt$')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.default, 'root/child/', 'create should prefill the hovered file parent path')
+        local input = opts.default .. 'sibling.txt'
+        cb(input, opts.validate(input))
+    end
+    core.create()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/root/child/sibling.txt'), 'create should create beside the hovered file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/visible')
     touch(tmp .. '/.hidden')
 
@@ -342,7 +398,7 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    assert_match(win_title(confirm_win), 'Delete 2 files%? %(y/n%)')
+    assert_match(win_title(confirm_win), 'Delete 2 files%?')
     assert_eq(confirm_lines[1], '  a')
     assert_eq(confirm_lines[2], '  dir/nested.js')
 
@@ -368,7 +424,7 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    assert_match(win_title(confirm_win), 'Delete%? %(y/n%)')
+    assert_match(win_title(confirm_win), 'Delete%?')
     assert_eq(confirm_lines[1], '  single.txt')
 
     api.nvim_feedkeys('n', 'xt', false)
