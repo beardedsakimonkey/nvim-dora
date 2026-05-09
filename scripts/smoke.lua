@@ -160,6 +160,21 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/enter.txt')
+
+    delete_win.delete({tmp .. '/enter.txt'}, tmp, function(confirmed)
+        vim.g.dirtree_smoke_enter_confirm_delete = confirmed
+    end)
+
+    api.nvim_feedkeys('\r', 'xt', false)
+    assert_eq(vim.g.dirtree_smoke_enter_confirm_delete, true)
+
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local p = prompt.input({
         prompt = 'Smoke',
         cwd = cwd,

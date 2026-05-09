@@ -257,7 +257,7 @@ function M.delete(paths, cwd, cb)
         cb(confirmed)
     end
 
-    for _, lhs in ipairs({'y', 'Y'}) do
+    for _, lhs in ipairs({'y', 'Y', '<CR>'}) do
         vim.keymap.set('n', lhs, function() finish(true) end, {buffer = buf, silent = true, nowait = true})
     end
     for _, lhs in ipairs({'n', 'N', 'q', '<Esc>', '<C-c>'}) do
