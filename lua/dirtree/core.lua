@@ -211,6 +211,23 @@ local function current_row(state)
 end
 
 ---@param state DirtreeState
+---@param row DirtreeTreeRow?
+---@return string?
+local function create_default(state, row)
+    if not row or not row.path then
+        return nil
+    end
+    local relative = row.path:sub(#state.cwd + 2)
+    if row.type ~= 'directory' then
+        relative = relative:sub(1, -(#row.name + 2))
+    end
+    if relative == '' then
+        return nil
+    end
+    return relative .. util.sep
+end
+
+---@param state DirtreeState
 ---@param step integer
 local function move_to_directory(state, step)
     local line = api.nvim_win_get_cursor(0)[1] + step
@@ -712,9 +729,11 @@ function M.copy() copy_or_move(false) end
 
 function M.create()
     local state = store.get()
+    local row = current_row(state)
     prompt.input({
         prompt = 'New file',
         cwd = state.cwd,
+        default = create_default(state, row),
         validate = function(input)
             return fs.validate_create(input, state.cwd)
         end,

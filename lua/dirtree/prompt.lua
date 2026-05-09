@@ -291,7 +291,7 @@ function M.input(opts, cb)
     })
 
     self:redraw()
-    vim.cmd'startinsert'
+    vim.cmd'startinsert!'
     return self
 end
 
