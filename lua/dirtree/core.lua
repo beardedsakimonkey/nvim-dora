@@ -719,6 +719,7 @@ local function copy_or_move(is_move)
         util.err(is_bulk)
         return
     end
+    local row = current_row(state)
     local prompt_label = is_move and 'Move to' or 'Copy to'
     if is_bulk then
         local noun = #paths == 1 and 'file' or 'files'
@@ -727,6 +728,7 @@ local function copy_or_move(is_move)
     prompt.input({
         prompt = prompt_label,
         cwd = state.cwd,
+        default = create_default(state, row),
         validate = function(input)
             if is_bulk then
                 local dest = fs.normalize_path(input, state.cwd)
