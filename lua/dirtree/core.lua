@@ -565,7 +565,12 @@ function M.open_external()
     if not row or not row.path or not fs.exists(row.path) then
         return
     end
-    pcall(vim.ui.open, row.path)
+    local ok, err = pcall(vim.ui.open, row.path)
+    if ok then
+        util.info('Opening ' .. row.name)
+    else
+        util.err('Could not open externally: ' .. tostring(err))
+    end
 end
 
 function M.expand()

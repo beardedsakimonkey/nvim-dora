@@ -15,6 +15,7 @@ local KEYMAP_ORDER = {
 }
 
 local VISUAL_KEYMAP_ORDER = {
+    'J', 'K',
     '<Tab>',
 }
 
