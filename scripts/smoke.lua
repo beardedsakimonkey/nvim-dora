@@ -682,6 +682,42 @@ do
 end
 
 do
+    local old_notify = vim.notify
+    local old_open = vim.ui.open
+    local notifications = {}
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local expected_path = fs.realpath(tmp) .. '/a'
+    vim.ui.open = function(path)
+        vim.g.dirtree_smoke_open_external_path = path
+    end
+    core.open_external()
+    assert_eq(vim.g.dirtree_smoke_open_external_path, expected_path)
+    assert_eq(notifications[#notifications].msg, '[dirtree] Opening a')
+    assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
+
+    vim.ui.open = function()
+        error('boom')
+    end
+    core.open_external()
+    assert_match(notifications[#notifications].msg, '^%[dirtree%] Could not open externally: ')
+    assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+    vim.notify = old_notify
+    vim.ui.open = old_open
+    vim.g.dirtree_smoke_open_external_path = nil
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     write_file(tmp .. '/alpha.txt', 'hello')
@@ -786,6 +822,18 @@ do
 
     config.keymaps = old_keymaps
     config.visual_keymaps = old_visual_keymaps
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    assert_eq(vim.fn.maparg('J', 'x', false, true).rhs, "<Cmd>lua require'dirtree.core'.next_directory()<CR>")
+    assert_eq(vim.fn.maparg('K', 'x', false, true).rhs, "<Cmd>lua require'dirtree.core'.prev_directory()<CR>")
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
 do
