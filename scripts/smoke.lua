@@ -202,6 +202,7 @@ do
     assert_eq(cfg.border[1][1], '╭')
     assert(not p.list_win, 'prompt should not create a completion window')
     assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('<Esc>', 'i', false, true).expr, 1)
     assert_eq(type(vim.fn.maparg('<Esc>', 'n', false, true).callback), 'function')
 
     p:set_input('bad', 3)
@@ -305,6 +306,46 @@ do
     p:escape_insert()
     assert(p.closed, 'escape with empty input should close prompt')
     assert_eq(vim.g.dirtree_smoke_escape_empty, true)
+end
+
+do
+    local p = prompt.input({
+        prompt = 'Escape typed input',
+        cwd = cwd,
+        validate = function(input)
+            return input
+        end,
+    }, function(input)
+        vim.g.dirtree_smoke_escape_typed = input == nil
+    end)
+    ---@cast p DirtreePrompt
+
+    api.nvim_feedkeys(api.nvim_replace_termcodes('ix<Esc>', true, false, true), 'xt', false)
+    assert(vim.wait(1000, function()
+        return p:get_input() == 'x' and vim.api.nvim_get_mode().mode == 'n'
+    end), 'escape after typed input should leave insert mode')
+    assert(not p.closed, 'escape after typed input should leave prompt open')
+    p:cancel()
+    assert_eq(vim.g.dirtree_smoke_escape_typed, true)
+end
+
+do
+    local p = prompt.input({
+        prompt = 'Escape key empty',
+        cwd = cwd,
+        validate = function(input)
+            return input
+        end,
+    }, function(input)
+        vim.g.dirtree_smoke_escape_key_empty = input == nil
+    end)
+    ---@cast p DirtreePrompt
+
+    api.nvim_feedkeys(api.nvim_replace_termcodes('i<Esc>', true, false, true), 'xt', false)
+    assert(vim.wait(1000, function()
+        return p.closed and vim.api.nvim_get_mode().mode == 'n'
+    end), 'escape with empty input should close prompt via keypress')
+    assert_eq(vim.g.dirtree_smoke_escape_key_empty, true)
 end
 
 do
