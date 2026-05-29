@@ -9,7 +9,7 @@ local M = {}
 
 local MAX_DELETE_PATHS = 10
 local MAX_DELETE_WIDTH = 96
-local LINE_PREFIX = ' '
+local LINE_PREFIX = '  '
 local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
 local ELLIPSIS = '…'
@@ -21,6 +21,9 @@ local ELLIPSIS_WIDTH = vim.fn.strdisplaywidth(ELLIPSIS)
 ---@field file_end_col integer
 ---@field file_hl string
 ---@field directory_suffix_col? integer
+
+---@class DirtreeDeleteOptions
+---@field anchor? {win: integer, line: integer, col: integer}
 
 ---@param path string
 ---@return string
@@ -136,7 +139,7 @@ local function lines(confirm_items, overflow)
         ret[#ret+1] = LINE_PREFIX .. confirm_item.display
     end
     if overflow > 0 then
-        ret[#ret+1] = string.format('%sand %d more…', LINE_PREFIX, overflow)
+        ret[#ret+1] = string.format('%s... and %d more', LINE_PREFIX, overflow)
     end
     return ret
 end
@@ -197,11 +200,13 @@ end
 ---@param paths string[]
 ---@param cwd string
 ---@param cb fun(confirmed: boolean)
-function M.delete(paths, cwd, cb)
+---@param opts? DirtreeDeleteOptions
+function M.delete(paths, cwd, cb, opts)
     if #paths == 0 then
         cb(false)
         return
     end
+    opts = opts or {}
     local confirm_items = items(paths, cwd, max_display_width())
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow)
@@ -228,12 +233,16 @@ function M.delete(paths, cwd, cb)
     vim.bo[buf].modifiable = false
 
     local function layout()
-        return window.centered_layout({
+        local layout_opts = {
             title = confirm_title,
             width = width(confirm_title, rendered_lines),
             height = #rendered_lines,
             border_hl = 'DirtreePromptBorderInvalid',
-        })
+        }
+        if opts.anchor then
+            return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
+        end
+        return window.centered_layout(layout_opts)
     end
 
     local win = api.nvim_open_win(buf, true, layout())

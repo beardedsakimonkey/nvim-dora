@@ -710,6 +710,7 @@ function M.delete()
         util.err(is_bulk)
         return
     end
+    local row = current_row(state)
     delete_win.delete(paths, state.cwd, function(confirmed)
         if not confirmed then
             return
@@ -727,7 +728,9 @@ function M.delete()
             end
             render(state)
         end
-    end)
+    end, {
+        anchor = (#paths == 1) and current_name_anchor(row) or nil,
+    })
 end
 
 ---@param is_move boolean
@@ -748,7 +751,7 @@ local function copy_or_move(is_move)
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
-        anchor = (is_move and not is_bulk) and current_name_anchor(row) or nil,
+        anchor = (is_move and #paths == 1) and current_name_anchor(row) or nil,
         validate = function(input)
             if is_bulk then
                 local dest = fs.normalize_path(input, state.cwd)
@@ -791,6 +794,7 @@ function M.create()
         prompt = 'New file',
         cwd = state.cwd,
         default = create_default(state, row),
+        anchor = count_marks(state) <= 1 and current_name_anchor(row) or nil,
         validate = function(input)
             return fs.validate_create(input, state.cwd)
         end,
