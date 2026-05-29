@@ -9,7 +9,7 @@ local M = {}
 
 local MAX_DELETE_PATHS = 10
 local MAX_DELETE_WIDTH = 96
-local LINE_PREFIX = '  '
+local LINE_PREFIX = ' '
 local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
 local ELLIPSIS = '…'

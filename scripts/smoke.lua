@@ -134,23 +134,23 @@ do
     assert_eq(vim.o.guicursor, 'a:block-DirtreeDeleteCursor')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
-    assert_eq(confirm_lines[1], '  foo.js')
-    assert_eq(confirm_lines[2], '  dir/')
-    assert_eq(confirm_lines[3], '  dir/bar.lua')
-    assert_eq(confirm_lines[11], '  ... and 2 more')
+    assert_eq(confirm_lines[1], ' foo.js')
+    assert_eq(confirm_lines[2], ' dir/')
+    assert_eq(confirm_lines[3], ' dir/bar.lua')
+    assert_eq(confirm_lines[11], ' ... and 2 more')
 
     local marks = api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
     local has_path, has_file, has_dir, has_dir_suffix, has_more = false, false, false, false, false
     for _, mark in ipairs(marks) do
         local row, col, details = mark[2], mark[3], mark[4]
         has_path = has_path
-            or row == 2 and col == 2 and details.end_col == 6 and details.hl_group == 'DirtreeDeletePath'
+            or row == 2 and col == 1 and details.end_col == 5 and details.hl_group == 'DirtreeDeletePath'
         has_file = has_file
-            or row == 0 and col == 2 and details.end_col == 8 and details.hl_group == 'DirtreeFile'
+            or row == 0 and col == 1 and details.end_col == 7 and details.hl_group == 'DirtreeFile'
         has_dir = has_dir
-            or row == 1 and col == 2 and details.end_col == 5 and details.hl_group == 'DirtreeDirectory'
+            or row == 1 and col == 1 and details.end_col == 4 and details.hl_group == 'DirtreeDirectory'
         has_dir_suffix = has_dir_suffix
-            or row == 1 and col == 5 and details.end_col == 6 and details.hl_group == 'DirtreeVirtText'
+            or row == 1 and col == 4 and details.end_col == 5 and details.hl_group == 'DirtreeVirtText'
         has_more = has_more
             or row == 10 and details.hl_group == 'DirtreeDeleteMore'
     end
@@ -550,8 +550,8 @@ do
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_eq(confirm_cfg.row, math.max(0, math.floor((vim.o.lines - #confirm_lines - 2) / 2)))
     assert_match(win_title(confirm_win), 'Delete 2 files%?')
-    assert_eq(confirm_lines[1], '  a')
-    assert_eq(confirm_lines[2], '  dir/nested.js')
+    assert_eq(confirm_lines[1], ' a')
+    assert_eq(confirm_lines[2], ' dir/nested.js')
 
     api.nvim_feedkeys('y', 'xt', false)
     assert(not api.nvim_win_is_valid(confirm_win), 'confirming delete should close the confirmation window')
@@ -583,7 +583,7 @@ do
     assert_eq(confirm_cfg.row, pos.row)
     assert_eq(confirm_cfg.col, pos.col - 1)
     assert_match(win_title(confirm_win), 'Delete%?')
-    assert_eq(confirm_lines[1], '  single.txt')
+    assert_eq(confirm_lines[1], ' single.txt')
 
     api.nvim_feedkeys('n', 'xt', false)
     core.quit()
