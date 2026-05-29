@@ -318,6 +318,20 @@ local function selected_paths(state)
     return paths, true
 end
 
+---@param row DirtreeTreeRow?
+---@return {win: integer, line: integer, col: integer}?
+local function current_name_anchor(row)
+    if not row or not row.name_start_col then
+        return nil
+    end
+    local win = api.nvim_get_current_win()
+    return {
+        win = win,
+        line = api.nvim_win_get_cursor(win)[1],
+        col = row.name_start_col,
+    }
+end
+
 ---@param state DirtreeState
 local function clear_marks(state)
     state.marks = {}
@@ -734,6 +748,7 @@ local function copy_or_move(is_move)
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
+        anchor = (is_move and not is_bulk) and current_name_anchor(row) or nil,
         validate = function(input)
             if is_bulk then
                 local dest = fs.normalize_path(input, state.cwd)

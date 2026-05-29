@@ -31,8 +31,14 @@ end
 ---@field border_hl? string
 ---@field min_width? integer
 
+---@class DirtreeAnchoredFloatLayoutOptions: DirtreeFloatLayoutOptions
+---@field win integer
+---@field line integer
+---@field col integer
+
 ---@param opts DirtreeFloatLayoutOptions
 ---@return table
+---Returns a config for vim.api.nvim_win_set_config()
 function M.centered_layout(opts)
     local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 4))
     local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
@@ -42,6 +48,36 @@ function M.centered_layout(opts)
         anchor = 'NW',
         row = math.max(0, math.floor((vim.o.lines - height - 2) / 2)),
         col = math.floor((vim.o.columns - width) / 2),
+        width = width,
+        height = height,
+        border = M.border(opts.border_hl or 'DirtreePromptBorder'),
+        title = title,
+        title_pos = title and (opts.title_pos or 'left') or nil,
+        style = 'minimal',
+        noautocmd = true,
+    }
+end
+
+---@param opts DirtreeAnchoredFloatLayoutOptions
+---@return table
+---Anchored to cursor
+function M.anchored_layout(opts)
+    if not M.valid_win(opts.win) then
+        return M.centered_layout(opts)
+    end
+    local pos = vim.fn.screenpos(opts.win, opts.line, opts.col + 1)
+    if pos.row == 0 or pos.col == 0 then
+        return M.centered_layout(opts)
+    end
+    local col = math.max(0, pos.col - 1)
+    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - col - 2))
+    local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
+    local title = opts.title and (' ' .. opts.title .. ' ') or nil
+    return {
+        relative = 'editor',
+        anchor = 'NW',
+        row = math.max(0, pos.row),
+        col = col,
         width = width,
         height = height,
         border = M.border(opts.border_hl or 'DirtreePromptBorder'),

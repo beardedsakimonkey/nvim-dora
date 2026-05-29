@@ -10,6 +10,7 @@ local M = {}
 ---@field cwd string
 ---@field default? string
 ---@field width? integer
+---@field anchor? {win: integer, line: integer, col: integer}
 ---@field validate fun(input: string): any
 
 ---@class DirtreePromptCompletion
@@ -17,16 +18,20 @@ local M = {}
 ---@field suffix string
 ---@field start_col integer
 
----@param prompt? string
+---@param opts DirtreePromptOptions
 ---@param width integer
 ---@return table
-local function win_layout(prompt, width)
-    return window.centered_layout({
-        title = prompt,
+local function win_layout(opts, width)
+    local layout_opts = {
+        title = opts.prompt,
         width = width,
         height = 1,
         border_hl = 'DirtreePromptBorder',
-    })
+    }
+    if opts.anchor then
+        return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
+    end
+    return window.centered_layout(layout_opts)
 end
 
 ---@param str string
@@ -229,7 +234,7 @@ end
 
 function Prompt:relayout()
     if window.valid_win(self.input_win) then
-        api.nvim_win_set_config(self.input_win, win_layout(self.opts.prompt, self.width))
+        api.nvim_win_set_config(self.input_win, win_layout(self.opts, self.width))
         self:redraw()
     end
 end
@@ -259,7 +264,7 @@ function M.input(opts, cb)
     vim.bo[self.input_buf].buftype = 'nofile'
     vim.bo[self.input_buf].bufhidden = 'wipe'
 
-    self.input_win = api.nvim_open_win(self.input_buf, true, win_layout(opts.prompt, self.width))
+    self.input_win = api.nvim_open_win(self.input_buf, true, win_layout(opts, self.width))
     vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
 
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {opts.default or ''})
