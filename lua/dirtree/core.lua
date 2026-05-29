@@ -13,6 +13,7 @@ local uv = vim.loop
 local M = {}
 
 local EMPTY_LABEL = '(empty)'
+local NARROW_PROMPT_WIDTH = 32
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local FILE_HL_PRIORITY = 100  -- Below vim.highlight.on_yank's default priority.
 
@@ -765,6 +766,7 @@ local function copy_or_move(is_move)
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
+        width = (is_move and #paths == 1) and NARROW_PROMPT_WIDTH or nil,
         anchor = (is_move and #paths == 1) and current_name_anchor(row) or nil,
         validate = function(input)
             if is_bulk then
@@ -807,6 +809,7 @@ function M.create()
     prompt.input({
         prompt = 'New file',
         cwd = state.cwd,
+        width = NARROW_PROMPT_WIDTH,
         default = create_parent_default(state, row),
         anchor = count_marks(state) <= 1 and current_name_anchor(row) or nil,
         validate = function(input)

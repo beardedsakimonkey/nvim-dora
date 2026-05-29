@@ -395,6 +395,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
+        assert_eq(opts.width, 32, 'create prompt should match the default delete window width')
         local path = opts.validate('foo/bar.txt')
         cb('foo/bar.txt', path)
     end
@@ -694,6 +695,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert(opts.anchor, 'single-file move should anchor the prompt to the current row')
+        assert_eq(opts.width, 32, 'single-file move prompt should match the default delete window width')
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)
@@ -728,6 +730,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert(not opts.anchor, 'bulk move should keep the prompt centered')
+        assert_eq(opts.width, nil, 'bulk move should keep the standard prompt width')
         cb(nil)
     end
     core.move()
