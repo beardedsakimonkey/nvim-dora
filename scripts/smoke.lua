@@ -231,6 +231,46 @@ do
 end
 
 do
+    local origin_win = api.nvim_get_current_win()
+    local old_buf = api.nvim_win_get_buf(origin_win)
+    local old_number = vim.wo[origin_win].number
+    local old_relativenumber = vim.wo[origin_win].relativenumber
+    local old_signcolumn = vim.wo[origin_win].signcolumn
+    local buf = api.nvim_create_buf(false, true)
+    vim.bo[buf].buftype = 'nofile'
+    api.nvim_win_set_buf(origin_win, buf)
+    vim.wo[origin_win].number = true
+    vim.wo[origin_win].relativenumber = false
+    vim.wo[origin_win].signcolumn = 'yes'
+    api.nvim_buf_set_lines(buf, 0, -1, false, {'root', '└── anchored.txt'})
+    api.nvim_win_set_cursor(origin_win, {2, 0})
+
+    local name_col = #'└── '
+    local pos = vim.fn.screenpos(origin_win, 2, name_col + 1)
+    local p = prompt.input({
+        prompt = 'Anchor',
+        cwd = cwd,
+        anchor = {win = origin_win, line = 2, col = name_col},
+        validate = function(input)
+            return input
+        end,
+    }, function() end)
+    ---@cast p DirtreePrompt
+
+    local cfg = api.nvim_win_get_config(p.input_win)
+    assert_eq(cfg.relative, 'editor')
+    assert_eq(cfg.row, pos.row)
+    assert_eq(cfg.col, pos.col - 1)
+
+    p:cancel()
+    vim.wo[origin_win].number = old_number
+    vim.wo[origin_win].relativenumber = old_relativenumber
+    vim.wo[origin_win].signcolumn = old_signcolumn
+    api.nvim_win_set_buf(origin_win, old_buf)
+    api.nvim_buf_delete(buf, {force = true})
+end
+
+do
     local p = prompt.input({
         prompt = 'Escape non-empty',
         cwd = cwd,
@@ -531,6 +571,64 @@ do
     assert(fs.exists(tmp .. '/dest/a'), 'bulk copy should copy a')
     assert(fs.exists(tmp .. '/dest/b'), 'bulk copy should copy b')
     assert_eq(mark_count(state), 0)
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('alpha%.txt')
+    local cursor = api.nvim_win_get_cursor(0)
+    local row = state.rows[cursor[1]]
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert(opts.anchor, 'single-file move should anchor the prompt to the current row')
+        assert_eq(opts.anchor.win, api.nvim_get_current_win())
+        assert_eq(opts.anchor.line, cursor[1])
+        assert_eq(opts.anchor.col, row.name_start_col)
+        local dest = opts.validate('beta.txt')
+        cb('beta.txt', dest)
+    end
+    core.move()
+    prompt.input = old_input
+
+    assert(not fs.exists(tmp .. '/alpha.txt'), 'single-file move should rename the source file')
+    assert(fs.exists(tmp .. '/beta.txt'), 'single-file move should create the destination file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('a')
+    core.toggle_mark()
+    util.set_cursor_pos('b')
+    core.toggle_mark()
+    util.set_cursor_pos('dest')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert(not opts.anchor, 'bulk move should keep the prompt centered')
+        cb(nil)
+    end
+    core.move()
+    prompt.input = old_input
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
