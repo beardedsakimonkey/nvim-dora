@@ -232,6 +232,15 @@ function Prompt:escape_insert()
     vim.cmd'stopinsert'
 end
 
+function Prompt:escape_insert_keys()
+    vim.schedule(function()
+        if not self.closed and window.valid_buf(self.input_buf) and self:get_input() == '' then
+            self:cancel()
+        end
+    end)
+    return '<C-\\><C-n>'
+end
+
 function Prompt:relayout()
     if window.valid_win(self.input_win) then
         api.nvim_win_set_config(self.input_win, win_layout(self.opts, self.width))
@@ -243,8 +252,10 @@ end
 ---@param mode string|string[]
 ---@param lhs string
 ---@param rhs string|function
-local function keymap(buf, mode, lhs, rhs)
-    vim.keymap.set(mode, lhs, rhs, {buffer = buf, silent = true, nowait = true})
+---@param opts? table
+local function keymap(buf, mode, lhs, rhs, opts)
+    opts = vim.tbl_extend('force', {buffer = buf, silent = true, nowait = true}, opts or {})
+    vim.keymap.set(mode, lhs, rhs, opts)
 end
 
 ---@param opts DirtreePromptOptions
@@ -270,7 +281,7 @@ function M.input(opts, cb)
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {opts.default or ''})
     api.nvim_win_set_cursor(self.input_win, {1, #(opts.default or '')})
 
-    keymap(self.input_buf, 'i', '<Esc>', function() self:escape_insert() end)
+    keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert_keys() end, {expr = true, replace_keycodes = true})
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
