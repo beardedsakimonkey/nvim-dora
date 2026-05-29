@@ -460,6 +460,58 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/anchor.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('anchor%.txt')
+    local cursor = api.nvim_win_get_cursor(0)
+    local row = state.rows[cursor[1]]
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert(opts.anchor, 'create should anchor the prompt to the current row')
+        assert_eq(opts.anchor.win, api.nvim_get_current_win())
+        assert_eq(opts.anchor.line, cursor[1])
+        assert_eq(opts.anchor.col, row.name_start_col)
+        cb(nil)
+    end
+    core.create()
+    prompt.input = old_input
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('a')
+    core.toggle_mark()
+    util.set_cursor_pos('b')
+    core.toggle_mark()
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert(not opts.anchor, 'create should stay centered with multiple marks')
+        cb(nil)
+    end
+    core.create()
+    prompt.input = old_input
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/visible')
     touch(tmp .. '/.hidden')
 
@@ -495,6 +547,8 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
+    assert_eq(confirm_cfg.row, math.max(0, math.floor((vim.o.lines - #confirm_lines - 2) / 2)))
     assert_match(win_title(confirm_win), 'Delete 2 files%?')
     assert_eq(confirm_lines[1], '  a')
     assert_eq(confirm_lines[2], '  dir/nested.js')
@@ -516,11 +570,18 @@ do
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('single%.txt')
+    local origin_win = api.nvim_get_current_win()
+    local cursor = api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    local pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
     core.delete()
 
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    assert_eq(confirm_cfg.row, pos.row)
+    assert_eq(confirm_cfg.col, pos.col - 1)
     assert_match(win_title(confirm_win), 'Delete%?')
     assert_eq(confirm_lines[1], '  single.txt')
 
