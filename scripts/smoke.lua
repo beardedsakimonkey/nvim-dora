@@ -382,15 +382,15 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, 'root/child/', 'create should prefill the selected directory path')
+        assert_eq(opts.default, 'root/', 'create should prefill the hovered directory parent path')
         local input = opts.default .. 'file.txt'
         cb(input, opts.validate(input))
     end
     core.create()
     prompt.input = old_input
 
-    assert(fs.exists(tmp .. '/root/child/file.txt'), 'create should create below the selected directory')
-    assert_match(current_line(), 'file%.txt$', 'cursor should move to the created nested file')
+    assert(fs.exists(tmp .. '/root/file.txt'), 'create should create beside the hovered directory')
+    assert_match(current_line(), 'file%.txt$', 'cursor should move to the created sibling file')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -441,17 +441,17 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, 'beta/', 'create should prefill the selected directory path')
-        local input = opts.default .. 'duplicate.txt'
+        assert_eq(opts.default, nil, 'create should not prefill a root-level directory path')
+        local input = 'duplicate.txt'
         cb(input, opts.validate(input))
     end
     core.create()
     prompt.input = old_input
 
-    assert(fs.exists(tmp .. '/beta/duplicate.txt'), 'create should create the duplicate filename in beta')
+    assert(fs.exists(tmp .. '/duplicate.txt'), 'create should create beside the root-level directory')
     assert_match(current_line(), 'duplicate%.txt$', 'cursor should move to the newly created duplicate file')
     local row = store.get().rows[api.nvim_win_get_cursor(0)[1]]
-    assert_eq(row.path, store.get().cwd .. '/beta/duplicate.txt')
+    assert_eq(row.path, store.get().cwd .. '/duplicate.txt')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -472,6 +472,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert(opts.anchor, 'create should anchor the prompt to the current row')
+        assert_eq(opts.default, nil, 'create should not prefill a root-level file path')
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)

@@ -247,6 +247,20 @@ end
 ---@param state DirtreeState
 ---@param row DirtreeTreeRow?
 ---@return string?
+local function create_parent_default(state, row)
+    if not row or not row.path then
+        return nil
+    end
+    local parent = fs.get_parent_dir(row.path)
+    if parent == state.cwd then
+        return nil
+    end
+    return parent:sub(#state.cwd + 2) .. util.sep
+end
+
+---@param state DirtreeState
+---@param row DirtreeTreeRow?
+---@return string?
 local function collapse_target_path(state, row)
     if not row or not row.path then
         return nil
@@ -793,7 +807,7 @@ function M.create()
     prompt.input({
         prompt = 'New file',
         cwd = state.cwd,
-        default = create_default(state, row),
+        default = create_parent_default(state, row),
         anchor = count_marks(state) <= 1 and current_name_anchor(row) or nil,
         validate = function(input)
             return fs.validate_create(input, state.cwd)
