@@ -780,9 +780,48 @@ function M.info()
     info_win.open(path)
 end
 
+---@param paths string[]
+---@return string[]? real_paths
+---@return string? err
+local function real_file_paths(paths)
+    local real_paths = {}
+    for _, raw_path in ipairs(paths) do
+        local path, msg = uv.fs_realpath(raw_path)
+        if not path then
+            return nil, msg
+        end
+        if fs.is_dir(path) then
+            return nil, ('Cannot bulk open directory %q'):format(raw_path)
+        end
+        real_paths[#real_paths+1] = path
+    end
+    return real_paths
+end
+
+---@param state DirtreeState
+---@param paths string[]
+---@param cmd? DirtreeOpenCommand
+local function open_files(state, paths, cmd)
+    local real_paths, msg = real_file_paths(paths)
+    if not real_paths then
+        util.err(msg)
+        return
+    end
+    restore_cwd(state)
+    util.set_current_buf(state.origin_buf)
+    for _, path in ipairs(real_paths) do
+        vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
+    end
+    cleanup(state)
+end
+
 ---@param cmd? DirtreeOpenCommand
 function M.open(cmd)
     local state = store.get()
+    if count_marks(state) > 0 then
+        open_files(state, marked_paths(state), cmd)
+        return
+    end
     local row = current_row(state)
     if not row or not row.path then
         return
