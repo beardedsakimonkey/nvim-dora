@@ -725,6 +725,30 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/single.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('single%.txt')
+    core.toggle_mark()
+    core.delete()
+
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    assert_eq(confirm_cfg.row, math.max(0, math.floor((vim.o.lines - #confirm_lines - 2) / 2)))
+    assert_eq(confirm_cfg.col, math.floor((vim.o.columns - confirm_cfg.width) / 2))
+    assert_match(win_title(confirm_win), 'Delete%?')
+    assert_eq(confirm_lines[1], ' single.txt')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
