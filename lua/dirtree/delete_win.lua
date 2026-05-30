@@ -20,7 +20,6 @@ local ELLIPSIS_WIDTH = vim.fn.strdisplaywidth(ELLIPSIS)
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
----@field directory_suffix_col? integer
 
 ---@class DirtreeDeleteOptions
 ---@field anchor? {win: integer, line: integer, col: integer}
@@ -89,23 +88,21 @@ end
 local function item(path, cwd, max_width)
     local display = relative_display_path(path, cwd)
     local basename = fs.basename(path)
-    local directory_suffix_col
     local hl = file_hl(path)
     if hl == 'DirtreeDirectory' then
         max_width = max_width - #util.sep
     end
     local file_start_col
     display, file_start_col = truncate_display_path(display, basename, max_width)
+    local file_end_col = #display
     if hl == 'DirtreeDirectory' then
-        directory_suffix_col = #display
         display = display .. util.sep
     end
     return {
         display = display,
         file_start_col = file_start_col,
-        file_end_col = directory_suffix_col or #display,
+        file_end_col = file_end_col,
         file_hl = hl,
-        directory_suffix_col = directory_suffix_col,
     }
 end
 
@@ -161,14 +158,6 @@ local function render(buf, ns, confirm_items, overflow)
             hl_group = confirm_item.file_hl,
             priority = 10000,
         })
-        if confirm_item.directory_suffix_col then
-            local suffix_col = line_prefix_len + confirm_item.directory_suffix_col
-            api.nvim_buf_set_extmark(buf, ns, i - 1, suffix_col, {
-                end_col = file_end_col + 1,
-                hl_group = 'DirtreeVirtText',
-                priority = 10000,
-            })
-        end
     end
     if overflow > 0 then
         local row = #rendered_lines - 1
