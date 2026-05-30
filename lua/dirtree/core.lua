@@ -21,6 +21,7 @@ local TREE_CONTINUATION = TREE_VERTICAL .. '   '
 local TREE_SPACER = '    '
 
 ---@alias DirtreeCwdScope 'window'|'tab'|'global'
+---@alias DirtreePasteOperation 'copy'|'cut'
 
 ---@class DirtreeTreeSegment
 ---@field parent_path string
@@ -59,6 +60,7 @@ local TREE_SPACER = '    '
 ---@field expanded_dirs table<string, true>
 ---@field rows DirtreeTreeRow[]
 ---@field marks table<string, true>
+---@field paste_operation? DirtreePasteOperation
 
 -- Render ----------------------------------------------------------------------
 
@@ -234,9 +236,15 @@ local function render(state)
             })
         end
         if path and state.marks[path] then
+            local sign_hl = 'DirtreeMarkedSign'
+            if state.paste_operation == 'cut' then
+                sign_hl = 'DirtreeCutSign'
+            elseif state.paste_operation == 'copy' then
+                sign_hl = 'DirtreeCopySign'
+            end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 sign_text = '▌',
-                sign_hl_group = 'DirtreeMarkedSign',
+                sign_hl_group = sign_hl,
             })
             api.nvim_buf_set_extmark(buf, ns, i-1, file.name_start_col, {
                 end_col = file.name_end_col,
@@ -423,6 +431,17 @@ local function count_marks(state)
 end
 
 ---@param state DirtreeState
+---@return string[]
+local function marked_paths(state)
+    local paths = {}
+    for path in pairs(state.marks) do
+        paths[#paths+1] = path
+    end
+    table.sort(paths)
+    return paths
+end
+
+---@param state DirtreeState
 ---@return string? path
 ---@return string? error
 local function current_path(state)
@@ -447,12 +466,7 @@ local function selected_paths(state)
         end
         return {path}, false
     end
-    local paths = {}
-    for path in pairs(state.marks) do
-        paths[#paths+1] = path
-    end
-    table.sort(paths)
-    return paths, true
+    return marked_paths(state), true
 end
 
 ---@param row DirtreeTreeRow?
@@ -837,6 +851,73 @@ function M.clear_marks()
     render(state)
 end
 
+---@param state DirtreeState
+---@param paths string[]
+local function replace_marks(state, paths)
+    state.marks = {}
+    for _, path in ipairs(paths) do
+        state.marks[path] = true
+    end
+end
+
+---@param operation DirtreePasteOperation
+local function set_paste_operation(operation)
+    local state = store.get()
+    local paths, msg = selected_paths(state)
+    if not paths then
+        util.err(msg)
+        return
+    end
+    replace_marks(state, paths)
+    state.paste_operation = operation
+    render(state)
+end
+
+function M.cut()
+    set_paste_operation('cut')
+end
+
+function M.copy()
+    set_paste_operation('copy')
+end
+
+function M.clear_paste_operation()
+    local state = store.get()
+    state.paste_operation = nil
+    render(state)
+end
+
+function M.paste()
+    local state = store.get()
+    local paths = marked_paths(state)
+    local operation = state.paste_operation
+    if not operation or #paths == 0 then
+        util.err('Nothing to paste')
+        return
+    end
+    local row = current_row(state)
+    local dest_dir = row and row.parent_path or nil
+    if not dest_dir then
+        util.err('No paste destination')
+        return
+    end
+    local dest_path = util.join_path(dest_dir, fs.basename(paths[1]))
+    local ok, msg = pcall(function()
+        assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
+        for _, path in ipairs(paths) do
+            fs.copy_or_move(operation == 'cut', path, dest_dir, state.cwd)
+        end
+    end)
+    if not ok then
+        util.err(msg)
+        return
+    end
+    clear_marks(state)
+    state.paste_operation = nil
+    render(state)
+    set_cursor_path(state, dest_path)
+end
+
 ---@param reg? string
 function M.yank_path(reg)
     local state = store.get()
@@ -885,8 +966,7 @@ function M.delete()
     })
 end
 
----@param is_move boolean
-local function copy_or_move(is_move)
+local function move()
     local state = store.get()
     local paths, is_bulk = selected_paths(state)
     if not paths then
@@ -894,16 +974,16 @@ local function copy_or_move(is_move)
         return
     end
     local row = current_row(state)
-    local prompt_label = is_move and 'Move to' or 'Copy to'
+    local prompt_label = 'Move to'
     if is_bulk then
         local noun = #paths == 1 and 'file' or 'files'
-        prompt_label = string.format('%s %d %s to', is_move and 'Move' or 'Copy', #paths, noun)
+        prompt_label = string.format('Move %d %s to', #paths, noun)
     end
     prompt.input({
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
-        width = (is_move and #paths == 1) and NARROW_PROMPT_WIDTH or nil,
+        width = #paths == 1 and NARROW_PROMPT_WIDTH or nil,
         anchor = (not is_bulk) and current_name_anchor(row) or nil,
         validate = function(input)
             if is_bulk then
@@ -922,7 +1002,7 @@ local function copy_or_move(is_move)
         end
         local ok, msg = pcall(function()
             for _, src in ipairs(paths) do
-                fs.copy_or_move(is_move, src, is_bulk and dest or input, state.cwd)
+                fs.copy_or_move(true, src, is_bulk and dest or input, state.cwd)
             end
         end)
         if not ok then
@@ -937,8 +1017,7 @@ local function copy_or_move(is_move)
     end)
 end
 
-function M.move() copy_or_move(true) end
-function M.copy() copy_or_move(false) end
+function M.move() move() end
 
 function M.create()
     local state = store.get()

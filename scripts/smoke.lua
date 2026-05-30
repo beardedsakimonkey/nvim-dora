@@ -108,6 +108,17 @@ local function has_priority_highlight(state, hl_group, priority)
     return false
 end
 
+local function has_sign_highlight(state, hl_group)
+    local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
+    for _, mark in ipairs(marks) do
+        local details = mark[4]
+        if details.sign_text and vim.startswith(details.sign_text, '▌') and details.sign_hl_group == hl_group then
+            return true
+        end
+    end
+    return false
+end
+
 local function cursor_tree_highlights(state)
     local ret = {}
     local marks = api.nvim_buf_get_extmarks(state.buf, state.cursor_ns, 0, -1, {details = true})
@@ -683,29 +694,90 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    util.set_cursor_pos('alpha%.txt')
-    local cursor = api.nvim_win_get_cursor(0)
-    local row = state.rows[cursor[1]]
-
-    local old_input = prompt.input
-    ---@diagnostic disable-next-line: duplicate-set-field
-    prompt.input = function(opts, cb)
-        assert(opts.anchor, 'single-file copy should anchor the prompt to the current row')
-        assert_eq(opts.anchor.win, api.nvim_get_current_win())
-        assert_eq(opts.anchor.line, cursor[1])
-        assert_eq(opts.anchor.col, row.name_start_col)
-        local dest = opts.validate('beta.txt')
-        cb('beta.txt', dest)
-    end
+    set_cursor_line('alpha%.txt$')
     core.copy()
-    prompt.input = old_input
+    assert_eq(mark_count(state), 1)
+    assert_eq(state.paste_operation, 'copy', 'copy should set the paste operation')
+    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use a distinct sign highlight')
+
+    util.set_cursor_pos('dest')
+    core.expand()
+    set_cursor_line('%(empty%)$')
+    core.paste()
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
-    assert(fs.exists(tmp .. '/beta.txt'), 'single-file copy should create the destination file')
+    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered parent directory')
+    assert_eq(mark_count(state), 0)
+    assert(not state.paste_operation, 'paste should clear the staged copy')
+    assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+    touch(tmp .. '/c')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+
+    set_cursor_line('a$')
+    core.toggle_mark()
+    set_cursor_line('b$')
+    core.toggle_mark()
+    core.cut()
+    assert(state.marks[state.cwd .. '/a'], 'cut should keep marked rows marked')
+    assert(state.marks[state.cwd .. '/b'], 'cut should keep marked rows marked')
+    assert_eq(state.paste_operation, 'cut', 'cut should set a global paste operation')
+    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use the cut sign')
+
+    set_cursor_line('c$')
+    core.toggle_mark()
+    assert(state.marks[state.cwd .. '/c'], 'tab should still add marks while cut is active')
+    assert_eq(state.paste_operation, 'cut', 'tab should preserve the global cut state')
+    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'new marks should use the active cut sign')
+
+    core.clear_paste_operation()
+    assert(not state.paste_operation, 'clearing paste operation should keep plain marks')
+    assert_eq(mark_count(state), 3)
+    assert(has_sign_highlight(state, 'DirtreeMarkedSign'), 'clearing paste operation should use plain mark signs')
+
+    core.copy()
+    assert_eq(state.paste_operation, 'copy', 'copy should replace the global paste operation')
+    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use the copy sign')
+
+    set_cursor_line('b$')
+    core.toggle_mark()
+    assert(not state.marks[state.cwd .. '/b'], 'tab should remove the toggled mark')
+    assert_eq(state.paste_operation, 'copy', 'tab should preserve copy while other marks remain')
+
+    set_cursor_line('a$')
+    core.toggle_mark()
+    set_cursor_line('c$')
+    core.toggle_mark()
+    assert_eq(mark_count(state), 0)
+    assert_eq(state.paste_operation, 'copy', 'removing the last mark should preserve paste operation')
+
+    set_cursor_line('b$')
+    core.toggle_mark()
+    assert_eq(state.paste_operation, 'copy', 'remarking should keep the preserved paste operation')
+    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'remarked files should use the preserved copy sign')
+
+    core.clear_marks()
+    assert_eq(mark_count(state), 0)
+    assert_eq(state.paste_operation, 'copy', 'clearing marks should preserve paste operation')
+
+    core.clear_paste_operation()
+    assert(not state.paste_operation, 'clearing paste operation should reset plain mark mode')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -738,22 +810,21 @@ do
     end
     assert(has_sign, 'marked rows should render a sign marker')
     assert(has_file_hl, 'marked rows should highlight filenames')
+    core.cut()
+    assert_eq(state.paste_operation, 'cut', 'cut should set the paste operation')
+    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use a distinct sign highlight')
+
     util.set_cursor_pos('dest')
+    core.expand()
+    set_cursor_line('%(empty%)$')
+    core.paste()
 
-    local old_input = prompt.input
-    ---@diagnostic disable-next-line: duplicate-set-field
-    prompt.input = function(opts, cb)
-        assert(not opts.anchor, 'bulk copy should keep the prompt centered')
-        assert_eq(opts.default, 'dest/', 'bulk copy should prefill the hovered destination directory')
-        local dest = opts.validate(opts.default)
-        cb(opts.default, dest)
-    end
-    core.copy()
-    prompt.input = old_input
-
-    assert(fs.exists(tmp .. '/dest/a'), 'bulk copy should copy a')
-    assert(fs.exists(tmp .. '/dest/b'), 'bulk copy should copy b')
+    assert(not fs.exists(tmp .. '/a'), 'bulk cut paste should remove source a')
+    assert(not fs.exists(tmp .. '/b'), 'bulk cut paste should remove source b')
+    assert(fs.exists(tmp .. '/dest/a'), 'bulk cut paste should move a')
+    assert(fs.exists(tmp .. '/dest/b'), 'bulk cut paste should move b')
     assert_eq(mark_count(state), 0)
+    assert(not state.paste_operation, 'paste should clear the staged cut')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -849,6 +920,11 @@ do
     assert_eq(vim.fn.maparg('y', 'n', false, true).desc, 'Yank path')
     assert_eq(vim.fn.maparg('Y', 'n', false, true).desc, 'Yank path to clipboard')
     assert_eq(vim.fn.maparg('g?', 'n', false, true).desc, 'Show help')
+    assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Cut')
+    assert_eq(vim.fn.maparg('X', 'n', false, true).desc, 'Clear cut/copy')
+    assert_eq(vim.fn.maparg('c', 'n', false, true).desc, 'Copy')
+    assert_eq(vim.fn.maparg('C', 'n', false, true).desc, 'Clear cut/copy')
+    assert_eq(vim.fn.maparg('p', 'n', false, true).desc, 'Paste')
     assert_eq(vim.fn.maparg('<S-Tab>', 'n', false, true).desc, 'Clear marks')
     assert_eq(vim.fn.maparg('<Tab>', 'x', false, true).desc, 'Toggle marks')
     core.quit()
