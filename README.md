@@ -133,7 +133,6 @@ DirtreePromptBorder
 DirtreePromptBorderValid
 DirtreePromptBorderInvalid
 DirtreePromptCompletion
-DirtreeDeletePath
 DirtreeDeleteMore
 DirtreeDeleteCursor
 DirtreeMarkedText

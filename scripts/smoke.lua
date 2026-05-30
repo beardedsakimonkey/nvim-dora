@@ -144,7 +144,7 @@ do
     for _, mark in ipairs(marks) do
         local row, col, details = mark[2], mark[3], mark[4]
         has_path = has_path
-            or row == 2 and col == 1 and details.end_col == 5 and details.hl_group == 'DirtreeDeletePath'
+            or details.hl_group == 'DirtreeDeletePath'
         has_file = has_file
             or row == 0 and col == 1 and details.end_col == 7 and details.hl_group == 'DirtreeFile'
         has_dir = has_dir
@@ -154,7 +154,7 @@ do
         has_more = has_more
             or row == 10 and details.hl_group == 'DirtreeDeleteMore'
     end
-    assert(has_path, 'delete confirmation should dim the path portion')
+    assert(not has_path, 'delete confirmation should not dim the path portion')
     assert(has_file, 'delete confirmation should highlight file names by type')
     assert(has_dir, 'delete confirmation should highlight directory names by type')
     assert(has_dir_suffix, 'delete confirmation should dim directory suffixes')
