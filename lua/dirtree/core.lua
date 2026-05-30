@@ -767,7 +767,7 @@ local function copy_or_move(is_move)
         cwd = state.cwd,
         default = create_default(state, row),
         width = (is_move and #paths == 1) and NARROW_PROMPT_WIDTH or nil,
-        anchor = (is_move and #paths == 1) and current_name_anchor(row) or nil,
+        anchor = (not is_bulk) and current_name_anchor(row) or nil,
         validate = function(input)
             if is_bulk then
                 local dest = fs.normalize_path(input, state.cwd)
