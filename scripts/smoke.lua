@@ -636,6 +636,37 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('alpha%.txt')
+    local cursor = api.nvim_win_get_cursor(0)
+    local row = state.rows[cursor[1]]
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert(opts.anchor, 'single-file copy should anchor the prompt to the current row')
+        assert_eq(opts.anchor.win, api.nvim_get_current_win())
+        assert_eq(opts.anchor.line, cursor[1])
+        assert_eq(opts.anchor.col, row.name_start_col)
+        local dest = opts.validate('beta.txt')
+        cb('beta.txt', dest)
+    end
+    core.copy()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
+    assert(fs.exists(tmp .. '/beta.txt'), 'single-file copy should create the destination file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
@@ -665,6 +696,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
+        assert(not opts.anchor, 'bulk copy should keep the prompt centered')
         assert_eq(opts.default, 'dest/', 'bulk copy should prefill the hovered destination directory')
         local dest = opts.validate(opts.default)
         cb(opts.default, dest)
