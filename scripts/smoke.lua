@@ -538,11 +538,16 @@ do
     core.toggle_mark()
     util.set_cursor_pos('b')
     core.toggle_mark()
+    local cursor = api.nvim_win_get_cursor(0)
+    local row = store.get().rows[cursor[1]]
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert(not opts.anchor, 'create should stay centered with multiple marks')
+        assert(opts.anchor, 'create should anchor the prompt to the current row with multiple marks')
+        assert_eq(opts.anchor.win, api.nvim_get_current_win())
+        assert_eq(opts.anchor.line, cursor[1])
+        assert_eq(opts.anchor.col, row.name_start_col)
         cb(nil)
     end
     core.create()
