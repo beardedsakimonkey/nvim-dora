@@ -146,6 +146,21 @@ function M.validate_create(input, cwd)
     return path
 end
 
+---@param input string
+---@param src string
+---@return string path
+function M.validate_rename(input, src)
+    assert(input, 'Empty filename')
+    input = util.trim_start(input)
+    assert(input ~= '', 'Empty filename')
+    assert(not input:find(util.sep, 1, true), 'Rename cannot move files between directories')
+    local parent = parent_dir(src)
+    local path = util.join_path(parent, input)
+    assert(src ~= path, '`src` equals `dest`')
+    assert(not exists(path), ('%q already exists'):format(path))
+    return path
+end
+
 ---@param src string
 ---@param dest string
 ---@param cwd string

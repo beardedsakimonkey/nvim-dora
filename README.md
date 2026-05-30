@@ -75,6 +75,7 @@ config = {
         cn = {"<Cmd>lua require'dirtree.core'.copy_filename_stem()<CR>",    desc="Copy filename without extension"},
         d = {"<Cmd>lua require'dirtree.core'.delete()<CR>",                 desc="Delete"},
         a = {"<Cmd>lua require'dirtree.core'.create()<CR>",                 desc="Create"},
+        r = {"<Cmd>lua require'dirtree.core'.rename()<CR>",                 desc="Rename"},
         m = {"<Cmd>lua require'dirtree.core'.move()<CR>",                   desc="Move"},
         x = {"<Cmd>lua require'dirtree.core'.cut()<CR>",                    desc="Cut"},
         X = {"<Cmd>lua require'dirtree.core'.clear_paste_operation()<CR>",  desc="Clear cut/copy"},
