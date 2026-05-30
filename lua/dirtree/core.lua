@@ -919,6 +919,20 @@ function M.paste()
     set_cursor_path(state, dest_path)
 end
 
+---@param value string
+---@param reg? string
+---@param message string
+local function yank_value(value, reg, message)
+    -- Trigger a real yank so TextYankPost autocmds see vim.v.event.
+    pcall(vim.cmd, reg == '+' and [[normal! "+yy]] or [[normal! yy]])
+    local ok, err = pcall(vim.fn.setreg, reg or '"', value, 'c')
+    if not ok then
+        util.err(err)
+        return
+    end
+    util.info(message)
+end
+
 ---@param reg? string
 function M.yank_path(reg)
     local state = store.get()
@@ -927,14 +941,48 @@ function M.yank_path(reg)
         util.err(msg)
         return
     end
-    -- Trigger a real yank so TextYankPost autocmds see vim.v.event.
-    pcall(vim.cmd, reg == '+' and [[normal! "+yy]] or [[normal! yy]])
-    local ok, err = pcall(vim.fn.setreg, reg or '"', path, 'c')
-    if not ok then
-        util.err(err)
+    yank_value(path, reg, reg == '+' and 'Yanked path to clipboard' or 'Yanked path')
+end
+
+function M.copy_file_path()
+    local state = store.get()
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
         return
     end
-    util.info(reg == '+' and 'Yanked path to clipboard' or 'Yanked path')
+    yank_value(path, nil, 'Copied file path')
+end
+
+function M.copy_dir_path()
+    local state = store.get()
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    yank_value(fs.get_parent_dir(path), nil, 'Copied directory path')
+end
+
+function M.copy_filename()
+    local state = store.get()
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    yank_value(fs.basename(path), nil, 'Copied filename')
+end
+
+function M.copy_filename_stem()
+    local state = store.get()
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    local filename = fs.basename(path)
+    yank_value(vim.fn.fnamemodify(filename, ':r'), nil, 'Copied filename without extension')
 end
 
 function M.delete()

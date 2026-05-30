@@ -974,6 +974,10 @@ do
     assert_eq(vim.fn.maparg('i', 'n', false, true).desc, 'Show info')
     assert_eq(vim.fn.maparg('gy', 'n', false, true).desc, 'Yank path')
     assert_eq(vim.fn.maparg('gY', 'n', false, true).desc, 'Yank path to clipboard')
+    assert_eq(vim.fn.maparg('cc', 'n', false, true).desc, 'Copy file path')
+    assert_eq(vim.fn.maparg('cd', 'n', false, true).desc, 'Copy directory path')
+    assert_eq(vim.fn.maparg('cf', 'n', false, true).desc, 'Copy filename')
+    assert_eq(vim.fn.maparg('cn', 'n', false, true).desc, 'Copy filename without extension')
     assert_eq(vim.fn.maparg('g?', 'n', false, true).desc, 'Show help')
     assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Cut')
     assert_eq(vim.fn.maparg('X', 'n', false, true).desc, 'Clear cut/copy')
@@ -1048,7 +1052,8 @@ do
     }
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/a')
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    touch(tmp .. '/dir/archive.tar.gz')
 
     local augroup = api.nvim_create_augroup('dirtree-smoke-yank', {})
     api.nvim_create_autocmd('TextYankPost', {
@@ -1061,14 +1066,18 @@ do
     })
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local expected_path = fs.realpath(tmp) .. '/a'
+    util.set_cursor_pos('dir')
+    core.expand()
+    set_cursor_line('archive%.tar%.gz$')
+    local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
+    local expected_yank_text = current_line()
     core.yank_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
     assert_eq(notifications[#notifications].msg, '[dirtree] Yanked path')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '')
-    assert_eq(vim.g.dirtree_smoke_yankpost_text, 'a')
+    assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
 
     vim.g.dirtree_smoke_yankpost_operator = nil
     vim.g.dirtree_smoke_yankpost_regname = nil
@@ -1079,7 +1088,23 @@ do
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '+')
-    assert_eq(vim.g.dirtree_smoke_yankpost_text, 'a')
+    assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
+
+    core.copy_file_path()
+    assert_eq(vim.fn.getreg('"'), expected_path)
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path')
+
+    core.copy_dir_path()
+    assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied directory path')
+
+    core.copy_filename()
+    assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename')
+
+    core.copy_filename_stem()
+    assert_eq(vim.fn.getreg('"'), 'archive.tar')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename without extension')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1189,6 +1214,10 @@ do
     assert(table.concat(help_lines, '\n'):match('i%s+Show info'), 'help should include the info mapping')
     assert(table.concat(help_lines, '\n'):match('gy%s+Yank path'), 'help should include the yank path mapping')
     assert(table.concat(help_lines, '\n'):match('gY%s+Yank path to clipboard'), 'help should include the clipboard yank mapping')
+    assert(table.concat(help_lines, '\n'):match('cc%s+Copy file path'), 'help should include the file path copy mapping')
+    assert(table.concat(help_lines, '\n'):match('cd%s+Copy directory path'), 'help should include the directory path copy mapping')
+    assert(table.concat(help_lines, '\n'):match('cf%s+Copy filename'), 'help should include the filename copy mapping')
+    assert(table.concat(help_lines, '\n'):match('cn%s+Copy filename without extension'), 'help should include the filename stem copy mapping')
     assert(table.concat(help_lines, '\n'):match('y%s+Copy'), 'help should include the copy mapping')
     assert(table.concat(help_lines, '\n'):match('<S%-Tab>%s+Clear marks'), 'help should include the clear marks mapping')
     assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),

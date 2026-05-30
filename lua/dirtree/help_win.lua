@@ -9,7 +9,7 @@ local KEYMAP_ORDER = {
     'q', 'h', '-', 'J', 'K',
     'o', 'O', 'u', 'U',
     'l', '<CR>', 's', 'v', 't', 'gx',
-    'R', 'i', 'gy', 'gY',
+    'R', 'i', 'gy', 'gY', 'cc', 'cd', 'cf', 'cn',
     'd', 'a', 'm', 'x', 'X', 'y', 'Y', 'p',
     '<Tab>', '<S-Tab>', 'gh', 'g?',
 }
