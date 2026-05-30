@@ -154,15 +154,8 @@ local function render(buf, ns, confirm_items, overflow)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, confirm_item in ipairs(confirm_items) do
         local line_prefix_len = LINE_PREFIX_LEN
-        local path_start_col = line_prefix_len
         local file_start_col = line_prefix_len + confirm_item.file_start_col
         local file_end_col = line_prefix_len + confirm_item.file_end_col
-        if path_start_col < file_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i - 1, path_start_col, {
-                end_col = file_start_col,
-                hl_group = 'DirtreeDeletePath',
-            })
-        end
         api.nvim_buf_set_extmark(buf, ns, i - 1, file_start_col, {
             end_col = file_end_col,
             hl_group = confirm_item.file_hl,
