@@ -94,6 +94,12 @@ end
 
 ---@param path string
 ---@return string
+function M.parent_dir(path)
+    return parent_dir(path)
+end
+
+---@param path string
+---@return string
 function M.basename(path)
     if vim.endswith(path, util.sep) then  -- strip trailing slash
         path = path:sub(1, -2)
@@ -159,6 +165,18 @@ function M.validate_rename(input, src)
     assert(src ~= path, '`src` equals `dest`')
     assert(not exists(path), ('%q already exists'):format(path))
     return path
+end
+
+---@param src string
+---@param dest string
+function M.rename(src, dest)
+    assert(exists(src), ("%s doesn't exist"):format(src))
+    assert(src ~= dest, '`src` equals `dest`')
+    local parent = parent_dir(dest)
+    assert(exists(parent), ('%q does not exist'):format(parent))
+    assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
+    assert(not exists(dest), ('%q already exists'):format(dest))
+    move(src, dest)
 end
 
 ---@param src string

@@ -1,4 +1,5 @@
 local fs = require'dirtree.fs'
+local bulk_rename_win = require'dirtree.bulk_rename_win'
 local help_win = require'dirtree.help_win'
 local delete_win = require'dirtree.delete_win'
 local info_win = require'dirtree.info_win'
@@ -577,6 +578,57 @@ local function rename_expanded_subtree(state, old_path, new_path)
     end
 end
 
+---@param state DirtreeState
+---@param changes DirtreeBulkRenameChange[]
+local function rename_expanded_subtrees(state, changes)
+    local updated = {}
+    for expanded_path in pairs(state.expanded_dirs) do
+        for _, change in ipairs(changes) do
+            local old_path, new_path = change.src, change.dest
+            if expanded_path == old_path then
+                updated[expanded_path] = new_path
+                break
+            elseif vim.startswith(expanded_path, old_path .. util.sep) then
+                updated[expanded_path] = new_path .. expanded_path:sub(#old_path + 1)
+                break
+            end
+        end
+    end
+    for old_path, new_path in pairs(updated) do
+        state.expanded_dirs[old_path] = nil
+        state.expanded_dirs[new_path] = true
+    end
+end
+
+---@param state DirtreeState
+---@param path string
+local function expand_parent_dirs(state, path)
+    local parent = fs.parent_dir(path)
+    while parent ~= state.cwd and vim.startswith(parent, state.cwd .. util.sep) do
+        state.expanded_dirs[parent] = true
+        parent = fs.parent_dir(parent)
+    end
+end
+
+---@param state DirtreeState
+---@param paths string[]
+local function open_bulk_rename(state, paths)
+    bulk_rename_win.open({
+        cwd = state.cwd,
+        paths = paths,
+        on_success = function(changes)
+            if #changes == 0 then
+                return
+            end
+            rename_expanded_subtrees(state, changes)
+            expand_parent_dirs(state, changes[1].dest)
+            clear_marks(state)
+            render(state)
+            set_cursor_path(state, changes[1].dest)
+        end,
+    })
+end
+
 -- Keymaps ---------------------------------------------------------------------
 
 ---@param rhs DirtreeKeymapSpec
@@ -1042,12 +1094,12 @@ local function move()
         util.err(is_bulk)
         return
     end
+    if is_bulk then
+        open_bulk_rename(state, paths)
+        return
+    end
     local row = current_row(state)
     local prompt_label = 'Move to'
-    if is_bulk then
-        local noun = #paths == 1 and 'file' or 'files'
-        prompt_label = string.format('Move %d %s to', #paths, noun)
-    end
     prompt.input({
         prompt = prompt_label,
         cwd = state.cwd,
@@ -1055,14 +1107,6 @@ local function move()
         width = #paths == 1 and NARROW_PROMPT_WIDTH or nil,
         anchor = (not is_bulk) and current_name_anchor(row) or nil,
         validate = function(input)
-            if is_bulk then
-                local dest = fs.normalize_path(input, state.cwd)
-                assert(fs.is_dir(dest), 'Bulk destination must be an existing directory')
-                for _, src in ipairs(paths) do
-                    fs.resolve_copy_or_move_dest(src, dest, state.cwd)
-                end
-                return dest
-            end
             return fs.resolve_copy_or_move_dest(paths[1], input, state.cwd)
         end,
     }, function(input, dest)
@@ -1071,15 +1115,12 @@ local function move()
         end
         local ok, msg = pcall(function()
             for _, src in ipairs(paths) do
-                fs.copy_or_move(true, src, is_bulk and dest or input, state.cwd)
+                fs.copy_or_move(true, src, input, state.cwd)
             end
         end)
         if not ok then
             util.err(msg)
         else
-            if is_bulk then
-                clear_marks(state)
-            end
             render(state)
             set_cursor_pos(state, fs.basename(dest))
         end
@@ -1090,6 +1131,11 @@ function M.move() move() end
 
 function M.rename()
     local state = store.get()
+    if count_marks(state) > 0 then
+        open_bulk_rename(state, marked_paths(state))
+        return
+    end
+
     local row = current_row(state)
     local path, msg = current_path(state)
     if not path then
@@ -1124,7 +1170,7 @@ function M.create()
     local state = store.get()
     local row = current_row(state)
     prompt.input({
-        prompt = 'New file',
+        prompt = 'New file or folder',
         cwd = state.cwd,
         width = NARROW_PROMPT_WIDTH,
         default = create_parent_default(state, row),
