@@ -361,17 +361,54 @@ local function collapse_target_path(state, row)
 end
 
 ---@param state DirtreeState
+---@param line integer
+local function move_to_line(state, line)
+    if line < 1 or line > #state.rows then
+        return
+    end
+    api.nvim_win_set_cursor(0, {line, 0})
+    update_tree_cursor_highlight(state)
+end
+
+---@param state DirtreeState
+---@param line integer
 ---@param step integer
-local function move_to_directory(state, step)
-    local line = api.nvim_win_get_cursor(0)[1] + step
-    while line >= 1 and line <= #state.rows do
-        local row = state.rows[line]
-        if row and row.type == 'directory' then
-            api.nvim_win_set_cursor(0, {line, 0})
-            update_tree_cursor_highlight(state)
-            return
+---@return integer?
+local function sibling_line(state, line, step)
+    local row = state.rows[line]
+    if not row then
+        return nil
+    end
+    for i = line + step, step > 0 and #state.rows or 1, step do
+        if state.rows[i].parent_path == row.parent_path then
+            return i
         end
-        line = line + step
+    end
+end
+
+---@param state DirtreeState
+local function move_to_next_sibling(state)
+    local line = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows[line]
+    if not row or not row.parent_path then
+        return
+    end
+    local next_line = sibling_line(state, line, 1)
+    if next_line then
+        move_to_line(state, next_line)
+    end
+end
+
+---@param state DirtreeState
+local function move_to_prev_sibling(state)
+    local line = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows[line]
+    if not row or not row.parent_path then
+        return
+    end
+    local prev_line = sibling_line(state, line, -1)
+    if prev_line then
+        move_to_line(state, prev_line)
     end
 end
 
@@ -634,12 +671,12 @@ function M.up_dir()
     set_cursor_pos(state, fs.basename(cwd), --[[or_top]]true)
 end
 
-function M.next_directory()
-    move_to_directory(store.get(), 1)
+function M.next_sibling()
+    move_to_next_sibling(store.get())
 end
 
-function M.prev_directory()
-    move_to_directory(store.get(), -1)
+function M.prev_sibling()
+    move_to_prev_sibling(store.get())
 end
 
 function M.help()
