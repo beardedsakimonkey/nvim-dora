@@ -628,7 +628,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert(opts.anchor, 'create should anchor the prompt to the current row with multiple marks')
+        assert(opts.anchor, 'create should anchor even with multiple marks')
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)
