@@ -583,6 +583,37 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
+    touch(tmp .. '/alpha/one/file.txt')
+    touch(tmp .. '/alpha/top.txt')
+    touch(tmp .. '/beta.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp .. '/alpha'))
+    local state = store.get()
+    local alpha = state.cwd
+    local parent = fs.get_parent_dir(alpha)
+
+    util.set_cursor_pos('one')
+    core.expand()
+    assert(state.expanded_dirs[alpha .. '/one'], 'setup should expand a nested subtree')
+    assert(find_line_index(lines(), 'file%.txt$'), 'setup should show the expanded nested file')
+
+    core.up_dir()
+    assert_eq(state.cwd, parent)
+    assert(state.expanded_dirs[alpha], 'up directory should expand the previous cwd under its parent')
+    assert(state.expanded_dirs[alpha .. '/one'], 'up directory should preserve nested subtree state')
+    assert_match(current_line(), 'alpha/$', 'up directory should move cursor to the previous cwd row')
+    assert(find_line_index(lines(), 'one/$'), 'up directory should keep previous cwd children visible')
+    assert(find_line_index(lines(), 'file%.txt$'), 'up directory should keep nested expanded rows visible')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
 
