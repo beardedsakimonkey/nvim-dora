@@ -156,6 +156,7 @@ function M.input(opts, cb)
 
     keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert_keys() end, {expr = true, replace_keycodes = true})
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
+    keymap(self.input_buf, 'n', 'q', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
 

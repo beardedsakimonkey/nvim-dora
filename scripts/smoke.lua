@@ -29,6 +29,14 @@ local function write_file(path, contents)
     assert(vim.loop.fs_close(fd))
 end
 
+local function read_file(path)
+    local fd = assert(vim.loop.fs_open(path, 'r', tonumber('644', 8)))
+    local stat = assert(vim.loop.fs_fstat(fd))
+    local contents = assert(vim.loop.fs_read(fd, stat.size, 0))
+    assert(vim.loop.fs_close(fd))
+    return contents
+end
+
 local function mark_count(state)
     local count = 0
     for _ in pairs(state.marks) do
@@ -986,21 +994,271 @@ do
     touch(tmp .. '/b')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('a')
+    core.toggle_mark()
+    util.set_cursor_pos('b')
+    core.toggle_mark()
+    core.rename()
+
+    assert_eq(vim.bo.buftype, 'acwrite', 'bulk rename should open an acwrite buffer')
+    assert_eq(vim.bo.filetype, 'dirtree-bulk-rename')
+    assert_eq(table.concat(lines(), '\n'), 'a\nb')
+    api.nvim_buf_set_lines(0, 0, -1, false, {'dest/a-renamed', 'b-renamed'})
+    vim.cmd'write'
+
+    assert(fs.exists(tmp .. '/dest/a-renamed'), 'bulk rename should move files into existing directories')
+    assert(fs.exists(tmp .. '/b-renamed'), 'bulk rename should rename files')
+    assert(not fs.exists(tmp .. '/a'), 'bulk rename should remove old source paths')
+    assert(not fs.exists(tmp .. '/b'), 'bulk rename should remove old source paths')
+    assert_eq(mark_count(state), 0, 'successful bulk rename should clear marks')
+    assert_match(current_line(), 'a%-renamed$', 'bulk rename should move cursor to the first changed destination')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    write_file(tmp .. '/a', 'from-a')
+    write_file(tmp .. '/b', 'from-b')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('a')
+    core.toggle_mark()
+    util.set_cursor_pos('b')
+    core.toggle_mark()
+    core.rename()
+    api.nvim_buf_set_lines(0, 0, -1, false, {'b', 'a'})
+    vim.cmd'write'
+
+    assert_eq(read_file(tmp .. '/a'), 'from-b', 'bulk rename should support swaps')
+    assert_eq(read_file(tmp .. '/b'), 'from-a', 'bulk rename should support swaps')
+    assert_eq(mark_count(state), 0)
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
+    touch(tmp .. '/dir/child/file.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('dir')
+    core.expand()
+    set_cursor_line('child/$')
+    core.expand()
+    util.set_cursor_pos('dir')
+    core.toggle_mark()
+    core.rename()
+    api.nvim_buf_set_lines(0, 0, -1, false, {'renamed'})
+    vim.cmd'write'
+
+    assert(fs.exists(tmp .. '/renamed/child/file.txt'), 'bulk rename should move directory subtrees')
+    assert(state.expanded_dirs[state.cwd .. '/renamed'], 'bulk rename should preserve expanded renamed directories')
+    assert(state.expanded_dirs[state.cwd .. '/renamed/child'], 'bulk rename should preserve expanded descendants')
+    assert(find_line_index(lines(), 'file%.txt$'), 'bulk rename should render preserved expanded descendants')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('a')
+    core.toggle_mark()
+    core.rename()
+    vim.cmd'write'
+
+    assert(fs.exists(tmp .. '/a'), 'unchanged bulk rename save should keep the source')
+    assert_eq(mark_count(state), 1, 'unchanged bulk rename save should keep marks')
+    assert_eq(api.nvim_get_current_buf(), state.buf, 'unchanged bulk rename save should return to the tree')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local old_notify = vim.notify
+    local notifications = {}
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+
+    local function expect_invalid(setup, new_lines, pattern)
+        notifications = {}
+        local tmp = vim.fn.tempname()
+        assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+        local cleanup = setup(tmp)
+        vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+        local state = store.get()
+        cleanup.mark(state)
+        local tree_win = api.nvim_get_current_win()
+        core.rename()
+        local bulk_win = api.nvim_get_current_win()
+        local bulk_buf = api.nvim_get_current_buf()
+        api.nvim_buf_set_lines(bulk_buf, 0, -1, false, new_lines)
+        vim.cmd'write'
+        assert_eq(api.nvim_get_current_buf(), bulk_buf, 'invalid bulk rename should keep the buffer open')
+        assert(notifications[#notifications], 'invalid bulk rename should notify')
+        assert_match(notifications[#notifications].msg, pattern)
+        cleanup.assert_unchanged(tmp, state)
+        api.nvim_win_close(bulk_win, true)
+        api.nvim_set_current_win(tree_win)
+        core.quit()
+        assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+    end
+
+    local function mark_files(...)
+        local names = {...}
+        return function()
+            for _, name in ipairs(names) do
+                util.set_cursor_pos(name)
+                core.toggle_mark()
+            end
+        end
+    end
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        touch(tmp .. '/b')
+        return {
+            mark = mark_files('a', 'b'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a') and fs.exists(tmp .. '/b'))
+            end,
+        }
+    end, {'x', 'x'}, 'Duplicate destination')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a'))
+            end,
+        }
+    end, {'a', 'b'}, 'Expected 1 lines')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a'))
+            end,
+        }
+    end, {''}, 'Line cannot be empty')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a'))
+            end,
+        }
+    end, {'/tmp/a'}, 'must be relative')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a'))
+            end,
+        }
+    end, {'../a'}, 'cannot contain %. or %.%.')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a'))
+            end,
+        }
+    end, {'missing/a'}, 'does not exist')
+
+    expect_invalid(function(tmp)
+        touch(tmp .. '/a')
+        touch(tmp .. '/b')
+        return {
+            mark = mark_files('a'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/a') and fs.exists(tmp .. '/b'))
+            end,
+        }
+    end, {'b'}, 'already exists')
+
+    expect_invalid(function(tmp)
+        assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+        touch(tmp .. '/dir/child.txt')
+        return {
+            mark = function()
+                util.set_cursor_pos('dir')
+                core.expand()
+                util.set_cursor_pos('dir')
+                core.toggle_mark()
+                set_cursor_line('child%.txt$')
+                core.toggle_mark()
+            end,
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/dir/child.txt'))
+            end,
+        }
+    end, {'dir', 'dir/child.txt'}, 'and its descendant')
+
+    expect_invalid(function(tmp)
+        assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+        assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
+        return {
+            mark = mark_files('dir'),
+            assert_unchanged = function()
+                assert(fs.exists(tmp .. '/dir/child'))
+            end,
+        }
+    end, {'dir/child/renamed'}, 'into itself')
+
+    vim.notify = old_notify
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('a')
     core.toggle_mark()
     util.set_cursor_pos('b')
     core.toggle_mark()
     util.set_cursor_pos('dest')
 
-    local old_input = prompt.input
-    ---@diagnostic disable-next-line: duplicate-set-field
-    prompt.input = function(opts, cb)
-        assert(not opts.anchor, 'bulk move should keep the prompt centered')
-        assert_eq(opts.width, nil, 'bulk move should keep the standard prompt width')
-        cb(nil)
-    end
     core.move()
-    prompt.input = old_input
+    assert_eq(vim.bo.buftype, 'acwrite', 'bulk move should open the bulk rename buffer')
+    assert_eq(table.concat(lines(), '\n'), 'a\nb')
+    api.nvim_buf_set_lines(0, 0, -1, false, {'dest/a', 'dest/b'})
+    vim.cmd'write'
+
+    assert(fs.exists(tmp .. '/dest/a'), 'bulk move should move marked files through the bulk rename buffer')
+    assert(fs.exists(tmp .. '/dest/b'), 'bulk move should move marked files through the bulk rename buffer')
+    assert(not fs.exists(tmp .. '/a'))
+    assert(not fs.exists(tmp .. '/b'))
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
