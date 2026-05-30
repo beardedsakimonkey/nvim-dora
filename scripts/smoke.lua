@@ -421,6 +421,10 @@ assert_match(fs.validate_create('x-new-file', cwd), 'x%-new%-file$')
 assert_match(fs.validate_create('x-new-dir/', cwd), 'x%-new%-dir/$')
 assert_match(fs.validate_create('x-new-parent/x-new-file', cwd), 'x%-new%-parent/x%-new%-file$')
 assert(not pcall(fs.validate_create, '/tmp/x', cwd), 'create paths should stay relative')
+assert_match(fs.validate_rename('renamed.txt', cwd .. '/old.txt'), 'renamed%.txt$')
+assert(not pcall(fs.validate_rename, '', cwd .. '/old.txt'), 'empty rename filenames should be rejected')
+assert(not pcall(fs.validate_rename, 'nested/renamed.txt', cwd .. '/old.txt'), 'rename should reject directory separators')
+assert(not pcall(fs.validate_rename, 'old.txt', cwd .. '/old.txt'), 'rename should reject unchanged filenames')
 assert_match(fs.resolve_copy_or_move_dest(cwd, '/tmp', cwd), '/tmp/[^/]+$')
 
 do
@@ -920,6 +924,77 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('alpha%.txt')
+    local cursor = api.nvim_win_get_cursor(0)
+    local row = state.rows[cursor[1]]
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.prompt, 'Rename to')
+        assert_eq(opts.default, 'alpha.txt')
+        assert_eq(opts.cwd, state.cwd)
+        assert_eq(opts.width, 32)
+        assert(opts.anchor, 'rename should anchor the prompt to the current row')
+        assert_eq(opts.anchor.win, api.nvim_get_current_win())
+        assert_eq(opts.anchor.line, cursor[1])
+        assert_eq(opts.anchor.col, row.name_start_col)
+        assert(not pcall(opts.validate, 'nested/beta.txt'), 'rename prompt should reject relocation')
+        cb('beta.txt', opts.validate('beta.txt'))
+    end
+    core.rename()
+    prompt.input = old_input
+
+    assert(not fs.exists(tmp .. '/alpha.txt'), 'rename should remove the old file')
+    assert(fs.exists(tmp .. '/beta.txt'), 'rename should create the renamed file')
+    assert_match(current_line(), 'beta%.txt$', 'rename should move cursor to the renamed file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
+    touch(tmp .. '/dir/child/file.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('dir')
+    core.expand()
+    set_cursor_line('child/$')
+    core.expand()
+    util.set_cursor_pos('dir')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.default, 'dir', 'rename should not append a slash for directories')
+        cb('renamed', opts.validate('renamed'))
+    end
+    core.rename()
+    prompt.input = old_input
+
+    assert(not fs.exists(tmp .. '/dir'), 'rename should remove the old directory')
+    assert(fs.exists(tmp .. '/renamed/child/file.txt'), 'rename should move the directory subtree')
+    assert(state.expanded_dirs[state.cwd .. '/renamed'], 'rename should preserve expanded directory state')
+    assert(state.expanded_dirs[state.cwd .. '/renamed/child'], 'rename should preserve expanded descendant state')
+    assert(find_line_index(lines(), 'file%.txt$'), 'rename should render preserved expanded descendants')
+    assert_match(current_line(), 'renamed/$', 'rename should move cursor to the renamed directory')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
@@ -979,6 +1054,7 @@ do
     assert_eq(vim.fn.maparg('cf', 'n', false, true).desc, 'Copy filename')
     assert_eq(vim.fn.maparg('cn', 'n', false, true).desc, 'Copy filename without extension')
     assert_eq(vim.fn.maparg('g?', 'n', false, true).desc, 'Show help')
+    assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename')
     assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Cut')
     assert_eq(vim.fn.maparg('X', 'n', false, true).desc, 'Clear cut/copy')
     assert_eq(vim.fn.maparg('y', 'n', false, true).desc, 'Copy')

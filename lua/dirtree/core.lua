@@ -557,6 +557,26 @@ local function clear_expanded_subtree(state, path)
     return changed
 end
 
+---@param state DirtreeState
+---@param old_path string
+---@param new_path string
+local function rename_expanded_subtree(state, old_path, new_path)
+    local old_prefix = old_path .. util.sep
+    local updated = {}
+    for expanded_path in pairs(state.expanded_dirs) do
+        if expanded_path == old_path then
+            updated[new_path] = true
+            state.expanded_dirs[expanded_path] = nil
+        elseif vim.startswith(expanded_path, old_prefix) then
+            updated[new_path .. expanded_path:sub(#old_path + 1)] = true
+            state.expanded_dirs[expanded_path] = nil
+        end
+    end
+    for expanded_path in pairs(updated) do
+        state.expanded_dirs[expanded_path] = true
+    end
+end
+
 -- Keymaps ---------------------------------------------------------------------
 
 ---@param rhs DirtreeKeymapSpec
@@ -1067,6 +1087,38 @@ local function move()
 end
 
 function M.move() move() end
+
+function M.rename()
+    local state = store.get()
+    local row = current_row(state)
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    prompt.input({
+        prompt = 'Rename to',
+        cwd = fs.get_parent_dir(path),
+        default = fs.basename(path),
+        width = NARROW_PROMPT_WIDTH,
+        anchor = current_name_anchor(row),
+        validate = function(input)
+            return fs.validate_rename(input, path)
+        end,
+    }, function(input, dest)
+        if not input then
+            return
+        end
+        local ok, err = pcall(fs.copy_or_move, true, path, dest, state.cwd)
+        if not ok then
+            util.err(err)
+            return
+        end
+        rename_expanded_subtree(state, path, dest)
+        render(state)
+        set_cursor_path(state, dest)
+    end)
+end
 
 function M.create()
     local state = store.get()
