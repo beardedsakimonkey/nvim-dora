@@ -253,30 +253,16 @@ do
     assert_eq(cfg.relative, 'editor')
     assert_eq(cfg.anchor, 'NW')
     assert_eq(cfg.border[1][1], '╭')
-    assert(not p.list_win, 'prompt should not create a completion window')
     assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<Esc>', 'i', false, true).expr, 1)
     assert_eq(type(vim.fn.maparg('<Esc>', 'n', false, true).callback), 'function')
+    for _, map in ipairs(api.nvim_buf_get_keymap(p.input_buf, 'i')) do
+        assert(map.lhs ~= '<Tab>', 'prompt should not map tab for completion')
+    end
 
     p:set_input('bad', 3)
     p:redraw()
     assert_eq(p.is_valid, false)
-
-    p:set_input('u', 1)
-    p:redraw()
-    assert(p.completion)
-    assert_eq(p.completion.word, 'UNLICENSE')
-    assert_eq(p.completion.suffix, 'NLICENSE')
-    p:accept_completion()
-    assert_eq(p:get_input(), 'UNLICENSE')
-
-    p:set_input('lua/d', 5)
-    p:redraw()
-    assert(p.completion)
-    assert_eq(p.completion.word, 'lua/dirtree/')
-    assert_eq(p.completion.suffix, 'irtree/')
-    p:accept_completion()
-    assert_eq(p:get_input(), 'lua/dirtree/')
 
     p:set_input('abc', 3)
     p:confirm()

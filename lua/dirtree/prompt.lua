@@ -1,7 +1,5 @@
 local api = vim.api
-local uv = vim.loop
 local window = require'dirtree.window'
-local util = require'dirtree.util'
 
 local M = {}
 
@@ -12,11 +10,6 @@ local M = {}
 ---@field width? integer
 ---@field anchor? {win: integer, line: integer, col: integer}
 ---@field validate fun(input: string): any
-
----@class DirtreePromptCompletion
----@field word string
----@field suffix string
----@field start_col integer
 
 ---@param opts DirtreePromptOptions
 ---@param width integer
@@ -34,107 +27,17 @@ local function win_layout(opts, width)
     return window.centered_layout(layout_opts)
 end
 
----@param str string
----@return string
-local function pesc(str)
-    return (str:gsub('([^%w])', '%%%1'))
-end
-
----@param input string
----@param col integer
----@return string dir
----@return string base
----@return integer start_col
-local function path_segment(input, col)
-    local before = input:sub(1, col)
-    local sep = pesc(util.sep)
-    local dir, base = before:match('^(.*' .. sep .. ')([^' .. sep .. ']*)$')
-    if dir then
-        return dir, base, #dir
-    end
-    return '', before, 0
-end
-
----@param input string
----@param cwd string
----@return string
-local function normalize_dir(input, cwd)
-    if input == '' then
-        return cwd
-    end
-    input = input:gsub('^~', os.getenv'HOME' or '')
-    if input:sub(1, 1) == util.sep then
-        return input
-    end
-    return util.join_path(cwd, input)
-end
-
----@param input string
----@param col integer
----@param cwd string
----@return DirtreePromptCompletion?
-local function completion(input, col, cwd)
-    if input == '' then
-        return nil
-    end
-    local dir, base, start_col = path_segment(input, col)
-    if base == '' then
-        return nil
-    end
-    local scanner = uv.fs_scandir(normalize_dir(dir, cwd))
-    if not scanner then
-        return nil
-    end
-    local base_lower = base:lower()
-    local matches = {}
-    while true do
-        local name, type = uv.fs_scandir_next(scanner)
-        if not name then
-            break
-        end
-        if vim.startswith(name:lower(), base_lower) and name ~= base then
-            local is_dir = type == 'directory'
-            matches[#matches+1] = {
-                word = dir .. name .. (is_dir and util.sep or ''),
-                type = type,
-            }
-        end
-    end
-    table.sort(matches, function(a, b)
-        if (a.type == 'directory') == (b.type == 'directory') then
-            return a.word < b.word
-        end
-        return a.type == 'directory'
-    end)
-    local match = matches[1]
-    if not match then
-        return nil
-    end
-    local suffix = match.word:sub(col + 1)
-    if suffix == '' then
-        return nil
-    end
-    return {
-        word = match.word,
-        suffix = suffix,
-        start_col = start_col,
-    }
-end
-
 ---@class DirtreePrompt
 ---@field opts DirtreePromptOptions
 ---@field cb fun(input?: string, result?: any)
 ---@field origin_win integer
 ---@field width integer
 ---@field autocmds integer[]
----@field ns integer
 ---@field input_buf integer
 ---@field input_win integer
 ---@field closed? boolean
 ---@field is_valid? boolean
 ---@field valid_result? any
----@field completion? DirtreePromptCompletion
----@field list_win? integer
 local Prompt = {}
 
 function Prompt:close()
@@ -176,37 +79,8 @@ function Prompt:validate()
     end
 end
 
-function Prompt:update_completion()
-    api.nvim_buf_clear_namespace(self.input_buf, self.ns, 0, -1)
-    self.completion = nil
-    if not window.valid_win(self.input_win) then
-        return
-    end
-    local input = self:get_input()
-    local col = api.nvim_win_get_cursor(self.input_win)[2]
-    self.completion = completion(input, col, self.opts.cwd)
-    if self.completion then
-        api.nvim_buf_set_extmark(self.input_buf, self.ns, 0, col, {
-            virt_text = {{self.completion.suffix, 'DirtreePromptCompletion'}},
-            virt_text_pos = 'inline',
-        })
-    end
-end
-
 function Prompt:redraw()
     self:validate()
-    self:update_completion()
-end
-
-function Prompt:accept_completion()
-    if not self.completion or not window.valid_win(self.input_win) then
-        return
-    end
-    local input = self:get_input()
-    local col = api.nvim_win_get_cursor(self.input_win)[2]
-    local new_input = self.completion.word .. input:sub(col + 1)
-    self:set_input(new_input, #self.completion.word)
-    self:redraw()
 end
 
 function Prompt:confirm()
@@ -268,7 +142,6 @@ function M.input(opts, cb)
         origin_win = api.nvim_get_current_win(),
         width = opts.width or 64,
         autocmds = {},
-        ns = api.nvim_create_namespace('dirtree/prompt'),
     }, {__index = Prompt})
 
     self.input_buf = api.nvim_create_buf(false, true)
@@ -285,15 +158,10 @@ function M.input(opts, cb)
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
-    keymap(self.input_buf, 'i', '<Tab>', function() self:accept_completion() end)
 
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd({'TextChanged', 'TextChangedI'}, {
         buffer = self.input_buf,
         callback = function() self:redraw() end,
-    })
-    self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('CursorMovedI', {
-        buffer = self.input_buf,
-        callback = function() self:update_completion() end,
     })
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('VimResized', {
         callback = function() self:relayout() end,
