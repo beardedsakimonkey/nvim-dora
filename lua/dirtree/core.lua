@@ -678,6 +678,7 @@ function M.up_dir()
     if row then
         state.hovered_files[state.cwd] = row.name
     end
+    state.expanded_dirs[cwd] = true
     state.cwd = parent_dir
     render(state)
     util.update_buf_name(state.cwd)
