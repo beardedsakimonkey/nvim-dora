@@ -142,7 +142,6 @@ DirtreeVirtText
 DirtreePromptBorder
 DirtreePromptBorderValid
 DirtreePromptBorderInvalid
-DirtreePromptCompletion
 DirtreeDeleteMore
 DirtreeDeleteCursor
 DirtreeMarkedText
