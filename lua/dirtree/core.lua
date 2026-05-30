@@ -744,7 +744,7 @@ function M.delete()
             render(state)
         end
     end, {
-        anchor = (#paths == 1) and current_name_anchor(row) or nil,
+        anchor = (not is_bulk) and current_name_anchor(row) or nil,
     })
 end
 
@@ -811,7 +811,7 @@ function M.create()
         cwd = state.cwd,
         width = NARROW_PROMPT_WIDTH,
         default = create_parent_default(state, row),
-        anchor = count_marks(state) <= 1 and current_name_anchor(row) or nil,
+        anchor = current_name_anchor(row),
         validate = function(input)
             return fs.validate_create(input, state.cwd)
         end,
