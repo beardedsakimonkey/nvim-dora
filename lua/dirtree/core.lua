@@ -963,7 +963,7 @@ function M.delete()
             render(state)
         end
     end, {
-        anchor = (not is_bulk) and current_name_anchor(row) or nil,
+        anchor = (not is_bulk and #paths == 1) and current_name_anchor(row) or nil,
     })
 end
 
