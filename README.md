@@ -128,6 +128,7 @@ DirtreeDirectory
 DirtreeSymlink
 DirtreeExecutable
 DirtreeTree
+DirtreeTreeActive
 DirtreeVirtText
 DirtreePromptBorder
 DirtreePromptBorderValid

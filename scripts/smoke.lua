@@ -108,6 +108,48 @@ local function has_priority_highlight(state, hl_group, priority)
     return false
 end
 
+local function cursor_tree_highlights(state)
+    local ret = {}
+    local marks = api.nvim_buf_get_extmarks(state.buf, state.cursor_ns, 0, -1, {details = true})
+    for _, mark in ipairs(marks) do
+        if mark[4].hl_group == 'DirtreeTreeActive' then
+            ret[#ret+1] = mark
+        end
+    end
+    return ret
+end
+
+local function assert_cursor_tree_highlights(state, expected_count)
+    api.nvim_exec_autocmds('CursorMoved', {buffer = state.buf})
+    local marks = cursor_tree_highlights(state)
+    local lnum = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows[lnum]
+    local expected_segments = {}
+    local marked_segments = {}
+    assert(row.parent_path, 'cursor row should have a parent path')
+    assert_eq(#marks, expected_count, 'cursor should highlight the active sibling connectors')
+    for i, tree_row in ipairs(state.rows) do
+        for _, segment in ipairs(tree_row.tree_continuation_segments) do
+            if segment.parent_path == row.parent_path then
+                expected_segments[('%d:%d:%d'):format(i, segment.start_col, segment.end_col)] = true
+            end
+        end
+        if tree_row.parent_path == row.parent_path and tree_row.tree_connector_start_col then
+            expected_segments[('%d:%d:%d'):format(i, tree_row.tree_connector_start_col, tree_row.tree_prefix_len)] = true
+        end
+    end
+    for _, mark in ipairs(marks) do
+        local marked_lnum = mark[2] + 1
+        local key = ('%d:%d:%d'):format(marked_lnum, mark[3], mark[4].end_col)
+        assert(expected_segments[key], 'active tree highlight should match the cursor parent group')
+        assert_eq(mark[4].priority, 10001)
+        marked_segments[key] = true
+    end
+    for key in pairs(expected_segments) do
+        assert(marked_segments[key], 'sibling tree segment should be highlighted')
+    end
+end
+
 do
     local origin_win = api.nvim_get_current_win()
     local old_guicursor = vim.o.guicursor
@@ -1226,10 +1268,17 @@ do
     assert(has_high_priority_highlight(state, 'DirtreeTree'), 'tree prefixes should be highlighted')
     assert(has_high_priority_highlight(state, 'DirtreeVirtText'), 'directory suffixes should be highlighted')
 
+    set_cursor_line('one/$')
+    assert_cursor_tree_highlights(state, 2)
+    assert_eq(state.rows[api.nvim_win_get_cursor(0)[1]].tree_connector_start_col, 0)
+
     core.expand()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 'second expand should expand another level')
+    assert_cursor_tree_highlights(state, 3)
 
     set_cursor_line('file%.txt$')
+    assert_cursor_tree_highlights(state, 1)
+    assert(state.rows[api.nvim_win_get_cursor(0)[1]].tree_connector_start_col > 0)
     core.toggle_mark()
     assert(state.marks[root .. '/alpha/one/file.txt'], 'nested row should mark its real path')
 
