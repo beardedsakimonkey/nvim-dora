@@ -31,8 +31,8 @@ M.config = {
         q = {"<Cmd>lua require'dirtree.core'.quit()<CR>",                   desc="Quit"},
         h = {"<Cmd>lua require'dirtree.core'.up_dir()<CR>",                 desc="Up directory"},
         ['-'] = {"<Cmd>lua require'dirtree.core'.up_dir()<CR>",             desc="Up directory"},
-        J = {"<Cmd>lua require'dirtree.core'.next_directory()<CR>",         desc="Next directory"},
-        K = {"<Cmd>lua require'dirtree.core'.prev_directory()<CR>",         desc="Previous directory"},
+        J = {"<Cmd>lua require'dirtree.core'.next_sibling()<CR>",           desc="Next sibling"},
+        K = {"<Cmd>lua require'dirtree.core'.prev_sibling()<CR>",           desc="Previous sibling"},
         o = {"<Cmd>lua require'dirtree.core'.expand()<CR>",                 desc="Expand"},
         O = {"<Cmd>lua require'dirtree.core'.expand_recursive()<CR>",       desc="Expand recursively"},
         u = {"<Cmd>lua require'dirtree.core'.collapse()<CR>",               desc="Collapse"},
@@ -57,8 +57,8 @@ M.config = {
         ['g?'] = {"<Cmd>lua require'dirtree.core'.help()<CR>",              desc="Show help"},
     },
     visual_keymaps = {
-        J = {"<Cmd>lua require'dirtree.core'.next_directory()<CR>", desc="Next directory"},
-        K = {"<Cmd>lua require'dirtree.core'.prev_directory()<CR>", desc="Previous directory"},
+        J = {"<Cmd>lua require'dirtree.core'.next_sibling()<CR>", desc="Next sibling"},
+        K = {"<Cmd>lua require'dirtree.core'.prev_sibling()<CR>", desc="Previous sibling"},
         ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark_visual()<CR><Esc>", desc="Toggle marks"},
     },
     -- Whether hidden files should be shown when dirtree opens
