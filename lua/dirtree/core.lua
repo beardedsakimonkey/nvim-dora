@@ -16,16 +16,27 @@ local EMPTY_LABEL = '(empty)'
 local NARROW_PROMPT_WIDTH = 32
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local FILE_HL_PRIORITY = 100  -- Below vim.highlight.on_yank's default priority.
+local TREE_VERTICAL = '│'
+local TREE_CONTINUATION = TREE_VERTICAL .. '   '
+local TREE_SPACER = '    '
 
 ---@alias DirtreeCwdScope 'window'|'tab'|'global'
+
+---@class DirtreeTreeSegment
+---@field parent_path string
+---@field start_col integer
+---@field end_col integer
 
 ---@class DirtreeTreeRow
 ---@field name string
 ---@field display_name string
 ---@field path? string
+---@field parent_path? string
 ---@field type DirtreeFileType|'placeholder'
 ---@field depth integer
 ---@field tree_prefix_len integer
+---@field tree_continuation_segments DirtreeTreeSegment[]
+---@field tree_connector_start_col? integer
 ---@field name_start_col? integer
 ---@field name_end_col? integer
 ---@field directory_suffix_col? integer
@@ -42,6 +53,7 @@ local FILE_HL_PRIORITY = 100  -- Below vim.highlight.on_yank's default priority.
 ---@field sync_local_cwd boolean
 ---@field cwd_restore? DirtreeCwdRestore
 ---@field ns integer
+---@field cursor_ns integer
 ---@field show_hidden boolean
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
@@ -83,6 +95,16 @@ local function visible_files(state, dir)
     return files, nil
 end
 
+---@param segments DirtreeTreeSegment[]
+---@return DirtreeTreeSegment[]
+local function copy_tree_segments(segments)
+    local ret = {}
+    for _, segment in ipairs(segments) do
+        ret[#ret+1] = segment
+    end
+    return ret
+end
+
 ---@param state DirtreeState
 ---@return DirtreeTreeRow[]
 local function build_tree_rows(state)
@@ -91,7 +113,8 @@ local function build_tree_rows(state)
     ---@param dir string
     ---@param prefix string
     ---@param depth integer
-    local function add_dir(dir, prefix, depth)
+    ---@param continuation_segments DirtreeTreeSegment[]
+    local function add_dir(dir, prefix, depth, continuation_segments)
         local files, placeholder_label = visible_files(state, dir)
         if depth > 0 and (#files == 0 or placeholder_label) then
             placeholder_label = placeholder_label or EMPTY_LABEL
@@ -100,16 +123,30 @@ local function build_tree_rows(state)
                 name = placeholder_label,
                 display_name = tree_prefix .. placeholder_label,
                 path = nil,
+                parent_path = dir,
                 type = 'placeholder',
                 depth = depth,
                 tree_prefix_len = #tree_prefix,
+                tree_continuation_segments = copy_tree_segments(continuation_segments),
+                tree_connector_start_col = #prefix,
             }
             return
         end
         for i, file in ipairs(files) do
             local is_last = i == #files
             local connector = depth == 0 and '' or (is_last and '└── ' or '├── ')
-            local child_prefix = depth == 0 and '' or prefix .. (is_last and '    ' or '│   ')
+            local child_prefix = depth == 0 and '' or prefix .. (is_last and TREE_SPACER or TREE_CONTINUATION)
+            local child_continuation_segments = continuation_segments
+            if depth > 0 then
+                child_continuation_segments = copy_tree_segments(continuation_segments)
+                if not is_last then
+                    child_continuation_segments[#child_continuation_segments+1] = {
+                        parent_path = dir,
+                        start_col = #prefix,
+                        end_col = #prefix + #TREE_VERTICAL,
+                    }
+                end
+            end
             local path = util.join_path(dir, file.name)
             local tree_prefix = prefix .. connector
             local display_name = tree_prefix .. file.name
@@ -122,22 +159,27 @@ local function build_tree_rows(state)
                 name = file.name,
                 display_name = display_name,
                 path = path,
+                parent_path = dir,
                 type = file.type,
                 depth = depth,
                 tree_prefix_len = #tree_prefix,
+                tree_continuation_segments = copy_tree_segments(continuation_segments),
+                tree_connector_start_col = depth > 0 and #prefix or nil,
                 name_start_col = #tree_prefix,
                 name_end_col = #tree_prefix + #file.name,
                 directory_suffix_col = directory_suffix_col,
             }
             if file.type == 'directory' and state.expanded_dirs[path] then
-                add_dir(path, child_prefix, depth + 1)
+                add_dir(path, child_prefix, depth + 1, child_continuation_segments)
             end
         end
     end
 
-    add_dir(state.cwd, '', 0)
+    add_dir(state.cwd, '', 0, {})
     return rows
 end
+
+local update_tree_cursor_highlight
 
 ---@param state DirtreeState
 local function render(state)
@@ -203,6 +245,39 @@ local function render(state)
             })
         end
     end
+    update_tree_cursor_highlight(state)
+end
+
+---@param state DirtreeState
+function update_tree_cursor_highlight(state)
+    local buf, ns = state.buf, state.cursor_ns
+    api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+    if api.nvim_get_current_buf() ~= buf then
+        return
+    end
+    local row_nr = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows and state.rows[row_nr] or nil
+    if not row or not row.parent_path then
+        return
+    end
+    for i, sibling in ipairs(state.rows) do
+        for _, segment in ipairs(sibling.tree_continuation_segments) do
+            if segment.parent_path == row.parent_path then
+                api.nvim_buf_set_extmark(buf, ns, i - 1, segment.start_col, {
+                    end_col = segment.end_col,
+                    hl_group = 'DirtreeTreeActive',
+                    priority = 10001,
+                })
+            end
+        end
+        if sibling.parent_path == row.parent_path and sibling.tree_connector_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i - 1, sibling.tree_connector_start_col, {
+                end_col = sibling.tree_prefix_len,
+                hl_group = 'DirtreeTreeActive',
+                priority = 10001,
+            })
+        end
+    end
 end
 
 ---@param state DirtreeState
@@ -222,10 +297,19 @@ local function set_cursor_path(state, path)
     for i, row in ipairs(state.rows or {}) do
         if row.path == path then
             api.nvim_win_set_cursor(0, {i, 0})
+            update_tree_cursor_highlight(state)
             return true
         end
     end
     return false
+end
+
+---@param state DirtreeState
+---@param pattern string?
+---@param or_top? boolean
+local function set_cursor_pos(state, pattern, or_top)
+    util.set_cursor_pos(pattern, or_top)
+    update_tree_cursor_highlight(state)
 end
 
 ---@param state DirtreeState
@@ -284,6 +368,7 @@ local function move_to_directory(state, step)
         local row = state.rows[line]
         if row and row.type == 'directory' then
             api.nvim_win_set_cursor(0, {line, 0})
+            update_tree_cursor_highlight(state)
             return
         end
         line = line + step
@@ -446,6 +531,21 @@ local function setup_keymaps(buf)
     end
 end
 
+---@param buf integer
+local function setup_autocmds(buf)
+    local group = api.nvim_create_augroup('dirtree.cursor.' .. buf, {clear=true})
+    api.nvim_create_autocmd({'BufEnter', 'CursorMoved', 'CursorMovedI'}, {
+        group = group,
+        buffer = buf,
+        callback = function(args)
+            local ok, state = pcall(store.get, args.buf)
+            if ok then
+                update_tree_cursor_highlight(state)
+            end
+        end,
+    })
+end
+
 ---@param state DirtreeState
 local function cleanup(state)
     api.nvim_buf_delete(state.buf, {force=true})
@@ -531,7 +631,7 @@ function M.up_dir()
     render(state)
     util.update_buf_name(state.cwd)
     sync_local_cwd(state)
-    util.set_cursor_pos(fs.basename(cwd), --[[or_top]]true)
+    set_cursor_pos(state, fs.basename(cwd), --[[or_top]]true)
 end
 
 function M.next_directory()
@@ -577,7 +677,7 @@ function M.open(cmd)
                 util.update_buf_name(state.cwd)
                 sync_local_cwd(state)
                 local hovered_file = state.hovered_files[path]
-                util.set_cursor_pos(hovered_file, --[[or_top]]true)
+                set_cursor_pos(state, hovered_file, --[[or_top]]true)
             end
         else
             restore_cwd(state)
@@ -611,7 +711,7 @@ function M.expand()
     local changed = expand_next_level(state, row.path)
     if changed then
         render(state)
-        util.set_cursor_pos(row.display_name)
+        set_cursor_pos(state, row.display_name)
     end
 end
 
@@ -624,7 +724,7 @@ function M.expand_recursive()
     local changed = expand_all_dirs(state, row.path)
     if changed then
         render(state)
-        util.set_cursor_pos(row.display_name)
+        set_cursor_pos(state, row.display_name)
     end
 end
 
@@ -649,7 +749,7 @@ function M.collapse_reset()
     local changed = clear_expanded_subtree(state, row.path)
     if changed then
         render(state)
-        util.set_cursor_pos(row.display_name)
+        set_cursor_pos(state, row.display_name)
     end
 end
 
@@ -795,7 +895,7 @@ local function copy_or_move(is_move)
                 clear_marks(state)
             end
             render(state)
-            util.set_cursor_pos(fs.basename(dest))
+            set_cursor_pos(state, fs.basename(dest))
         end
     end)
 end
@@ -839,7 +939,7 @@ function M.toggle_hidden_files()
     local hovered_file = row and row.display_name or nil
     state.show_hidden = not state.show_hidden
     render(state)
-    util.set_cursor_pos(hovered_file)
+    set_cursor_pos(state, hovered_file)
 end
 
 function M.reload()
@@ -879,6 +979,7 @@ function M.dirtree(dir, from_au)
     local cwd_restore = sync and save_cwd() or nil
     local buf = util.create_buf(cwd)
     local ns = api.nvim_create_namespace('dirtree.' .. buf)
+    local cursor_ns = api.nvim_create_namespace('dirtree/cursor.' .. buf)
     local state = {
         buf = buf,
         origin_buf = origin_buf,
@@ -887,6 +988,7 @@ function M.dirtree(dir, from_au)
         sync_local_cwd = sync,
         cwd_restore = cwd_restore,
         ns = ns,
+        cursor_ns = cursor_ns,
         show_hidden = config.show_hidden,
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
@@ -895,9 +997,10 @@ function M.dirtree(dir, from_au)
     }
     setup_keymaps(buf)
     store.set(buf, state)
+    setup_autocmds(buf)
     sync_local_cwd(state)
     render(state)
-    util.set_cursor_pos(origin_filename)
+    set_cursor_pos(state, origin_filename)
 end
 
 return M
