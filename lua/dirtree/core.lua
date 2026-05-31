@@ -62,7 +62,7 @@ local TREE_SPACER = '    '
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
 ---@field rows DirtreeTreeRow[]
----@field marks table<string, true>
+---@field selection table<string, true>
 ---@field paste_operation? DirtreePasteOperation
 
 -- Render ----------------------------------------------------------------------
@@ -238,8 +238,8 @@ local function render(state)
                 priority = 10000,
             })
         end
-        if path and state.marks[path] then
-            local sign_hl = 'DirtreeMarkedSign'
+        if path and state.selection[path] then
+            local sign_hl = 'DirtreeSelectionSign'
             if state.paste_operation == 'cut' then
                 sign_hl = 'DirtreeCutSign'
             elseif state.paste_operation == 'copy' then
@@ -251,7 +251,7 @@ local function render(state)
             })
             api.nvim_buf_set_extmark(buf, ns, i-1, file.name_start_col, {
                 end_col = file.name_end_col,
-                hl_group = 'DirtreeMarkedFile',
+                hl_group = 'DirtreeSelectionFile',
                 priority = 10000,
             })
         end
@@ -451,9 +451,9 @@ end
 
 ---@param state DirtreeState
 ---@return integer
-local function count_marks(state)
+local function selection_count(state)
     local count = 0
-    for _ in pairs(state.marks) do
+    for _ in pairs(state.selection) do
         count = count + 1
     end
     return count
@@ -461,9 +461,9 @@ end
 
 ---@param state DirtreeState
 ---@return string[]
-local function marked_paths(state)
+local function selection_paths(state)
     local paths = {}
-    for path in pairs(state.marks) do
+    for path in pairs(state.selection) do
         paths[#paths+1] = path
     end
     table.sort(paths)
@@ -488,14 +488,14 @@ end
 ---@return string[]? paths
 ---@return boolean|string? is_bulk_or_error
 local function selected_paths(state)
-    if count_marks(state) == 0 then
+    if selection_count(state) == 0 then
         local path, msg = current_path(state)
         if not path then
             return nil, msg
         end
         return {path}, false
     end
-    return marked_paths(state), true
+    return selection_paths(state), true
 end
 
 ---@param row DirtreeTreeRow?
@@ -513,8 +513,8 @@ local function current_name_anchor(row)
 end
 
 ---@param state DirtreeState
-local function clear_marks(state)
-    state.marks = {}
+local function clear_selection(state)
+    state.selection = {}
 end
 
 ---@param state DirtreeState
@@ -684,7 +684,7 @@ local function open_bulk_rename(state, paths)
             end
             rename_expanded_subtrees(state, changes)
             expand_parent_dirs(state, changes[1].dest)
-            clear_marks(state)
+            clear_selection(state)
             render(state)
             set_cursor_path(state, changes[1].dest)
         end,
@@ -882,8 +882,8 @@ end
 ---@param cmd? DirtreeOpenCommand
 function M.open(cmd)
     local state = store.get()
-    if count_marks(state) > 0 then
-        open_files(state, marked_paths(state), cmd)
+    if selection_count(state) > 0 then
+        open_files(state, selection_paths(state), cmd)
         return
     end
     local row = current_row(state)
@@ -984,7 +984,7 @@ function M.collapse_reset()
     end
 end
 
-function M.toggle_mark()
+function M.toggle_selection()
     local state = store.get()
     local row = current_row(state)
     if row and not row.path then
@@ -996,16 +996,16 @@ function M.toggle_mark()
         util.err(msg)
         return
     end
-    if state.marks[path] then
-        state.marks[path] = nil
+    if state.selection[path] then
+        state.selection[path] = nil
     else
-        state.marks[path] = true
+        state.selection[path] = true
     end
     render(state)
     move_to_line(state, line + 1)
 end
 
-function M.toggle_mark_visual()
+function M.toggle_visual_selection()
     local state = store.get()
     local mode = vim.fn.mode()
     local is_visual = mode == 'v' or mode == 'V' or mode == '\22'
@@ -1017,19 +1017,19 @@ function M.toggle_mark_visual()
     for line = start_line, end_line do
         local row = state.rows and state.rows[line]
         if row and row.path then
-            if state.marks[row.path] then
-                state.marks[row.path] = nil
+            if state.selection[row.path] then
+                state.selection[row.path] = nil
             else
-                state.marks[row.path] = true
+                state.selection[row.path] = true
             end
         end
     end
     render(state)
 end
 
-function M.clear_marks()
+function M.clear_selection()
     local state = store.get()
-    clear_marks(state)
+    clear_selection(state)
     render(state)
 end
 
@@ -1037,7 +1037,7 @@ function M.select_all()
     local state = store.get()
     for _, row in ipairs(state.rows or {}) do
         if row.path then
-            state.marks[row.path] = true
+            state.selection[row.path] = true
         end
     end
     render(state)
@@ -1047,10 +1047,10 @@ function M.invert_selection()
     local state = store.get()
     for _, row in ipairs(state.rows or {}) do
         if row.path then
-            if state.marks[row.path] then
-                state.marks[row.path] = nil
+            if state.selection[row.path] then
+                state.selection[row.path] = nil
             else
-                state.marks[row.path] = true
+                state.selection[row.path] = true
             end
         end
     end
@@ -1059,10 +1059,10 @@ end
 
 ---@param state DirtreeState
 ---@param paths string[]
-local function replace_marks(state, paths)
-    state.marks = {}
+local function replace_selection(state, paths)
+    state.selection = {}
     for _, path in ipairs(paths) do
-        state.marks[path] = true
+        state.selection[path] = true
     end
 end
 
@@ -1074,7 +1074,7 @@ local function set_paste_operation(operation)
         util.err(msg)
         return
     end
-    replace_marks(state, paths)
+    replace_selection(state, paths)
     state.paste_operation = operation
     render(state)
 end
@@ -1095,7 +1095,7 @@ end
 
 function M.paste()
     local state = store.get()
-    local paths = marked_paths(state)
+    local paths = selection_paths(state)
     local operation = state.paste_operation
     if not operation or #paths == 0 then
         util.err('Nothing to paste')
@@ -1118,7 +1118,7 @@ function M.paste()
         util.err(msg)
         return
     end
-    clear_marks(state)
+    clear_selection(state)
     state.paste_operation = nil
     render(state)
     set_cursor_path(state, dest_path)
@@ -1211,7 +1211,7 @@ function M.delete()
             util.err(msg)
         else
             if is_bulk then
-                clear_marks(state)
+                clear_selection(state)
             end
             render(state)
         end
@@ -1264,8 +1264,8 @@ function M.move() move() end
 
 function M.rename()
     local state = store.get()
-    if count_marks(state) > 0 then
-        open_bulk_rename(state, marked_paths(state))
+    if selection_count(state) > 0 then
+        open_bulk_rename(state, selection_paths(state))
         return
     end
 
@@ -1402,7 +1402,7 @@ function M.dirtree(dir, from_au)
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},
-        marks = {},  -- map<path, true>
+        selection = {},  -- map<path, true>
     }
     keymaps.setup(buf, config)
     store.set(buf, state)

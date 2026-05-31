@@ -57,8 +57,8 @@ M.config = {
         y = {"<Cmd>lua require'dirtree.core'.copy()<CR>",                   desc="Copy"},
         Y = {"<Cmd>lua require'dirtree.core'.clear_paste_operation()<CR>",  desc="Clear cut/copy"},
         p = {"<Cmd>lua require'dirtree.core'.paste()<CR>",                  desc="Paste"},
-        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark()<CR>",    desc="Toggle mark"},
-        ['<Esc>'] = {"<Cmd>lua require'dirtree.core'.clear_marks()<CR>",    desc="Clear marks"},
+        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_selection()<CR>", desc="Toggle selection"},
+        ['<Esc>'] = {"<Cmd>lua require'dirtree.core'.clear_selection()<CR>", desc="Clear selection"},
         ['<C-a>'] = {"<Cmd>lua require'dirtree.core'.select_all()<CR>",      desc="Select all"},
         ['<C-r>'] = {"<Cmd>lua require'dirtree.core'.invert_selection()<CR>", desc="Invert selection"},
         ['.'] = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>", desc="Toggle hidden files"},
@@ -78,7 +78,7 @@ M.config = {
     visual_keymaps = {
         J = {"<Cmd>lua require'dirtree.core'.next_sibling()<CR>", desc="Next sibling"},
         K = {"<Cmd>lua require'dirtree.core'.prev_sibling()<CR>", desc="Previous sibling"},
-        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark_visual()<CR><Esc>", desc="Toggle marks"},
+        ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_visual_selection()<CR><Esc>", desc="Toggle selection"},
     },
     -- Whether to show keymap hints for two-key normal mode mappings
     keymap_hints = true,
