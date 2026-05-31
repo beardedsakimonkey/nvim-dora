@@ -15,9 +15,9 @@ local M = {}
 
 ---@class DirtreeConfig
 ---@field keymaps table<string, DirtreeKeymapSpec>
----@field keymap_hints boolean
----@field show_hidden boolean
----@field hidden_filter fun(file: DirtreeFile, files: DirtreeFile[], dir: string): boolean
+---@field show_keymap_hints boolean
+---@field show_hidden_files boolean
+---@field is_file_hidden fun(file: DirtreeFile, files: DirtreeFile[], dir: string): boolean
 ---@field sort_order DirtreeSortOrder
 ---@field sync_local_cwd boolean
 
@@ -78,11 +78,11 @@ M.config = {
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension reversed"},
     },
     -- Whether to show keymap hints for two-key normal mode mappings
-    keymap_hints = true,
+    show_keymap_hints = true,
     -- Whether hidden files should be shown when dirtree opens
-    show_hidden = true,
+    show_hidden_files = true,
     -- Function used to determine what files should be hidden
-    hidden_filter = function(file) return vim.startswith(file.name, '.') end,
+    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order
     sort_order = 'name',
     -- Whether to sync the window's current directory with dirtree's current path

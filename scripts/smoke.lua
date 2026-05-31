@@ -744,11 +744,11 @@ do
     touch(tmp .. '/visible')
     touch(tmp .. '/.hidden')
 
-    local old_show_hidden = config.show_hidden
-    config.show_hidden = false
+    local old_show_hidden_files = config.show_hidden_files
+    config.show_hidden_files = false
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    config.show_hidden = old_show_hidden
+    config.show_hidden_files = old_show_hidden_files
     assert(not vim.tbl_contains(lines(), '.hidden'), 'hidden files should be hidden when configured')
 
     core.quit()
@@ -1427,7 +1427,7 @@ end
 
 do
     local old_keymaps = config.keymaps
-    local old_keymap_hints = config.keymap_hints
+    local old_show_keymap_hints = config.show_keymap_hints
     local old_open = keymaps.open_hint_window
     local captured_prefix
     local captured_rows
@@ -1436,7 +1436,7 @@ do
         za = {"<Cmd>lua vim.g.dirtree_smoke_hint_keymap = 'za'<CR>", desc='Alpha'},
         zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
-    config.keymap_hints = true
+    config.show_keymap_hints = true
     keymaps.open_hint_window = function(prefix, rows)
         captured_prefix = prefix
         captured_rows = rows
@@ -1463,19 +1463,19 @@ do
 
     keymaps.open_hint_window = old_open
     config.keymaps = old_keymaps
-    config.keymap_hints = old_keymap_hints
+    config.show_keymap_hints = old_show_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_keymap_hints = config.keymap_hints
+    local old_show_keymap_hints = config.show_keymap_hints
     local old_open = keymaps.open_hint_window
     local old_reload = core.reload
 
     config.keymaps = {
         za = {'reload', desc='Reload'},
     }
-    config.keymap_hints = true
+    config.show_keymap_hints = true
     core.reload = function()
         vim.g.dirtree_smoke_named_keymap = 'reload'
     end
@@ -1494,18 +1494,18 @@ do
     keymaps.open_hint_window = old_open
     core.reload = old_reload
     config.keymaps = old_keymaps
-    config.keymap_hints = old_keymap_hints
+    config.show_keymap_hints = old_show_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_keymap_hints = config.keymap_hints
+    local old_show_keymap_hints = config.show_keymap_hints
     local old_reload = core.reload
 
     config.keymaps = {
         x = {'reload', desc='Reload'},
     }
-    config.keymap_hints = false
+    config.show_keymap_hints = false
     core.reload = function()
         vim.g.dirtree_smoke_named_direct_keymap = 'reload'
     end
@@ -1521,18 +1521,18 @@ do
 
     core.reload = old_reload
     config.keymaps = old_keymaps
-    config.keymap_hints = old_keymap_hints
+    config.show_keymap_hints = old_show_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_keymap_hints = config.keymap_hints
+    local old_show_keymap_hints = config.show_keymap_hints
 
     config.keymaps = {
         za = {function() vim.g.dirtree_smoke_hint_keymap = 'za' end, desc='Alpha'},
         zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
-    config.keymap_hints = false
+    config.show_keymap_hints = false
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('z', 'n'), '', 'disabled keymap hints should not install prefix mappings')
@@ -1541,18 +1541,18 @@ do
     core.quit()
 
     config.keymaps = old_keymaps
-    config.keymap_hints = old_keymap_hints
+    config.show_keymap_hints = old_show_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_keymap_hints = config.keymap_hints
+    local old_show_keymap_hints = config.show_keymap_hints
 
     config.keymaps = {
         x = {function() vim.g.dirtree_smoke_hint_keymap = 'x' end, desc='Plain X'},
         xy = {function() vim.g.dirtree_smoke_hint_keymap = 'xy' end, desc='X Y'},
     }
-    config.keymap_hints = true
+    config.show_keymap_hints = true
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Plain X')
@@ -1560,7 +1560,7 @@ do
     core.quit()
 
     config.keymaps = old_keymaps
-    config.keymap_hints = old_keymap_hints
+    config.show_keymap_hints = old_show_keymap_hints
 end
 
 do

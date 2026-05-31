@@ -217,7 +217,7 @@ function M.setup(buf, config)
             desc = desc,
         })
     end
-    if config.keymap_hints then
+    if config.show_keymap_hints then
         for prefix, group in pairs(hint_groups) do
             local direct
             if config.keymaps[prefix] then

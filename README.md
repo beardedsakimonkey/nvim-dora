@@ -104,11 +104,11 @@ config = {
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension reversed"},
     },
     -- Whether to show keymap hints for two-key normal mode mappings
-    keymap_hints = true,
+    show_keymap_hints = true,
     -- Whether hidden files should be shown when dirtree opens
-    show_hidden = true,
+    show_hidden_files = true,
     -- Function used to determine what files should be hidden
-    hidden_filter = function(file) return vim.startswith(file.name, '.') end,
+    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order
     sort_order = 'name',
     -- Whether to sync the window's current directory with dirtree's current path
@@ -123,8 +123,8 @@ Example:
 local dirtree = require'dirtree'
 
 dirtree.config = vim.tbl_deep_extend('force', dirtree.config, {
-    show_hidden = false,
-    hidden_filter = function(file)
+    show_hidden_files = false,
+    is_file_hidden = function(file)
         return vim.startswith(file.name, '.') or file.name == 'node_modules'
     end,
     keymaps = {
@@ -143,8 +143,8 @@ dirtree.config.keymaps.q = {"quit", desc="Quit"}
 ```
 
 Dirtree also shows a small hint window for two-character normal mode mappings.
-For example, pressing `c` shows configured mappings like `cc`, `cd`, and `cf`.
-Set `dirtree.config.keymap_hints = false` to disable these prefix hints.
+For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
+Set `dirtree.config.show_keymap_hints = false` to disable these prefix hints.
 
 Files are sorted naturally by name by default, with directories always grouped
 before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
