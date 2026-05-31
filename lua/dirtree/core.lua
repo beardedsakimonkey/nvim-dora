@@ -822,6 +822,15 @@ function M.home_dir()
     set_cursor_pos(state, state.hovered_files[path], --[[or_top]]true)
 end
 
+function M.parent_dir()
+    local state = store.get()
+    local row = current_row(state)
+    if not row or not row.parent_path then
+        return
+    end
+    set_cursor_path(state, row.parent_path)
+end
+
 function M.next_sibling()
     move_to_next_sibling(store.get())
 end

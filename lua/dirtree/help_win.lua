@@ -7,7 +7,7 @@ local api = vim.api
 local M = {}
 
 local KEYMAP_ORDER = {
-    'q', 'h', '-', 'J', 'K',
+    'q', 'h', '-', 'J', 'K', 'P',
     'o', 'O', ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E', 'u', 'U',
     'l', '<CR>', 's', 'v', 't', 'gx',
     'R', 'i', 'cc', 'cC', 'cd', 'cD', 'cf', 'cF', 'cn', 'cN',
