@@ -15,10 +15,9 @@ local uv = vim.loop
 
 local M = {}
 
+local PROMPT_WIDTH = 32
 local EMPTY_LABEL = '(empty)'
-local NARROW_PROMPT_WIDTH = 32
 local NOT_PERMITTED_LABEL = '(not permitted)'
-local FILE_HL_PRIORITY = 100  -- Below vim.highlight.on_yank's default priority.
 local TREE_VERTICAL = '│'
 local TREE_CONTINUATION = TREE_VERTICAL .. '   '
 local TREE_SPACER = '    '
@@ -216,7 +215,7 @@ local function render(state)
         api.nvim_buf_set_extmark(0, ns, i-1, 0, {
             end_col = #file.display_name,
             hl_group = hl,
-            priority = FILE_HL_PRIORITY,
+            priority = 100,  -- Below vim.highlight.on_yank's default priority.
         })
         if virttext then
             api.nvim_buf_set_extmark(0, ns, i-1, #file.display_name, {
@@ -964,6 +963,7 @@ function M.toggle_mark()
     if row and not row.path then
         return
     end
+    local line = api.nvim_win_get_cursor(0)[1]
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -975,6 +975,7 @@ function M.toggle_mark()
         state.marks[path] = true
     end
     render(state)
+    move_to_line(state, line + 1)
 end
 
 function M.toggle_mark_visual()
@@ -1209,7 +1210,7 @@ local function move()
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
-        width = #paths == 1 and NARROW_PROMPT_WIDTH or nil,
+        width = #paths == 1 and PROMPT_WIDTH or nil,
         anchor = (not is_bulk) and current_name_anchor(row) or nil,
         validate = function(input)
             return fs.resolve_copy_or_move_dest(paths[1], input, state.cwd)
@@ -1251,7 +1252,7 @@ function M.rename()
         prompt = 'Rename to',
         cwd = fs.get_parent_dir(path),
         default = fs.basename(path),
-        width = NARROW_PROMPT_WIDTH,
+        width = PROMPT_WIDTH,
         anchor = current_name_anchor(row),
         validate = function(input)
             return fs.validate_rename(input, path)
@@ -1277,7 +1278,7 @@ function M.create()
     prompt.input({
         prompt = 'New file or folder',
         cwd = state.cwd,
-        width = NARROW_PROMPT_WIDTH,
+        width = PROMPT_WIDTH,
         default = create_parent_default(state, row),
         anchor = current_name_anchor(row),
         validate = function(input)
