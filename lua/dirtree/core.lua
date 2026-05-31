@@ -915,6 +915,18 @@ function M.open(cmd)
     end
 end
 
+function M.open_split()
+    M.open('split')
+end
+
+function M.open_vsplit()
+    M.open('vsplit')
+end
+
+function M.open_tab()
+    M.open('tabedit')
+end
+
 function M.open_external()
     local state = store.get()
     local row = current_row(state)
@@ -1149,6 +1161,10 @@ function M.yank_path(reg)
     yank_value(path, reg, reg == '+' and 'Yanked path to clipboard' or 'Yanked path')
 end
 
+function M.yank_path_clipboard()
+    M.yank_path('+')
+end
+
 function M.copy_file_path()
     local state = store.get()
     local path, msg = current_path(state)
@@ -1348,6 +1364,46 @@ function M.sort_by(order)
     if path then
         set_cursor_path(state, path)
     end
+end
+
+function M.sort_by_name()
+    M.sort_by('name')
+end
+
+function M.sort_by_name_reverse()
+    M.sort_by('name_reverse')
+end
+
+function M.sort_by_modified()
+    M.sort_by('modified')
+end
+
+function M.sort_by_modified_reverse()
+    M.sort_by('modified_reverse')
+end
+
+function M.sort_by_created()
+    M.sort_by('created')
+end
+
+function M.sort_by_created_reverse()
+    M.sort_by('created_reverse')
+end
+
+function M.sort_by_size()
+    M.sort_by('size')
+end
+
+function M.sort_by_size_reverse()
+    M.sort_by('size_reverse')
+end
+
+function M.sort_by_extension()
+    M.sort_by('extension')
+end
+
+function M.sort_by_extension_reverse()
+    M.sort_by('extension_reverse')
 end
 
 function M.reload()
