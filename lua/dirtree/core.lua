@@ -1027,6 +1027,16 @@ function M.clear_marks()
     render(state)
 end
 
+function M.select_all()
+    local state = store.get()
+    for _, row in ipairs(state.rows or {}) do
+        if row.path then
+            state.marks[row.path] = true
+        end
+    end
+    render(state)
+end
+
 ---@param state DirtreeState
 ---@param paths string[]
 local function replace_marks(state, paths)
