@@ -1037,6 +1037,20 @@ function M.select_all()
     render(state)
 end
 
+function M.invert_selection()
+    local state = store.get()
+    for _, row in ipairs(state.rows or {}) do
+        if row.path then
+            if state.marks[row.path] then
+                state.marks[row.path] = nil
+            else
+                state.marks[row.path] = true
+            end
+        end
+    end
+    render(state)
+end
+
 ---@param state DirtreeState
 ---@param paths string[]
 local function replace_marks(state, paths)
