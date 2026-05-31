@@ -683,6 +683,34 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
+    touch(tmp .. '/alpha/one/file.txt')
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Jump to parent directory')
+    util.set_cursor_pos('alpha')
+    core.expand()
+    util.set_cursor_pos('one')
+    core.expand()
+
+    set_cursor_line('file%.txt$')
+    core.parent_dir()
+    assert_match(current_line(), 'one/$', 'parent jump should move from a nested file to its parent directory')
+
+    core.parent_dir()
+    assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent directory')
+
+    core.parent_dir()
+    assert_match(current_line(), 'alpha/$', 'parent jump should keep the cursor when the parent is not visible')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
 

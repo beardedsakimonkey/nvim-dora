@@ -55,6 +55,7 @@ config = {
         ['-'] = {"up_dir",                      desc="Up directory"},
         J = {"next_sibling",                    desc="Next sibling"},
         K = {"prev_sibling",                    desc="Previous sibling"},
+        P = {"parent_dir",                      desc="Jump to parent directory"},
         o = {"expand",                          desc="Expand directory"},
         O = {"expand_recursive",                desc="Expand directory recursively"},
         u = {"collapse",                        desc="Collapse directory"},
