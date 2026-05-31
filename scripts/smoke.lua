@@ -794,8 +794,10 @@ do
 
     set_cursor_line('a$')
     core.toggle_mark()
+    assert_match(current_line(), 'b$', 'tab should move cursor down after marking')
     set_cursor_line('b$')
     core.toggle_mark()
+    assert_match(current_line(), 'c$', 'tab should move cursor down after marking another row')
     core.cut()
     assert(state.marks[state.cwd .. '/a'], 'cut should keep marked rows marked')
     assert(state.marks[state.cwd .. '/b'], 'cut should keep marked rows marked')
@@ -805,6 +807,7 @@ do
     set_cursor_line('c$')
     core.toggle_mark()
     assert(state.marks[state.cwd .. '/c'], 'tab should still add marks while cut is active')
+    assert_match(current_line(), 'c$', 'tab should stay put on the last row')
     assert_eq(state.paste_operation, 'cut', 'tab should preserve the global cut state')
     assert(has_sign_highlight(state, 'DirtreeCutSign'), 'new marks should use the active cut sign')
 
@@ -820,6 +823,7 @@ do
     set_cursor_line('b$')
     core.toggle_mark()
     assert(not state.marks[state.cwd .. '/b'], 'tab should remove the toggled mark')
+    assert_match(current_line(), 'c$', 'tab should move cursor down after unmarking')
     assert_eq(state.paste_operation, 'copy', 'tab should preserve copy while other marks remain')
 
     set_cursor_line('a$')
