@@ -12,8 +12,6 @@ local MAX_DELETE_WIDTH = 96
 local LINE_PREFIX = ' '
 local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
-local ELLIPSIS = '…'
-local ELLIPSIS_WIDTH = vim.fn.strdisplaywidth(ELLIPSIS)
 
 ---@class DirtreeDeleteConfirmItem
 ---@field display string
@@ -54,46 +52,14 @@ local function relative_display_path(path, cwd)
     return util.display_path(path)
 end
 
----@return integer
-local function max_display_width()
-    local float_width = math.min(MAX_DELETE_WIDTH, math.max(20, vim.o.columns - 4))
-    return math.max(0, float_width - LINE_PREFIX_LEN - RIGHT_PADDING)
-end
-
----@param display string
----@param basename string
----@param max_width integer
----@return string display
----@return integer file_start_col
-local function truncate_display_path(display, basename, max_width)
-    if #display <= max_width then
-        return display, math.max(0, #display - #basename)
-    end
-    if max_width <= ELLIPSIS_WIDTH then
-        return display:sub(#display - max_width + 1), 0
-    end
-    local suffix_len = max_width - ELLIPSIS_WIDTH
-    if #basename <= suffix_len then
-        local truncated = ELLIPSIS .. display:sub(#display - suffix_len + 1)
-        return truncated, math.max(0, #truncated - #basename)
-    end
-    local truncated = ELLIPSIS .. basename:sub(#basename - suffix_len + 1)
-    return truncated, #ELLIPSIS
-end
-
 ---@param path string
 ---@param cwd string
----@param max_width integer
 ---@return DirtreeDeleteConfirmItem
-local function item(path, cwd, max_width)
+local function item(path, cwd)
     local display = relative_display_path(path, cwd)
     local basename = fs.basename(path)
     local hl = file_hl(path)
-    if hl == 'DirtreeDirectory' then
-        max_width = max_width - #util.sep
-    end
-    local file_start_col
-    display, file_start_col = truncate_display_path(display, basename, max_width)
+    local file_start_col = math.max(0, #display - #basename)
     local file_end_col = #display
     if hl == 'DirtreeDirectory' then
         display = display .. util.sep
@@ -108,12 +74,11 @@ end
 
 ---@param paths string[]
 ---@param cwd string
----@param max_width integer
 ---@return DirtreeDeleteConfirmItem[]
-local function items(paths, cwd, max_width)
+local function items(paths, cwd)
     local ret = {}
     for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
-        ret[#ret+1] = item(paths[i], cwd, max_width)
+        ret[#ret+1] = item(paths[i], cwd)
     end
     return ret
 end
@@ -174,9 +139,39 @@ end
 local function width(confirm_title, rendered_lines)
     local max_width = #confirm_title
     for _, line in ipairs(rendered_lines) do
-        max_width = math.max(max_width, #line)
+        max_width = math.max(max_width, vim.fn.strdisplaywidth(line))
     end
     return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
+end
+
+---@param opts DirtreeAnchoredFloatLayoutOptions
+---@return table
+local function anchored_layout(opts)
+    if not window.valid_win(opts.win) then
+        return window.centered_layout(opts)
+    end
+    local pos = vim.fn.screenpos(opts.win, opts.line, opts.col + 1)
+    if pos.row == 0 or pos.col == 0 then
+        return window.centered_layout(opts)
+    end
+    local anchor_col = math.max(0, pos.col - 1)
+    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
+    local col = math.min(anchor_col, math.max(0, vim.o.columns - width - 2))
+    local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
+    local title = opts.title and (' ' .. opts.title .. ' ') or nil
+    return {
+        relative = 'editor',
+        anchor = 'NW',
+        row = math.max(0, pos.row),
+        col = col,
+        width = width,
+        height = height,
+        border = window.border(opts.border_hl or 'DirtreePromptBorder'),
+        title = title,
+        title_pos = title and (opts.title_pos or 'left') or nil,
+        style = 'minimal',
+        noautocmd = true,
+    }
 end
 
 ---@param paths string[]
@@ -189,7 +184,7 @@ function M.delete(paths, cwd, cb, opts)
         return
     end
     opts = opts or {}
-    local confirm_items = items(paths, cwd, max_display_width())
+    local confirm_items = items(paths, cwd)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow)
     local confirm_title = title(#paths)
@@ -204,7 +199,7 @@ function M.delete(paths, cwd, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, cwd, max_display_width())
+        confirm_items = items(paths, cwd)
         rendered_lines = lines(confirm_items, overflow)
         vim.bo[buf].modifiable = true
         render(buf, ns, confirm_items, overflow)
@@ -222,7 +217,7 @@ function M.delete(paths, cwd, cb, opts)
             border_hl = 'DirtreePromptBorderInvalid',
         }
         if opts.anchor then
-            return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
+            return anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
         end
         return window.centered_layout(layout_opts)
     end

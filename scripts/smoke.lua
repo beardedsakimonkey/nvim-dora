@@ -238,6 +238,48 @@ do
 end
 
 do
+    local origin_buf = api.nvim_get_current_buf()
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local long_dir = 'very-long-delete-confirmation-path-segment-with-extra-context'
+    local long_file = 'file-with-a-long-name-that-should-stay-visible.txt'
+    local rel_path = long_dir .. util.sep .. long_file
+    assert_eq(vim.fn.mkdir(tmp .. util.sep .. long_dir, 'p'), 1)
+    touch(tmp .. util.sep .. rel_path)
+
+    local anchor_buf = api.nvim_create_buf(false, true)
+    api.nvim_set_current_buf(anchor_buf)
+    api.nvim_buf_set_lines(anchor_buf, 0, -1, false, {string.rep('x', vim.o.columns)})
+    local anchor_win = api.nvim_get_current_win()
+    local anchor_col = math.max(0, vim.o.columns - 12)
+    local anchor_pos = vim.fn.screenpos(anchor_win, 1, anchor_col + 1)
+
+    delete_win.delete({tmp .. util.sep .. rel_path}, tmp, function() end, {
+        anchor = {win = anchor_win, line = 1, col = anchor_col},
+    })
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    local view = api.nvim_win_call(confirm_win, function()
+        return vim.fn.winsaveview()
+    end)
+    local expected_width = math.min(96, math.max(20, vim.o.columns - 2))
+    local expected_col = math.min(math.max(0, anchor_pos.col - 1), math.max(0, vim.o.columns - expected_width - 2))
+
+    assert_eq(confirm_lines[1], ' ' .. rel_path)
+    assert_eq(confirm_cfg.width, expected_width, 'delete confirmation should expand anchored windows for long paths')
+    assert_eq(confirm_cfg.col, expected_col, 'delete confirmation should shift left to fit expanded windows')
+    assert(confirm_cfg.col < anchor_pos.col - 1, 'delete confirmation should start left of the anchor when needed')
+    assert_eq(view.leftcol, 0, 'delete confirmation should not rely on horizontal scroll')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    api.nvim_set_current_buf(origin_buf)
+    api.nvim_buf_delete(anchor_buf, {force = true})
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
