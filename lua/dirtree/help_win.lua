@@ -1,5 +1,6 @@
 local util = require'dirtree.util'
 local window = require'dirtree.window'
+local keymaps = require'dirtree.keymaps'
 
 local api = vim.api
 
@@ -78,7 +79,7 @@ end
 ---@return DirtreeHelpRow[]
 local function rows(config)
     local normal_rows = keymap_rows('Normal', config.keymaps, KEYMAP_ORDER)
-    local visual_rows = keymap_rows('Visual', config.visual_keymaps, VISUAL_KEYMAP_ORDER)
+    local visual_rows = keymap_rows('Visual', keymaps.derive_visual_keymaps(config.keymaps), VISUAL_KEYMAP_ORDER)
     if #normal_rows > 0 and #visual_rows > 0 then
         normal_rows[#normal_rows+1] = {blank=true}
     end

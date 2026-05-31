@@ -102,11 +102,6 @@ config = {
         [',e'] = {"sort_by_extension",          desc="Sort by extension"},
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension reversed"},
     },
-    visual_keymaps = {
-        J = {"next_sibling",                    desc="Next sibling"},
-        K = {"prev_sibling",                    desc="Previous sibling"},
-        ['<Tab>'] = {"toggle_visual_selection", desc="Toggle selection"},
-    },
     -- Whether to show keymap hints for two-key normal mode mappings
     keymap_hints = true,
     -- Whether hidden files should be shown when dirtree opens
