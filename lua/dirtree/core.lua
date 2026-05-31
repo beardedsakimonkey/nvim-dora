@@ -57,7 +57,7 @@ local TREE_SPACER = '    '
 ---@field cwd_restore? DirtreeCwdRestore
 ---@field ns integer
 ---@field cursor_ns integer
----@field show_hidden boolean
+---@field show_hidden_files boolean
 ---@field sort_order DirtreeSortOrder
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
@@ -90,10 +90,10 @@ local function visible_files(state, dir)
         return {}, nil
     end
     local files = vim.tbl_filter(function(file)
-        if state.show_hidden then
+        if state.show_hidden_files then
             return true
         else
-            return not config.hidden_filter(file, all_files, dir)
+            return not config.is_file_hidden(file, all_files, dir)
         end
     end, all_files)
     sorter.files(files, state.sort_order)
@@ -1364,7 +1364,7 @@ function M.toggle_hidden_files()
     local state = store.get()
     local row = current_row(state)
     local hovered_file = row and row.display_name or nil
-    state.show_hidden = not state.show_hidden
+    state.show_hidden_files = not state.show_hidden_files
     render(state)
     set_cursor_pos(state, hovered_file)
 end
@@ -1468,7 +1468,7 @@ function M.dirtree(dir, from_au)
         cwd_restore = cwd_restore,
         ns = ns,
         cursor_ns = cursor_ns,
-        show_hidden = config.show_hidden,
+        show_hidden_files = config.show_hidden_files,
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>

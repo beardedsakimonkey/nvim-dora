@@ -13,7 +13,7 @@ local cases = {
     {
         name = "require'dirtree' + config write",
         fn = function()
-            require'dirtree'.config.show_hidden = false
+            require'dirtree'.config.show_hidden_files = false
         end,
     },
     {
