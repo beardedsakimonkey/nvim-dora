@@ -1165,37 +1165,53 @@ function M.yank_path_clipboard()
     M.yank_path('+')
 end
 
-function M.copy_file_path()
+---@param reg? string
+function M.copy_file_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    yank_value(path, nil, 'Copied file path')
+    yank_value(path, reg, reg == '+' and 'Copied file path to clipboard' or 'Copied file path')
 end
 
-function M.copy_dir_path()
+function M.copy_file_path_clipboard()
+    M.copy_file_path('+')
+end
+
+---@param reg? string
+function M.copy_dir_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    yank_value(fs.get_parent_dir(path), nil, 'Copied directory path')
+    yank_value(fs.get_parent_dir(path), reg, reg == '+' and 'Copied directory path to clipboard' or 'Copied directory path')
 end
 
-function M.copy_filename()
+function M.copy_dir_path_clipboard()
+    M.copy_dir_path('+')
+end
+
+---@param reg? string
+function M.copy_filename(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    yank_value(fs.basename(path), nil, 'Copied filename')
+    yank_value(fs.basename(path), reg, reg == '+' and 'Copied filename to clipboard' or 'Copied filename')
 end
 
-function M.copy_filename_stem()
+function M.copy_filename_clipboard()
+    M.copy_filename('+')
+end
+
+---@param reg? string
+function M.copy_filename_stem(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1203,7 +1219,12 @@ function M.copy_filename_stem()
         return
     end
     local filename = fs.basename(path)
-    yank_value(vim.fn.fnamemodify(filename, ':r'), nil, 'Copied filename without extension')
+    local message = reg == '+' and 'Copied filename without extension to clipboard' or 'Copied filename without extension'
+    yank_value(vim.fn.fnamemodify(filename, ':r'), reg, message)
+end
+
+function M.copy_filename_stem_clipboard()
+    M.copy_filename_stem('+')
 end
 
 function M.delete()
