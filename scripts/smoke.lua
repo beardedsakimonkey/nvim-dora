@@ -1308,6 +1308,7 @@ do
     assert_eq(vim.fn.maparg('p', 'n', false, true).desc, 'Paste')
     assert_eq(vim.fn.maparg('<S-Tab>', 'n', false, true).desc, 'Clear marks')
     assert_eq(vim.fn.maparg('<C-a>', 'n', false, true).desc, 'Select all')
+    assert_eq(vim.fn.maparg('<C-r>', 'n', false, true).desc, 'Invert selection')
     assert_eq(vim.fn.maparg('<Tab>', 'x', false, true).desc, 'Toggle marks')
     core.quit()
 end
@@ -1357,6 +1358,16 @@ do
     assert(state.marks[state.cwd .. '/b'], 'select all should mark visible files')
     assert(state.marks[state.cwd .. '/dir'], 'select all should mark visible directories')
     assert(state.marks[state.cwd .. '/dir/nested'], 'select all should mark expanded child rows')
+    core.clear_marks()
+    assert_eq(mark_count(state), 0)
+
+    state.marks[state.cwd .. '/a'] = true
+    core.invert_selection()
+    assert_eq(mark_count(state), 3)
+    assert(not state.marks[state.cwd .. '/a'], 'invert selection should clear marked visible rows')
+    assert(state.marks[state.cwd .. '/b'], 'invert selection should mark unmarked visible rows')
+    assert(state.marks[state.cwd .. '/dir'], 'invert selection should mark unmarked visible directories')
+    assert(state.marks[state.cwd .. '/dir/nested'], 'invert selection should mark unmarked expanded child rows')
     core.clear_marks()
     assert_eq(mark_count(state), 0)
 
@@ -1555,6 +1566,7 @@ do
     assert(table.concat(help_lines, '\n'):match('y%s+Copy'), 'help should include the copy mapping')
     assert(table.concat(help_lines, '\n'):match('<S%-Tab>%s+Clear marks'), 'help should include the clear marks mapping')
     assert(table.concat(help_lines, '\n'):match('<C%-a>%s+Select all'), 'help should include the select all mapping')
+    assert(table.concat(help_lines, '\n'):match('<C%-r>%s+Invert selection'), 'help should include the invert selection mapping')
     assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),
         'help should follow configured normal keymap order')
     assert(find_line_index(help_lines, '^  h%s+Up directory$') < find_line_index(help_lines, '^  %-%s+Up directory$'),
