@@ -983,7 +983,7 @@ function M.collapse()
     end
 end
 
-function M.collapse_reset()
+function M.collapse_recursive()
     local state = store.get()
     local row = current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
@@ -1139,7 +1139,7 @@ end
 ---@param value string
 ---@param reg? string
 ---@param message string
-local function yank_value(value, reg, message)
+local function copy_value(value, reg, message)
     -- Trigger a real yank so TextYankPost autocmds see vim.v.event.
     pcall(vim.cmd, reg == '+' and [[normal! "+yy]] or [[normal! yy]])
     local ok, err = pcall(vim.fn.setreg, reg or '"', value, 'c')
@@ -1151,21 +1151,6 @@ local function yank_value(value, reg, message)
 end
 
 ---@param reg? string
-function M.yank_path(reg)
-    local state = store.get()
-    local path, msg = current_path(state)
-    if not path then
-        util.err(msg)
-        return
-    end
-    yank_value(path, reg, reg == '+' and 'Yanked path to clipboard' or 'Yanked path')
-end
-
-function M.yank_path_clipboard()
-    M.yank_path('+')
-end
-
----@param reg? string
 function M.copy_file_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
@@ -1173,7 +1158,7 @@ function M.copy_file_path(reg)
         util.err(msg)
         return
     end
-    yank_value(path, reg, reg == '+' and 'Copied file path to clipboard' or 'Copied file path')
+    copy_value(path, reg, reg == '+' and 'Copied file path to clipboard' or 'Copied file path')
 end
 
 function M.copy_file_path_clipboard()
@@ -1188,7 +1173,7 @@ function M.copy_dir_path(reg)
         util.err(msg)
         return
     end
-    yank_value(fs.get_parent_dir(path), reg, reg == '+' and 'Copied directory path to clipboard' or 'Copied directory path')
+    copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Copied directory path to clipboard' or 'Copied directory path')
 end
 
 function M.copy_dir_path_clipboard()
@@ -1203,7 +1188,7 @@ function M.copy_filename(reg)
         util.err(msg)
         return
     end
-    yank_value(fs.basename(path), reg, reg == '+' and 'Copied filename to clipboard' or 'Copied filename')
+    copy_value(fs.basename(path), reg, reg == '+' and 'Copied filename to clipboard' or 'Copied filename')
 end
 
 function M.copy_filename_clipboard()
@@ -1211,7 +1196,7 @@ function M.copy_filename_clipboard()
 end
 
 ---@param reg? string
-function M.copy_filename_stem(reg)
+function M.copy_basename(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1219,12 +1204,12 @@ function M.copy_filename_stem(reg)
         return
     end
     local filename = fs.basename(path)
-    local message = reg == '+' and 'Copied filename without extension to clipboard' or 'Copied filename without extension'
-    yank_value(vim.fn.fnamemodify(filename, ':r'), reg, message)
+    local message = reg == '+' and 'Copied basename to clipboard' or 'Copied basename'
+    copy_value(vim.fn.fnamemodify(filename, ':r'), reg, message)
 end
 
-function M.copy_filename_stem_clipboard()
-    M.copy_filename_stem('+')
+function M.copy_basename_clipboard()
+    M.copy_basename('+')
 end
 
 function M.delete()
