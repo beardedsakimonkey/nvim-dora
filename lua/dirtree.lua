@@ -15,7 +15,6 @@ local M = {}
 
 ---@class DirtreeConfig
 ---@field keymaps table<string, DirtreeKeymapSpec>
----@field visual_keymaps table<string, DirtreeKeymapSpec>
 ---@field keymap_hints boolean
 ---@field show_hidden boolean
 ---@field hidden_filter fun(file: DirtreeFile, files: DirtreeFile[], dir: string): boolean
@@ -76,11 +75,6 @@ M.config = {
         [',S'] = {"sort_by_size_reverse",       desc="Sort by file size reversed"},
         [',e'] = {"sort_by_extension",          desc="Sort by extension"},
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension reversed"},
-    },
-    visual_keymaps = {
-        J = {"next_sibling",                    desc="Next sibling"},
-        K = {"prev_sibling",                    desc="Previous sibling"},
-        ['<Tab>'] = {"toggle_visual_selection", desc="Toggle selection"},
     },
     -- Whether to show keymap hints for two-key normal mode mappings
     keymap_hints = true,

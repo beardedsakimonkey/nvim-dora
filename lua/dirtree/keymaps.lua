@@ -7,6 +7,12 @@ local M = {}
 
 local HINT_ARROW = '→'
 
+local VISUAL_KEYMAP_ACTIONS = {
+    next_sibling = 'next_sibling',
+    prev_sibling = 'prev_sibling',
+    toggle_selection = 'toggle_visual_selection',
+}
+
 ---@param rhs DirtreeKeymapSpec
 ---@return DirtreeKeymapAction action
 ---@return string? desc
@@ -184,6 +190,20 @@ local function is_keymap_hint_prefix(lhs, groups)
     return #lhs == 1 and groups[lhs] ~= nil
 end
 
+---@param keymaps? table<string, DirtreeKeymapSpec>
+---@return table<string, DirtreeKeymapSpec>
+function M.derive_visual_keymaps(keymaps)
+    local ret = {}
+    for lhs, rhs in pairs(keymaps or {}) do
+        local action, desc = normalize_keymap(rhs)
+        local visual_action = type(action) == 'string' and VISUAL_KEYMAP_ACTIONS[action] or nil
+        if visual_action then
+            ret[lhs] = desc and {visual_action, desc=desc} or visual_action
+        end
+    end
+    return ret
+end
+
 ---@param buf integer
 ---@param config DirtreeConfig
 function M.setup(buf, config)
@@ -209,7 +229,7 @@ function M.setup(buf, config)
             end, {nowait=true, silent=true, buffer=buf, desc=direct and direct.desc or 'Show keymap hints'})
         end
     end
-    for lhs, rhs in pairs(config.visual_keymaps or {}) do
+    for lhs, rhs in pairs(M.derive_visual_keymaps(config.keymaps)) do
         local action, desc = normalize_keymap(rhs)
         vim.keymap.set('x', lhs, map_keymap_action(action), {nowait=true, silent=true, buffer=buf, desc=desc})
     end

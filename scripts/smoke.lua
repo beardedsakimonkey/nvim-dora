@@ -1399,7 +1399,6 @@ end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
     local old_open = keymaps.open_hint_window
     local captured_prefix
@@ -1409,7 +1408,6 @@ do
         za = {"<Cmd>lua vim.g.dirtree_smoke_hint_keymap = 'za'<CR>", desc='Alpha'},
         zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
-    config.visual_keymaps = {}
     config.keymap_hints = true
     keymaps.open_hint_window = function(prefix, rows)
         captured_prefix = prefix
@@ -1437,13 +1435,11 @@ do
 
     keymaps.open_hint_window = old_open
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
     local old_open = keymaps.open_hint_window
     local old_reload = core.reload
@@ -1451,7 +1447,6 @@ do
     config.keymaps = {
         za = {'reload', desc='Reload'},
     }
-    config.visual_keymaps = {}
     config.keymap_hints = true
     core.reload = function()
         vim.g.dirtree_smoke_named_keymap = 'reload'
@@ -1471,20 +1466,17 @@ do
     keymaps.open_hint_window = old_open
     core.reload = old_reload
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
     local old_reload = core.reload
 
     config.keymaps = {
         x = {'reload', desc='Reload'},
     }
-    config.visual_keymaps = {}
     config.keymap_hints = false
     core.reload = function()
         vim.g.dirtree_smoke_named_direct_keymap = 'reload'
@@ -1501,20 +1493,17 @@ do
 
     core.reload = old_reload
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
 
     config.keymaps = {
         za = {function() vim.g.dirtree_smoke_hint_keymap = 'za' end, desc='Alpha'},
         zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
-    config.visual_keymaps = {}
     config.keymap_hints = false
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
@@ -1524,20 +1513,17 @@ do
     core.quit()
 
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
 end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
 
     config.keymaps = {
         x = {function() vim.g.dirtree_smoke_hint_keymap = 'x' end, desc='Plain X'},
         xy = {function() vim.g.dirtree_smoke_hint_keymap = 'xy' end, desc='X Y'},
     }
-    config.visual_keymaps = {}
     config.keymap_hints = true
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
@@ -1546,7 +1532,6 @@ do
     core.quit()
 
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
 end
 
@@ -1884,43 +1869,49 @@ end
 
 do
     local old_keymaps = config.keymaps
-    local old_visual_keymaps = config.visual_keymaps
     config.keymaps = {
         x = "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>",
         z = {"<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }
-    config.visual_keymaps = {
-        y = "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'visual'<CR>",
-    }
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('x', 'n', false, true).rhs, "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>")
-    assert_eq(vim.fn.maparg('y', 'x', false, true).rhs, "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'visual'<CR>")
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
     assert(help_text:match("x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(help_text:match("y%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'visual'<CR>"), 'help should include legacy visual mappings')
+    assert(not help_text:match('\nVisual\n'), 'help should omit visual mappings when no normal mappings derive visual mappings')
     assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
         'help should sort unordered custom mappings after local order')
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
 
     config.keymaps = old_keymaps
-    config.visual_keymaps = old_visual_keymaps
 end
 
 do
     local tmp = vim.fn.tempname()
+    local old_toggle_visual_selection = core.toggle_visual_selection
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    core.toggle_visual_selection = function()
+        vim.g.dirtree_smoke_visual_keymap = 'tab'
+    end
+    vim.g.dirtree_smoke_visual_keymap = nil
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('J', 'x', false, true).desc, 'Next sibling')
     assert_eq(type(vim.fn.maparg('J', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('K', 'x', false, true).desc, 'Previous sibling')
     assert_eq(type(vim.fn.maparg('K', 'x', false, true).callback), 'function')
+    local tab_map = vim.fn.maparg('<Tab>', 'x', false, true)
+    assert_eq(tab_map.desc, 'Toggle selection')
+    assert_eq(type(tab_map.callback), 'function')
+    tab_map.callback()
+    assert_eq(vim.g.dirtree_smoke_visual_keymap, 'tab', 'visual Tab should dispatch the visual selection action')
 
     core.quit()
+    core.toggle_visual_selection = old_toggle_visual_selection
+    vim.g.dirtree_smoke_visual_keymap = nil
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
