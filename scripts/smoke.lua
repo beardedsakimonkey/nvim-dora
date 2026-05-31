@@ -1753,17 +1753,33 @@ do
     assert_eq(vim.fn.getreg('"'), expected_path)
     assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path')
 
+    core.copy_file_path_clipboard()
+    assert_eq(vim.fn.getreg('+'), expected_path)
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path to clipboard')
+
     core.copy_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
     assert_eq(notifications[#notifications].msg, '[dirtree] Copied directory path')
+
+    core.copy_dir_path_clipboard()
+    assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied directory path to clipboard')
 
     core.copy_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename')
 
+    core.copy_filename_clipboard()
+    assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename to clipboard')
+
     core.copy_filename_stem()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
     assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename without extension')
+
+    core.copy_filename_stem_clipboard()
+    assert_eq(vim.fn.getreg('+'), 'archive.tar')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename without extension to clipboard')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
