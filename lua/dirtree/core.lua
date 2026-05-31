@@ -355,18 +355,44 @@ end
 ---@param state DirtreeState
 ---@param row DirtreeTreeRow?
 ---@return string?
-local function collapse_target_path(state, row)
+---@return integer?
+local function collapse_target(state, row)
     if not row or not row.path then
         return nil
     end
-    if row.type == 'directory' and state.expanded_dirs[row.path] then
-        return row.path
+    if row.type == 'directory' then
+        return row.path, row.depth
     end
     local parent = fs.get_parent_dir(row.path)
     if parent == state.cwd then
         return nil
     end
-    return parent
+    for _, candidate in ipairs(state.rows or {}) do
+        if candidate.path == parent then
+            return parent, candidate.depth
+        end
+    end
+end
+
+---@param path string
+---@param prefix string
+---@return integer?
+local function relative_dir_depth(path, prefix)
+    if not vim.startswith(path, prefix .. util.sep) then
+        return nil
+    end
+    local rest = path:sub(#prefix + 2)
+    return select(2, rest:gsub(util.sep, '')) + 1
+end
+
+---@param row DirtreeTreeRow
+---@param path string
+---@return boolean
+local function row_under_path(row, path)
+    if row.path then
+        return row.path == path or vim.startswith(row.path, path .. util.sep)
+    end
+    return row.parent_path == path or vim.startswith(row.parent_path or '', path .. util.sep)
 end
 
 ---@param state DirtreeState
@@ -556,6 +582,40 @@ local function clear_expanded_subtree(state, path)
         end
     end
     return changed
+end
+
+---@param state DirtreeState
+---@param path string
+---@param target_depth integer
+---@return boolean changed
+local function collapse_deepest_visible_dirs(state, path, target_depth)
+    local max_depth = 0
+    for _, row in ipairs(state.rows or {}) do
+        if row_under_path(row, path) then
+            max_depth = math.max(max_depth, row.depth - target_depth)
+        end
+    end
+    if max_depth < 1 then
+        return false
+    end
+
+    local collapse_depth = max_depth - 1
+    local collapsed = {}
+    if collapse_depth == 0 then
+        if state.expanded_dirs[path] then
+            collapsed[#collapsed+1] = path
+        end
+    else
+        for expanded_path in pairs(state.expanded_dirs) do
+            if relative_dir_depth(expanded_path, path) == collapse_depth then
+                collapsed[#collapsed+1] = expanded_path
+            end
+        end
+    end
+    for _, expanded_path in ipairs(collapsed) do
+        state.expanded_dirs[expanded_path] = nil
+    end
+    return #collapsed > 0
 end
 
 ---@param state DirtreeState
@@ -894,13 +954,17 @@ end
 function M.collapse()
     local state = store.get()
     local row = current_row(state)
-    local path = collapse_target_path(state, row)
-    if not path or not state.expanded_dirs[path] then
+    local path, target_depth = collapse_target(state, row)
+    if not path or not target_depth then
         return
     end
-    state.expanded_dirs[path] = nil
-    render(state)
-    set_cursor_path(state, path)
+    local changed = collapse_deepest_visible_dirs(state, path, target_depth)
+    if changed then
+        render(state)
+        if not set_cursor_path(state, row.path) then
+            set_cursor_path(state, path)
+        end
+    end
 end
 
 function M.collapse_reset()

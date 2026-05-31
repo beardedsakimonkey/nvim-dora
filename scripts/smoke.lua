@@ -1787,8 +1787,11 @@ do
 
     util.set_cursor_pos('alpha')
     core.collapse()
-    assert(not vim.tbl_contains(lines(), '├── one/'), 'collapse should hide children')
-    assert(state.expanded_dirs[root .. '/alpha/one'], 'collapse should remember descendant state')
+    assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should keep the hovered directory open')
+    assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
+    assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapse should hide the deepest visible level')
+    assert(state.expanded_dirs[root .. '/alpha'], 'collapse should leave the hovered directory expanded')
+    assert(not state.expanded_dirs[root .. '/alpha/one'], 'collapse should fold deepest expanded descendants')
 
     core.expand()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 're-expand should restore previous tree state')
@@ -1801,9 +1804,22 @@ do
     assert_match(current_line(), 'one/$', 'collapsing file should move cursor to its parent directory')
 
     core.collapse()
-    assert(not vim.tbl_contains(lines(), '├── one/'), 'collapsing an already collapsed directory should fold its parent')
-    assert(not state.expanded_dirs[root .. '/alpha'], 'collapsing an already collapsed directory should clear parent expansion')
-    assert_match(current_line(), 'alpha/$', 'collapsing child directory should move cursor to its parent directory')
+    assert(vim.tbl_contains(lines(), '├── one/'), 'collapsing a directory with no visible descendants should be a no-op')
+    assert(state.expanded_dirs[root .. '/alpha'], 'collapsing a directory with no visible descendants should leave ancestors expanded')
+    assert_match(current_line(), 'one/$', 'collapsing a directory with no visible descendants should keep the cursor')
+
+    util.set_cursor_pos('alpha')
+    core.collapse()
+    assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should remove the deepest remaining descendant level first')
+    assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
+    assert(not vim.tbl_contains(lines(), '    └── (empty)'), 'collapse should hide empty placeholders at the deepest level')
+    assert(state.expanded_dirs[root .. '/alpha'], 'collapse should leave the hovered directory expanded while descendants remain visible')
+    assert(not state.expanded_dirs[root .. '/alpha/two'], 'collapse should fold deepest empty descendants')
+
+    core.collapse()
+    assert(not vim.tbl_contains(lines(), '├── one/'), 'collapsing one visible level should fold the hovered directory')
+    assert(not state.expanded_dirs[root .. '/alpha'], 'collapsing one visible level should clear the hovered directory expansion')
+    assert_match(current_line(), 'alpha/$', 'collapsing one visible level should keep cursor on the hovered directory')
 
     core.expand()
     core.expand()

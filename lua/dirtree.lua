@@ -35,7 +35,7 @@ M.config = {
         K = {"<Cmd>lua require'dirtree.core'.prev_sibling()<CR>",           desc="Previous sibling"},
         o = {"<Cmd>lua require'dirtree.core'.expand()<CR>",                 desc="Expand"},
         O = {"<Cmd>lua require'dirtree.core'.expand_recursive()<CR>",       desc="Expand recursively"},
-        u = {"<Cmd>lua require'dirtree.core'.collapse()<CR>",               desc="Collapse"},
+        u = {"<Cmd>lua require'dirtree.core'.collapse()<CR>",               desc="Collapse descendants"},
         U = {"<Cmd>lua require'dirtree.core'.collapse_reset()<CR>",         desc="Collapse and reset"},
         l = {"<Cmd>lua require'dirtree.core'.open()<CR>",                   desc="Open"},
         ['<CR>'] = {"<Cmd>lua require'dirtree.core'.open()<CR>",            desc="Open"},
