@@ -59,6 +59,7 @@ local TREE_SPACER = '    '
 ---@field ns integer
 ---@field cursor_ns integer
 ---@field show_hidden boolean
+---@field sort_order DirtreeSortOrder
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
 ---@field rows DirtreeTreeRow[]
@@ -74,6 +75,173 @@ local function is_permission_error(msg)
     return msg:match('EPERM') ~= nil
         or msg:lower():match('operation not permitted') ~= nil
         or msg:lower():match('permission denied') ~= nil
+end
+
+local VALID_SORT_ORDERS = {
+    name = true,
+    name_reverse = true,
+    modified = true,
+    modified_reverse = true,
+    created = true,
+    created_reverse = true,
+    size = true,
+    size_reverse = true,
+    extension = true,
+    extension_reverse = true,
+}
+
+---@param order any
+---@return DirtreeSortOrder
+local function normalize_sort_order(order)
+    if VALID_SORT_ORDERS[order] then
+        return order
+    end
+    return 'name'
+end
+
+---@param name string
+---@return string
+local function extension(name)
+    local dot
+    local start = name:sub(1, 1) == '.' and 2 or 1
+    for i = start, #name do
+        if name:sub(i, i) == '.' then
+            dot = i
+        end
+    end
+    return dot and name:sub(dot + 1):lower() or ''
+end
+
+---@param value string
+---@param index integer
+---@return string chunk
+---@return boolean is_number
+---@return integer next_index
+local function natural_chunk(value, index)
+    local is_number = value:sub(index, index):match('%d') ~= nil
+    local next_index = index + 1
+    while next_index <= #value do
+        local next_is_number = value:sub(next_index, next_index):match('%d') ~= nil
+        if next_is_number ~= is_number then
+            break
+        end
+        next_index = next_index + 1
+    end
+    return value:sub(index, next_index - 1), is_number, next_index
+end
+
+---@param a string
+---@param b string
+---@return boolean?
+local function natural_name_less(a, b)
+    local left = a:lower()
+    local right = b:lower()
+    local left_index = 1
+    local right_index = 1
+    while left_index <= #left and right_index <= #right do
+        local left_chunk, left_is_number, next_left = natural_chunk(left, left_index)
+        local right_chunk, right_is_number, next_right = natural_chunk(right, right_index)
+        if left_is_number and right_is_number then
+            local left_number = left_chunk:gsub('^0+', '')
+            local right_number = right_chunk:gsub('^0+', '')
+            left_number = left_number ~= '' and left_number or '0'
+            right_number = right_number ~= '' and right_number or '0'
+            if #left_number ~= #right_number then
+                return #left_number < #right_number
+            end
+            if left_number ~= right_number then
+                return left_number < right_number
+            end
+            if #left_chunk ~= #right_chunk then
+                return #left_chunk < #right_chunk
+            end
+        elseif left_chunk ~= right_chunk then
+            return left_chunk < right_chunk
+        end
+        left_index = next_left
+        right_index = next_right
+    end
+    if #left ~= #right then
+        return #left < #right
+    end
+    if a ~= b then
+        return a < b
+    end
+    return nil
+end
+
+---@param a table?
+---@param b table?
+---@return integer
+local function compare_time(a, b)
+    local a_sec = a and a.sec or 0
+    local b_sec = b and b.sec or 0
+    if a_sec ~= b_sec then
+        return a_sec < b_sec and -1 or 1
+    end
+    local a_nsec = a and a.nsec or 0
+    local b_nsec = b and b.nsec or 0
+    if a_nsec ~= b_nsec then
+        return a_nsec < b_nsec and -1 or 1
+    end
+    return 0
+end
+
+---@param a DirtreeFile
+---@param b DirtreeFile
+---@param order DirtreeSortOrder
+---@return boolean
+local function file_less(a, b, order)
+    if (a.type == 'directory') ~= (b.type == 'directory') then
+        return a.type == 'directory'
+    end
+    if order == 'name_reverse' then
+        return natural_name_less(b.name, a.name) == true
+    elseif order == 'modified' or order == 'modified_reverse' then
+        local cmp = compare_time(a.mtime, b.mtime)
+        if cmp ~= 0 then
+            if order == 'modified' then
+                return cmp < 0
+            end
+            return cmp > 0
+        end
+    elseif order == 'created' or order == 'created_reverse' then
+        local cmp = compare_time(a.birthtime, b.birthtime)
+        if cmp ~= 0 then
+            if order == 'created' then
+                return cmp < 0
+            end
+            return cmp > 0
+        end
+    elseif order == 'size' or order == 'size_reverse' then
+        local a_size = a.size or 0
+        local b_size = b.size or 0
+        if a_size ~= b_size then
+            if order == 'size' then
+                return a_size < b_size
+            end
+            return a_size > b_size
+        end
+    elseif order == 'extension' or order == 'extension_reverse' then
+        local a_ext = extension(a.name)
+        local b_ext = extension(b.name)
+        if a_ext ~= b_ext then
+            if order == 'extension' then
+                return a_ext < b_ext
+            end
+            return a_ext > b_ext
+        end
+    end
+    return natural_name_less(a.name, b.name) == true
+end
+
+---@param files DirtreeFile[]
+---@param order DirtreeSortOrder
+local function sort_files(files, order)
+    order = normalize_sort_order(order)
+    table.sort(files, function(a, b)
+        return file_less(a, b, order)
+    end)
 end
 
 ---@param state DirtreeState
@@ -96,7 +264,7 @@ local function visible_files(state, dir)
             return not config.hidden_filter(file, all_files, dir)
         end
     end, all_files)
-    config.sort(files)
+    sort_files(files, state.sort_order)
     return files, nil
 end
 
@@ -713,12 +881,26 @@ local function dispatch_keymap_action(action)
     api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), 'nx', false)
 end
 
+---@param timeout integer
+---@return string?
+local function read_key(timeout)
+    local started = uv.hrtime()
+    while (uv.hrtime() - started) / 1000000 < timeout do
+        local key = vim.fn.getcharstr(0)
+        if key ~= '' then
+            return key
+        end
+        vim.wait(10)
+    end
+    return nil
+end
+
 ---@param keymaps table<string, DirtreeKeymapSpec>
 ---@return table<string, {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]>
 local function keymap_hint_groups(keymaps)
     local groups = {}
     for lhs, rhs in pairs(keymaps) do
-        if #lhs == 2 and not keymaps[lhs:sub(1, 1)] then
+        if #lhs == 2 then
             local action, desc = normalize_keymap(rhs)
             local prefix = lhs:sub(1, 1)
             groups[prefix] = groups[prefix] or {}
@@ -738,12 +920,13 @@ end
 
 ---@param prefix string
 ---@param group {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]
-local function show_keymap_hints(prefix, group)
+---@param direct? {action: DirtreeKeymapAction, desc: string?}
+local function show_keymap_hints(prefix, group, direct)
     local buf, win = keymap_hint_win.open(prefix, vim.tbl_map(function(entry)
         return {lhs=entry.lhs, desc=entry.desc}
     end, group))
     vim.cmd.redraw()
-    local key = vim.fn.getcharstr()
+    local key = read_key(vim.o.timeoutlen)
     window.close(buf, win)
     for _, entry in ipairs(group) do
         if key == entry.key then
@@ -751,20 +934,48 @@ local function show_keymap_hints(prefix, group)
             return
         end
     end
+    if direct then
+        dispatch_keymap_action(direct.action)
+        if key then
+            api.nvim_feedkeys(key, 'n', false)
+        end
+        return
+    end
+    if not key then
+        return
+    end
     api.nvim_feedkeys(prefix .. key, 'n', false)
+end
+
+---@param lhs string
+---@param groups table<string, {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]>
+---@return boolean
+local function is_keymap_hint_prefix(lhs, groups)
+    return #lhs == 1 and groups[lhs] ~= nil
 end
 
 ---@param buf integer
 local function setup_keymaps(buf)
+    local hint_groups = keymap_hint_groups(config.keymaps)
     for lhs, rhs in pairs(config.keymaps) do
         local action, desc = normalize_keymap(rhs)
-        vim.keymap.set('n', lhs, action, {nowait=true, silent=true, buffer=buf, desc=desc})
+        vim.keymap.set('n', lhs, action, {
+            nowait = not is_keymap_hint_prefix(lhs, hint_groups),
+            silent = true,
+            buffer = buf,
+            desc = desc,
+        })
     end
     if config.keymap_hints then
-        for prefix, group in pairs(keymap_hint_groups(config.keymaps)) do
+        for prefix, group in pairs(hint_groups) do
+            local direct
+            if config.keymaps[prefix] then
+                local action, desc = normalize_keymap(config.keymaps[prefix])
+                direct = {action=action, desc=desc}
+            end
             vim.keymap.set('n', prefix, function()
-                show_keymap_hints(prefix, group)
-            end, {nowait=true, silent=true, buffer=buf, desc='Show keymap hints'})
+                show_keymap_hints(prefix, group, direct)
+            end, {nowait=true, silent=true, buffer=buf, desc=direct and direct.desc or 'Show keymap hints'})
         end
     end
     for lhs, rhs in pairs(config.visual_keymaps or {}) do
@@ -1391,6 +1602,18 @@ function M.toggle_hidden_files()
     set_cursor_pos(state, hovered_file)
 end
 
+---@param order DirtreeSortOrder
+function M.sort_by(order)
+    local state = store.get()
+    local row = current_row(state)
+    local path = row and row.path or nil
+    state.sort_order = normalize_sort_order(order)
+    render(state)
+    if path then
+        set_cursor_path(state, path)
+    end
+end
+
 function M.reload()
     render(store.get())
 end
@@ -1439,6 +1662,7 @@ function M.dirtree(dir, from_au)
         ns = ns,
         cursor_ns = cursor_ns,
         show_hidden = config.show_hidden,
+        sort_order = normalize_sort_order(config.sort_order),
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},

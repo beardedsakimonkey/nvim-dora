@@ -73,6 +73,13 @@ local function find_line_index(search_lines, pattern)
     end
 end
 
+local function assert_line_before(pattern_a, pattern_b, msg)
+    local search_lines = lines()
+    local a = find_line_index(search_lines, pattern_a)
+    local b = find_line_index(search_lines, pattern_b)
+    assert(a and b and a < b, msg or (pattern_a .. ' should appear before ' .. pattern_b))
+end
+
 local function win_title(win)
     local title = api.nvim_win_get_config(win).title
     if type(title) == 'string' then
@@ -1293,6 +1300,20 @@ do
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('q', 'n', false, true).desc, 'Quit')
     assert_eq(vim.fn.maparg('i', 'n', false, true).desc, 'Show info')
+    assert_eq(vim.fn.maparg('o', 'n', false, true).desc, 'Expand')
+    assert_eq(vim.fn.maparg('o', 'n', false, true).callback, nil)
+    assert_eq(vim.fn.maparg(',', 'n', false, true).desc, 'Show keymap hints')
+    assert_eq(type(vim.fn.maparg(',', 'n', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg(',n', 'n', false, true).desc, 'Sort naturally by name')
+    assert_eq(vim.fn.maparg(',N', 'n', false, true).desc, 'Sort naturally by name reversed')
+    assert_eq(vim.fn.maparg(',m', 'n', false, true).desc, 'Sort by modified time')
+    assert_eq(vim.fn.maparg(',M', 'n', false, true).desc, 'Sort by modified time reversed')
+    assert_eq(vim.fn.maparg(',c', 'n', false, true).desc, 'Sort by creation time')
+    assert_eq(vim.fn.maparg(',C', 'n', false, true).desc, 'Sort by creation time reversed')
+    assert_eq(vim.fn.maparg(',s', 'n', false, true).desc, 'Sort by file size')
+    assert_eq(vim.fn.maparg(',S', 'n', false, true).desc, 'Sort by file size reversed')
+    assert_eq(vim.fn.maparg(',e', 'n', false, true).desc, 'Sort by extension')
+    assert_eq(vim.fn.maparg(',E', 'n', false, true).desc, 'Sort by extension reversed')
     assert_eq(vim.fn.maparg('gy', 'n', false, true).desc, 'Yank path')
     assert_eq(vim.fn.maparg('gY', 'n', false, true).desc, 'Yank path to clipboard')
     assert_eq(vim.fn.maparg('cc', 'n', false, true).desc, 'Copy file path')
@@ -1441,6 +1462,83 @@ do
     config.keymaps = old_keymaps
     config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir10', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir2', tonumber('755', 8)))
+    write_file(tmp .. '/file10.txt', 'xxxxxxxxxx')
+    write_file(tmp .. '/file2.txt', 'xxxxx')
+    write_file(tmp .. '/alpha.md', 'xxx')
+    write_file(tmp .. '/tiny.bin', 'x')
+    write_file(tmp .. '/big.log', 'xxxxxxxxxxxxxxxxxxxx')
+    assert(vim.loop.fs_utime(tmp .. '/tiny.bin', 50, 50))
+    assert(vim.loop.fs_utime(tmp .. '/file10.txt', 100, 100))
+    assert(vim.loop.fs_utime(tmp .. '/alpha.md', 150, 150))
+    assert(vim.loop.fs_utime(tmp .. '/file2.txt', 200, 200))
+    assert(vim.loop.fs_utime(tmp .. '/big.log', 250, 250))
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    assert_eq(state.sort_order, 'name')
+    assert_line_before('^dir2/$', '^dir10/$', 'natural sort should order directory names naturally')
+    assert_line_before('^dir10/$', '^alpha%.md$', 'directories should stay grouped before files')
+    assert_line_before('^file2%.txt$', '^file10%.txt$', 'natural sort should order file names naturally')
+
+    core.sort_by('name_reverse')
+    assert_eq(state.sort_order, 'name_reverse')
+    assert_line_before('^dir10/$', '^dir2/$', 'reversed natural sort should reverse directory names')
+    assert_line_before('^dir2/$', '^tiny%.bin$', 'reversed natural sort should keep directories before files')
+    assert_line_before('^file10%.txt$', '^file2%.txt$', 'reversed natural sort should reverse file names')
+
+    core.sort_by('size')
+    assert_eq(state.sort_order, 'size')
+    assert_line_before('^dir10/$', '^tiny%.bin$', 'size sort should keep directories before files')
+    assert_line_before('^tiny%.bin$', '^alpha%.md$', 'size sort should order files by size')
+    assert_line_before('^file2%.txt$', '^file10%.txt$', 'size sort should order larger files later')
+
+    core.sort_by('size_reverse')
+    assert_eq(state.sort_order, 'size_reverse')
+    assert_line_before('^dir10/$', '^big%.log$', 'reversed size sort should keep directories before files')
+    assert_line_before('^big%.log$', '^file10%.txt$', 'reversed size sort should order larger files first')
+    assert_line_before('^file10%.txt$', '^file2%.txt$', 'reversed size sort should order smaller files later')
+
+    core.sort_by('extension')
+    assert_eq(state.sort_order, 'extension')
+    assert_line_before('^tiny%.bin$', '^big%.log$', 'extension sort should order by extension')
+    assert_line_before('^big%.log$', '^alpha%.md$', 'extension sort should order by extension')
+    assert_line_before('^alpha%.md$', '^file2%.txt$', 'extension sort should order by extension')
+
+    core.sort_by('extension_reverse')
+    assert_eq(state.sort_order, 'extension_reverse')
+    assert_line_before('^file2%.txt$', '^alpha%.md$', 'reversed extension sort should order by extension descending')
+    assert_line_before('^alpha%.md$', '^big%.log$', 'reversed extension sort should order by extension descending')
+    assert_line_before('^big%.log$', '^tiny%.bin$', 'reversed extension sort should order by extension descending')
+
+    core.sort_by('modified')
+    assert_eq(state.sort_order, 'modified')
+    assert_line_before('^tiny%.bin$', '^file10%.txt$', 'modified sort should order older files first')
+    assert_line_before('^file2%.txt$', '^big%.log$', 'modified sort should order newer files later')
+
+    core.sort_by('modified_reverse')
+    assert_eq(state.sort_order, 'modified_reverse')
+    assert_line_before('^big%.log$', '^file2%.txt$', 'reversed modified sort should order newer files first')
+    assert_line_before('^file10%.txt$', '^tiny%.bin$', 'reversed modified sort should order older files later')
+
+    core.sort_by('created')
+    assert_eq(state.sort_order, 'created')
+    core.sort_by('created_reverse')
+    assert_eq(state.sort_order, 'created_reverse')
+
+    local prefix_map = vim.fn.maparg(',', 'n', false, true)
+    api.nvim_feedkeys('s', 't', false)
+    prefix_map.callback()
+    assert_eq(state.sort_order, 'size', 'sort keymaps should work behind the comma prefix mapping')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
 do
@@ -1689,6 +1787,16 @@ do
     assert(table.concat(help_lines, '\n'):match('i%s+Show info'), 'help should include the info mapping')
     assert(table.concat(help_lines, '\n'):match('gy%s+Yank path'), 'help should include the yank path mapping')
     assert(table.concat(help_lines, '\n'):match('gY%s+Yank path to clipboard'), 'help should include the clipboard yank mapping')
+    assert(table.concat(help_lines, '\n'):match(',n%s+Sort naturally by name'), 'help should include natural sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',N%s+Sort naturally by name reversed'), 'help should include reversed natural sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',m%s+Sort by modified time'), 'help should include modified sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',M%s+Sort by modified time reversed'), 'help should include reversed modified sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',c%s+Sort by creation time'), 'help should include created sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',C%s+Sort by creation time reversed'), 'help should include reversed created sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',s%s+Sort by file size'), 'help should include size sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',S%s+Sort by file size reversed'), 'help should include reversed size sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',e%s+Sort by extension'), 'help should include extension sort mapping')
+    assert(table.concat(help_lines, '\n'):match(',E%s+Sort by extension reversed'), 'help should include reversed extension sort mapping')
     assert(table.concat(help_lines, '\n'):match('cc%s+Copy file path'), 'help should include the file path copy mapping')
     assert(table.concat(help_lines, '\n'):match('cd%s+Copy directory path'), 'help should include the directory path copy mapping')
     assert(table.concat(help_lines, '\n'):match('cf%s+Copy filename'), 'help should include the filename copy mapping')

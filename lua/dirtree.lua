@@ -1,21 +1,17 @@
 local M = {}
 
-local function sort_by_name(a, b)
-    if (a.type == 'directory') == (b.type == 'directory') then
-        return a.name < b.name
-    else
-        return a.type == 'directory'
-    end
-end
-
 ---@alias DirtreeFileType 'file'|'directory'|'link'
 ---@alias DirtreeOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
 ---@alias DirtreeKeymapAction string|function
 ---@alias DirtreeKeymapSpec DirtreeKeymapAction|{[1]: DirtreeKeymapAction, desc?: string}
+---@alias DirtreeSortOrder 'name'|'name_reverse'|'modified'|'modified_reverse'|'created'|'created_reverse'|'size'|'size_reverse'|'extension'|'extension_reverse'
 
 ---@class DirtreeFile
 ---@field name string
 ---@field type DirtreeFileType
+---@field size? integer
+---@field mtime? table
+---@field birthtime? table
 
 ---@class DirtreeConfig
 ---@field keymaps table<string, DirtreeKeymapSpec>
@@ -23,7 +19,7 @@ end
 ---@field keymap_hints boolean
 ---@field show_hidden boolean
 ---@field hidden_filter fun(file: DirtreeFile, files: DirtreeFile[], dir: string): boolean
----@field sort? fun(files: DirtreeFile[])
+---@field sort_order DirtreeSortOrder
 ---@field sync_local_cwd boolean
 
 ---@type DirtreeConfig
@@ -67,6 +63,16 @@ M.config = {
         ['<C-r>'] = {"<Cmd>lua require'dirtree.core'.invert_selection()<CR>", desc="Invert selection"},
         gh = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>",   desc="Toggle hidden files"},
         ['g?'] = {"<Cmd>lua require'dirtree.core'.help()<CR>",              desc="Show help"},
+        [',n'] = {"<Cmd>lua require'dirtree.core'.sort_by('name')<CR>",      desc="Sort naturally by name"},
+        [',N'] = {"<Cmd>lua require'dirtree.core'.sort_by('name_reverse')<CR>", desc="Sort naturally by name reversed"},
+        [',m'] = {"<Cmd>lua require'dirtree.core'.sort_by('modified')<CR>",  desc="Sort by modified time"},
+        [',M'] = {"<Cmd>lua require'dirtree.core'.sort_by('modified_reverse')<CR>", desc="Sort by modified time reversed"},
+        [',c'] = {"<Cmd>lua require'dirtree.core'.sort_by('created')<CR>",   desc="Sort by creation time"},
+        [',C'] = {"<Cmd>lua require'dirtree.core'.sort_by('created_reverse')<CR>", desc="Sort by creation time reversed"},
+        [',s'] = {"<Cmd>lua require'dirtree.core'.sort_by('size')<CR>",      desc="Sort by file size"},
+        [',S'] = {"<Cmd>lua require'dirtree.core'.sort_by('size_reverse')<CR>", desc="Sort by file size reversed"},
+        [',e'] = {"<Cmd>lua require'dirtree.core'.sort_by('extension')<CR>", desc="Sort by extension"},
+        [',E'] = {"<Cmd>lua require'dirtree.core'.sort_by('extension_reverse')<CR>", desc="Sort by extension reversed"},
     },
     visual_keymaps = {
         J = {"<Cmd>lua require'dirtree.core'.next_sibling()<CR>", desc="Next sibling"},
@@ -79,8 +85,8 @@ M.config = {
     show_hidden = true,
     -- Function used to determine what files should be hidden behind `gh`
     hidden_filter = function(file) return vim.startswith(file.name, '.') end,
-    -- Function used to sort files
-    sort = function(files) table.sort(files, sort_by_name) end,
+    -- Default file sorting order
+    sort_order = 'name',
     -- Whether to sync the window's current directory with dirtree's current path
     sync_local_cwd = true,
 }

@@ -88,6 +88,16 @@ config = {
         ['<C-r>'] = {"<Cmd>lua require'dirtree.core'.invert_selection()<CR>", desc="Invert selection"},
         gh = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>",   desc="Toggle hidden files"},
         ['g?'] = {"<Cmd>lua require'dirtree.core'.help()<CR>",              desc="Show help"},
+        [',n'] = {"<Cmd>lua require'dirtree.core'.sort_by('name')<CR>",      desc="Sort naturally by name"},
+        [',N'] = {"<Cmd>lua require'dirtree.core'.sort_by('name_reverse')<CR>", desc="Sort naturally by name reversed"},
+        [',m'] = {"<Cmd>lua require'dirtree.core'.sort_by('modified')<CR>",  desc="Sort by modified time"},
+        [',M'] = {"<Cmd>lua require'dirtree.core'.sort_by('modified_reverse')<CR>", desc="Sort by modified time reversed"},
+        [',c'] = {"<Cmd>lua require'dirtree.core'.sort_by('created')<CR>",   desc="Sort by creation time"},
+        [',C'] = {"<Cmd>lua require'dirtree.core'.sort_by('created_reverse')<CR>", desc="Sort by creation time reversed"},
+        [',s'] = {"<Cmd>lua require'dirtree.core'.sort_by('size')<CR>",      desc="Sort by file size"},
+        [',S'] = {"<Cmd>lua require'dirtree.core'.sort_by('size_reverse')<CR>", desc="Sort by file size reversed"},
+        [',e'] = {"<Cmd>lua require'dirtree.core'.sort_by('extension')<CR>", desc="Sort by extension"},
+        [',E'] = {"<Cmd>lua require'dirtree.core'.sort_by('extension_reverse')<CR>", desc="Sort by extension reversed"},
     },
     visual_keymaps = {
         J = {"<Cmd>lua require'dirtree.core'.next_sibling()<CR>", desc="Next sibling"},
@@ -100,8 +110,8 @@ config = {
     show_hidden = true,
     -- Function used to determine what files should be hidden behind `gh`
     hidden_filter = function(file) return vim.startswith(file.name, '.') end,
-    -- Function used to sort files
-    sort = function(files) table.sort(files, sort_by_name) end,
+    -- Default file sorting order
+    sort_order = 'name',
     -- Whether to sync the window's current directory with dirtree's current path
     sync_local_cwd = true,
 }
@@ -135,6 +145,12 @@ dirtree.config.keymaps.q = {"<Cmd>lua require'dirtree.core'.quit()<CR>", desc="Q
 Dirtree also shows a small hint window for two-character normal mode mappings.
 For example, pressing `c` shows configured mappings like `cc`, `cd`, and `cf`.
 Set `dirtree.config.keymap_hints = false` to disable these prefix hints.
+
+Files are sorted naturally by name by default, with directories always grouped
+before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
+time, creation time, size, or extension. Use uppercase variants such as `,N`,
+`,M`, `,C`, `,S`, and `,E` for the reversed order. Set
+`dirtree.config.sort_order` to choose the initial order.
 
 ## Highlights
 
