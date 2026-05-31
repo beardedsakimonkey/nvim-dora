@@ -86,7 +86,8 @@ config = {
         ['<Esc>'] = {"<Cmd>lua require'dirtree.core'.clear_marks()<CR>",    desc="Clear marks"},
         ['<C-a>'] = {"<Cmd>lua require'dirtree.core'.select_all()<CR>",      desc="Select all"},
         ['<C-r>'] = {"<Cmd>lua require'dirtree.core'.invert_selection()<CR>", desc="Invert selection"},
-        gh = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>",   desc="Toggle hidden files"},
+        ['.'] = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>", desc="Toggle hidden files"},
+        gh = {"<Cmd>lua require'dirtree.core'.home_dir()<CR>",              desc="Home directory"},
         ['g?'] = {"<Cmd>lua require'dirtree.core'.help()<CR>",              desc="Show help"},
         [',n'] = {"<Cmd>lua require'dirtree.core'.sort_by('name')<CR>",      desc="Sort naturally by name"},
         [',N'] = {"<Cmd>lua require'dirtree.core'.sort_by('name_reverse')<CR>", desc="Sort naturally by name reversed"},
@@ -108,7 +109,7 @@ config = {
     keymap_hints = true,
     -- Whether hidden files should be shown when dirtree opens
     show_hidden = true,
-    -- Function used to determine what files should be hidden behind `gh`
+    -- Function used to determine what files should be hidden
     hidden_filter = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order
     sort_order = 'name',

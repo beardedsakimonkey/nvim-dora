@@ -795,6 +795,33 @@ function M.up_dir()
     set_cursor_pos(state, fs.basename(cwd), --[[or_top]]true)
 end
 
+function M.home_dir()
+    local home = os.getenv'HOME'
+    if not home or home == '' then
+        util.err('$HOME is not set')
+        return
+    end
+    local path, msg = uv.fs_realpath(home)
+    if not path then
+        util.err(msg)
+        return
+    end
+    if not fs.is_dir(path) then
+        util.err(('%q is not a directory'):format(home))
+        return
+    end
+    local state = store.get()
+    local row = current_row(state)
+    if row then
+        state.hovered_files[state.cwd] = row.name
+    end
+    state.cwd = path
+    render(state)
+    util.update_buf_name(state.cwd)
+    sync_local_cwd(state)
+    set_cursor_pos(state, state.hovered_files[path], --[[or_top]]true)
+end
+
 function M.next_sibling()
     move_to_next_sibling(store.get())
 end
@@ -1276,7 +1303,7 @@ function M.create()
     local state = store.get()
     local row = current_row(state)
     prompt.input({
-        prompt = 'New file or folder',
+        prompt = 'Add file or folder',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         default = create_parent_default(state, row),
