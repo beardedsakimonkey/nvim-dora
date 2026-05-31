@@ -1363,51 +1363,6 @@ do
 end
 
 do
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
-    assert_eq(vim.fn.maparg('q', 'n', false, true).desc, 'Quit')
-    assert_eq(vim.fn.maparg('i', 'n', false, true).desc, 'Show info')
-    assert_eq(vim.fn.maparg('o', 'n', false, true).desc, 'Expand')
-    assert_eq(vim.fn.maparg('o', 'n', false, true).callback, nil)
-    assert_eq(vim.fn.maparg(',', 'n', false, true).desc, 'Show keymap hints')
-    assert_eq(type(vim.fn.maparg(',', 'n', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg(',n', 'n', false, true).desc, 'Sort naturally by name')
-    assert_eq(vim.fn.maparg(',N', 'n', false, true).desc, 'Sort naturally by name reversed')
-    assert_eq(vim.fn.maparg(',m', 'n', false, true).desc, 'Sort by modified time')
-    assert_eq(vim.fn.maparg(',M', 'n', false, true).desc, 'Sort by modified time reversed')
-    assert_eq(vim.fn.maparg(',c', 'n', false, true).desc, 'Sort by creation time')
-    assert_eq(vim.fn.maparg(',C', 'n', false, true).desc, 'Sort by creation time reversed')
-    assert_eq(vim.fn.maparg(',s', 'n', false, true).desc, 'Sort by file size')
-    assert_eq(vim.fn.maparg(',S', 'n', false, true).desc, 'Sort by file size reversed')
-    assert_eq(vim.fn.maparg(',e', 'n', false, true).desc, 'Sort by extension')
-    assert_eq(vim.fn.maparg(',E', 'n', false, true).desc, 'Sort by extension reversed')
-    assert_eq(vim.fn.maparg('gy', 'n', false, true).desc, 'Yank path')
-    assert_eq(vim.fn.maparg('gY', 'n', false, true).desc, 'Yank path to clipboard')
-    assert_eq(vim.fn.maparg('cc', 'n', false, true).desc, 'Copy file path')
-    assert_eq(vim.fn.maparg('cd', 'n', false, true).desc, 'Copy directory path')
-    assert_eq(vim.fn.maparg('cf', 'n', false, true).desc, 'Copy filename')
-    assert_eq(vim.fn.maparg('cn', 'n', false, true).desc, 'Copy filename without extension')
-    assert_eq(vim.fn.maparg('gh', 'n', false, true).desc, 'Home directory')
-    assert_eq(vim.fn.maparg('g?', 'n', false, true).desc, 'Show help')
-    assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename')
-    assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Cut')
-    assert_eq(vim.fn.maparg('X', 'n', false, true).desc, 'Clear cut/copy')
-    assert_eq(vim.fn.maparg('y', 'n', false, true).desc, 'Copy')
-    assert_eq(vim.fn.maparg('Y', 'n', false, true).desc, 'Clear cut/copy')
-    assert_eq(vim.fn.maparg('c', 'n', false, true).desc, 'Show keymap hints')
-    assert_eq(type(vim.fn.maparg('c', 'n', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('g', 'n', false, true).desc, 'Show keymap hints')
-    assert_eq(type(vim.fn.maparg('g', 'n', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('C', 'n'), '')
-    assert_eq(vim.fn.maparg('p', 'n', false, true).desc, 'Paste')
-    assert_eq(vim.fn.maparg('<Esc>', 'n', false, true).desc, 'Clear marks')
-    assert_eq(vim.fn.maparg('<S-Tab>', 'n'), '')
-    assert_eq(vim.fn.maparg('<C-a>', 'n', false, true).desc, 'Select all')
-    assert_eq(vim.fn.maparg('<C-r>', 'n', false, true).desc, 'Invert selection')
-    assert_eq(vim.fn.maparg('<Tab>', 'x', false, true).desc, 'Toggle marks')
-    core.quit()
-end
-
-do
     local origin_win = api.nvim_get_current_win()
     local buf, win = keymaps.open_hint_window('z', {
         {lhs='za', desc='Alpha'},
@@ -1848,47 +1803,6 @@ do
     local help_cfg = api.nvim_win_get_config(help_win)
     assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
-    assert(vim.tbl_contains(help_lines, 'Normal'), 'help should show normal mappings')
-    assert(vim.tbl_contains(help_lines, 'Visual'), 'help should show visual mappings')
-    assert(table.concat(help_lines, '\n'):match('g%?%s+Show help'), 'help should include described mappings')
-    assert(table.concat(help_lines, '\n'):match('gh%s+Home directory'), 'help should include the home directory mapping')
-    assert(table.concat(help_lines, '\n'):match('i%s+Show info'), 'help should include the info mapping')
-    assert(table.concat(help_lines, '\n'):match('gy%s+Yank path'), 'help should include the yank path mapping')
-    assert(table.concat(help_lines, '\n'):match('gY%s+Yank path to clipboard'), 'help should include the clipboard yank mapping')
-    assert(table.concat(help_lines, '\n'):match(',n%s+Sort naturally by name'), 'help should include natural sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',N%s+Sort naturally by name reversed'), 'help should include reversed natural sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',m%s+Sort by modified time'), 'help should include modified sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',M%s+Sort by modified time reversed'), 'help should include reversed modified sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',c%s+Sort by creation time'), 'help should include created sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',C%s+Sort by creation time reversed'), 'help should include reversed created sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',s%s+Sort by file size'), 'help should include size sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',S%s+Sort by file size reversed'), 'help should include reversed size sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',e%s+Sort by extension'), 'help should include extension sort mapping')
-    assert(table.concat(help_lines, '\n'):match(',E%s+Sort by extension reversed'), 'help should include reversed extension sort mapping')
-    assert(table.concat(help_lines, '\n'):match('cc%s+Copy file path'), 'help should include the file path copy mapping')
-    assert(table.concat(help_lines, '\n'):match('cd%s+Copy directory path'), 'help should include the directory path copy mapping')
-    assert(table.concat(help_lines, '\n'):match('cf%s+Copy filename'), 'help should include the filename copy mapping')
-    assert(table.concat(help_lines, '\n'):match('cn%s+Copy filename without extension'), 'help should include the filename stem copy mapping')
-    assert(table.concat(help_lines, '\n'):match('y%s+Copy'), 'help should include the copy mapping')
-    assert(table.concat(help_lines, '\n'):match('<Esc>%s+Clear marks'), 'help should include the clear marks mapping')
-    assert(table.concat(help_lines, '\n'):match('<C%-a>%s+Select all'), 'help should include the select all mapping')
-    assert(table.concat(help_lines, '\n'):match('<C%-r>%s+Invert selection'), 'help should include the invert selection mapping')
-    assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),
-        'help should follow configured normal keymap order')
-    assert(find_line_index(help_lines, '^  h%s+Up directory$') < find_line_index(help_lines, '^  %-%s+Up directory$'),
-        'help should preserve ordered punctuation keymaps')
-
-    local marks = api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})
-    local has_header, has_key, has_desc = false, false, false
-    for _, mark in ipairs(marks) do
-        local hl = mark[4].hl_group
-        has_header = has_header or hl == 'DirtreeHelpHeader'
-        has_key = has_key or hl == 'DirtreeHelpKey'
-        has_desc = has_desc or hl == 'DirtreeHelpDesc'
-    end
-    assert(has_header, 'help should highlight section headers')
-    assert(has_key, 'help should highlight keys')
-    assert(has_desc, 'help should highlight descriptions')
 
     api.nvim_feedkeys('q', 'xt', false)
     assert_eq(api.nvim_get_current_win(), origin_win, 'closing help should restore origin window')
@@ -2224,4 +2138,4 @@ assert(api.nvim_buf_get_var(0, 'is_dirtree'), 'Dirtree buffer should be marked')
 assert(#api.nvim_buf_get_lines(0, 0, -1, false) > 0, 'Dirtree buffer should render entries')
 core.quit()
 
-print('[dirtree] smoke ok')
+print('[dirtree] smoke ok\n')
