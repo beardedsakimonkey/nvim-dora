@@ -79,7 +79,15 @@ end
 function M.list(path)
     local ret = {}
     for basename, type in vim.fs.dir(path) do
-        table.insert(ret, {name=basename, type=type})
+        local full_path = util.join_path(path, basename)
+        local stat = uv.fs_lstat(full_path) or {}
+        table.insert(ret, {
+            name = basename,
+            type = type,
+            size = stat.size or 0,
+            mtime = stat.mtime,
+            birthtime = stat.birthtime,
+        })
     end
     return ret
 end

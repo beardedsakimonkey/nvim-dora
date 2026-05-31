@@ -7,7 +7,7 @@ local M = {}
 
 local KEYMAP_ORDER = {
     'q', 'h', '-', 'J', 'K',
-    'o', 'O', 'u', 'U',
+    'o', 'O', ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E', 'u', 'U',
     'l', '<CR>', 's', 'v', 't', 'gx',
     'R', 'i', 'gy', 'gY', 'cc', 'cd', 'cf', 'cn',
     'd', 'a', 'r', 'm', 'x', 'X', 'y', 'Y', 'p',
