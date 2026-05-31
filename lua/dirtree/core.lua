@@ -3,9 +3,11 @@ local bulk_rename_win = require'dirtree.bulk_rename_win'
 local help_win = require'dirtree.help_win'
 local delete_win = require'dirtree.delete_win'
 local info_win = require'dirtree.info_win'
+local keymap_hint_win = require'dirtree.keymap_hint_win'
 local prompt = require'dirtree.prompt'
 local store = require'dirtree.store'
 local util = require'dirtree.util'
+local window = require'dirtree.window'
 local config = require'dirtree'.config
 
 local api = vim.api
@@ -702,11 +704,68 @@ local function normalize_keymap(rhs)
     return rhs, nil
 end
 
+---@param action DirtreeKeymapAction
+local function dispatch_keymap_action(action)
+    if type(action) == 'function' then
+        action()
+        return
+    end
+    api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), 'nx', false)
+end
+
+---@param keymaps table<string, DirtreeKeymapSpec>
+---@return table<string, {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]>
+local function keymap_hint_groups(keymaps)
+    local groups = {}
+    for lhs, rhs in pairs(keymaps) do
+        if #lhs == 2 and not keymaps[lhs:sub(1, 1)] then
+            local action, desc = normalize_keymap(rhs)
+            local prefix = lhs:sub(1, 1)
+            groups[prefix] = groups[prefix] or {}
+            groups[prefix][#groups[prefix]+1] = {
+                lhs = lhs,
+                key = lhs:sub(2, 2),
+                action = action,
+                desc = desc or tostring(action),
+            }
+        end
+    end
+    for _, group in pairs(groups) do
+        table.sort(group, function(a, b) return a.lhs < b.lhs end)
+    end
+    return groups
+end
+
+---@param prefix string
+---@param group {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]
+local function show_keymap_hints(prefix, group)
+    local buf, win = keymap_hint_win.open(prefix, vim.tbl_map(function(entry)
+        return {lhs=entry.lhs, desc=entry.desc}
+    end, group))
+    vim.cmd.redraw()
+    local key = vim.fn.getcharstr()
+    window.close(buf, win)
+    for _, entry in ipairs(group) do
+        if key == entry.key then
+            dispatch_keymap_action(entry.action)
+            return
+        end
+    end
+    api.nvim_feedkeys(prefix .. key, 'n', false)
+end
+
 ---@param buf integer
 local function setup_keymaps(buf)
     for lhs, rhs in pairs(config.keymaps) do
         local action, desc = normalize_keymap(rhs)
         vim.keymap.set('n', lhs, action, {nowait=true, silent=true, buffer=buf, desc=desc})
+    end
+    if config.keymap_hints then
+        for prefix, group in pairs(keymap_hint_groups(config.keymaps)) do
+            vim.keymap.set('n', prefix, function()
+                show_keymap_hints(prefix, group)
+            end, {nowait=true, silent=true, buffer=buf, desc='Show keymap hints'})
+        end
     end
     for lhs, rhs in pairs(config.visual_keymaps or {}) do
         local action, desc = normalize_keymap(rhs)

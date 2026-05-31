@@ -11,7 +11,7 @@ local KEYMAP_ORDER = {
     'l', '<CR>', 's', 'v', 't', 'gx',
     'R', 'i', 'gy', 'gY', 'cc', 'cd', 'cf', 'cn',
     'd', 'a', 'r', 'm', 'x', 'X', 'y', 'Y', 'p',
-    '<Tab>', '<S-Tab>', '<C-a>', '<C-r>', 'gh', 'g?',
+    '<Tab>', '<Esc>', '<C-a>', '<C-r>', 'gh', 'g?',
 }
 
 local VISUAL_KEYMAP_ORDER = {

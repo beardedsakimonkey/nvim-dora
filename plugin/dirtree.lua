@@ -22,10 +22,11 @@ vim.cmd 'hi default link DirtreeCutSign             DiagnosticError'
 vim.cmd 'hi default link DirtreeCopySign            DiagnosticOk'
 vim.cmd 'hi default link DirtreeMarkedFile          Special'
 vim.cmd 'hi default link DirtreeHelpHeader          Title'
-vim.cmd 'hi default link DirtreeHelpKey             Special'
-vim.cmd 'hi default link DirtreeHelpDesc            Normal'
-vim.cmd 'hi default link DirtreeInfoLabel           Special'
-vim.cmd 'hi default link DirtreeInfoValue           Normal'
+vim.cmd 'hi default link DirtreeHelpKey             Label'
+vim.cmd 'hi default link DirtreeHelpDesc            Special'
+vim.cmd 'hi default link DirtreeKeymapHintArrow     NonText'
+vim.cmd 'hi default link DirtreeInfoLabel           Label'
+vim.cmd 'hi default link DirtreeInfoValue           Special'
 
 vim.api.nvim_create_user_command('Dirtree', function(o)
     require'dirtree'.dirtree(o.args)

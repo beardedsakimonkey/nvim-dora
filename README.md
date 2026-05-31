@@ -83,7 +83,7 @@ config = {
         Y = {"<Cmd>lua require'dirtree.core'.clear_paste_operation()<CR>",  desc="Clear cut/copy"},
         p = {"<Cmd>lua require'dirtree.core'.paste()<CR>",                  desc="Paste"},
         ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark()<CR>",    desc="Toggle mark"},
-        ['<S-Tab>'] = {"<Cmd>lua require'dirtree.core'.clear_marks()<CR>",  desc="Clear marks"},
+        ['<Esc>'] = {"<Cmd>lua require'dirtree.core'.clear_marks()<CR>",    desc="Clear marks"},
         ['<C-a>'] = {"<Cmd>lua require'dirtree.core'.select_all()<CR>",      desc="Select all"},
         ['<C-r>'] = {"<Cmd>lua require'dirtree.core'.invert_selection()<CR>", desc="Invert selection"},
         gh = {"<Cmd>lua require'dirtree.core'.toggle_hidden_files()<CR>",   desc="Toggle hidden files"},
@@ -94,6 +94,8 @@ config = {
         K = {"<Cmd>lua require'dirtree.core'.prev_sibling()<CR>", desc="Previous sibling"},
         ['<Tab>'] = {"<Cmd>lua require'dirtree.core'.toggle_mark_visual()<CR><Esc>", desc="Toggle marks"},
     },
+    -- Whether to show keymap hints for two-key normal mode mappings
+    keymap_hints = true,
     -- Whether hidden files should be shown when dirtree opens
     show_hidden = true,
     -- Function used to determine what files should be hidden behind `gh`
@@ -130,6 +132,10 @@ form when you want the mapping to appear nicely in `g?` help:
 dirtree.config.keymaps.q = {"<Cmd>lua require'dirtree.core'.quit()<CR>", desc="Quit"}
 ```
 
+Dirtree also shows a small hint window for two-character normal mode mappings.
+For example, pressing `c` shows configured mappings like `cc`, `cd`, and `cf`.
+Set `dirtree.config.keymap_hints = false` to disable these prefix hints.
+
 ## Highlights
 
 Customize Dirtree with these highlight groups:
@@ -154,6 +160,7 @@ DirtreeMarkedFile
 DirtreeHelpHeader
 DirtreeHelpKey
 DirtreeHelpDesc
+DirtreeKeymapHintArrow
 DirtreeInfoLabel
 DirtreeInfoValue
 ```
