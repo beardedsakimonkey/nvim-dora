@@ -11,7 +11,7 @@ end
 local fs = require'dirtree.fs'
 local config = require'dirtree'.config
 local delete_win = require'dirtree.delete_win'
-local keymap_hint_win = require'dirtree.keymap_hint_win'
+local keymaps = require'dirtree.keymaps'
 local prompt = require'dirtree.prompt'
 local core = require'dirtree.core'
 local store = require'dirtree.store'
@@ -1342,7 +1342,7 @@ end
 
 do
     local origin_win = api.nvim_get_current_win()
-    local buf, win = keymap_hint_win.open('z', {
+    local buf, win = keymaps.open_hint_window('z', {
         {lhs='za', desc='Alpha'},
         {lhs='zx', desc='Xray'},
     })
@@ -1379,7 +1379,7 @@ do
     local old_keymaps = config.keymaps
     local old_visual_keymaps = config.visual_keymaps
     local old_keymap_hints = config.keymap_hints
-    local old_open = keymap_hint_win.open
+    local old_open = keymaps.open_hint_window
     local captured_prefix
     local captured_rows
 
@@ -1389,7 +1389,7 @@ do
     }
     config.visual_keymaps = {}
     config.keymap_hints = true
-    keymap_hint_win.open = function(prefix, rows)
+    keymaps.open_hint_window = function(prefix, rows)
         captured_prefix = prefix
         captured_rows = rows
         return old_open(prefix, rows)
@@ -1413,7 +1413,7 @@ do
     assert_eq(captured_rows[2].desc, 'Xray')
     core.quit()
 
-    keymap_hint_win.open = old_open
+    keymaps.open_hint_window = old_open
     config.keymaps = old_keymaps
     config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
