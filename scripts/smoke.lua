@@ -688,7 +688,7 @@ do
     touch(tmp .. '/alpha/one/file.txt')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Jump to parent directory')
+    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
     util.set_cursor_pos('one')

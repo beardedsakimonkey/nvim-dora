@@ -5,13 +5,14 @@ local api = vim.api
 
 local M = {}
 
+-- Needed because Lua tables don't preserve order.
 local KEYMAP_ORDER = {
-    'q', 'h', '-', 'J', 'K', 'P',
-    'o', 'O', ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E', 'u', 'U',
-    'l', '<CR>', 's', 'v', 't', 'gx',
-    'R', 'i', 'cc', 'cC', 'cd', 'cD', 'cf', 'cF', 'cn', 'cN',
-    'd', 'a', 'r', 'm', 'x', 'X', 'y', 'Y', 'p',
-    '<Tab>', '<Esc>', '<C-a>', '<C-r>', 'gh', 'g?',
+    'q', '-', 'h', 'l', '<CR>', 's', 'v', 't', 'gx', 'J', 'K', 'P',
+    'o', 'O', 'u', 'U', 'R',
+    '<Tab>', '<Esc>', '<C-a>', '<C-r>', 'gh', 'g?', '.', 'i',
+    'd', 'a', 'r', 'm', 'x', 'X', 'c', 'C', 'p',
+    'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
+    ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
 }
 
 ---@class DirtreeHelpRow
