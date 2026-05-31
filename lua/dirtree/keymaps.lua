@@ -122,6 +122,7 @@ function M.open_hint_window(prefix, rows)
         col = api.nvim_win_get_width(origin_win) - 2,
         width = width,
         height = height,
+        border = window.border('DirtreePromptBorder'),
         style = 'minimal',
         noautocmd = true,
         focusable = false,
