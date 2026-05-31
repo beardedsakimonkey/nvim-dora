@@ -11,10 +11,12 @@ end
 local fs = require'dirtree.fs'
 local config = require'dirtree'.config
 local delete_win = require'dirtree.delete_win'
+local keymap_hint_win = require'dirtree.keymap_hint_win'
 local prompt = require'dirtree.prompt'
 local core = require'dirtree.core'
 local store = require'dirtree.store'
 local util = require'dirtree.util'
+local window = require'dirtree.window'
 
 local cwd = assert(vim.loop.cwd())
 
@@ -1303,14 +1305,142 @@ do
     assert_eq(vim.fn.maparg('X', 'n', false, true).desc, 'Clear cut/copy')
     assert_eq(vim.fn.maparg('y', 'n', false, true).desc, 'Copy')
     assert_eq(vim.fn.maparg('Y', 'n', false, true).desc, 'Clear cut/copy')
-    assert_eq(vim.fn.maparg('c', 'n'), '')
+    assert_eq(vim.fn.maparg('c', 'n', false, true).desc, 'Show keymap hints')
+    assert_eq(type(vim.fn.maparg('c', 'n', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('g', 'n', false, true).desc, 'Show keymap hints')
+    assert_eq(type(vim.fn.maparg('g', 'n', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('C', 'n'), '')
     assert_eq(vim.fn.maparg('p', 'n', false, true).desc, 'Paste')
-    assert_eq(vim.fn.maparg('<S-Tab>', 'n', false, true).desc, 'Clear marks')
+    assert_eq(vim.fn.maparg('<Esc>', 'n', false, true).desc, 'Clear marks')
+    assert_eq(vim.fn.maparg('<S-Tab>', 'n'), '')
     assert_eq(vim.fn.maparg('<C-a>', 'n', false, true).desc, 'Select all')
     assert_eq(vim.fn.maparg('<C-r>', 'n', false, true).desc, 'Invert selection')
     assert_eq(vim.fn.maparg('<Tab>', 'x', false, true).desc, 'Toggle marks')
     core.quit()
+end
+
+do
+    local origin_win = api.nvim_get_current_win()
+    local buf, win = keymap_hint_win.open('z', {
+        {lhs='za', desc='Alpha'},
+        {lhs='zx', desc='Xray'},
+    })
+    assert_eq(api.nvim_get_current_win(), origin_win, 'keymap hints should not take focus')
+    local cfg = api.nvim_win_get_config(win)
+    assert_eq(cfg.focusable, false, 'keymap hints should be non-focusable')
+    assert_eq(cfg.relative, 'win', 'keymap hints should be relative to the current window')
+    assert_eq(cfg.win, origin_win, 'keymap hints should anchor to the current window')
+    assert_eq(cfg.anchor, 'SE', 'keymap hints should anchor to the bottom right')
+    assert_eq(cfg.row, api.nvim_win_get_height(origin_win) - 1, 'keymap hints should sit near the bottom')
+    assert_eq(cfg.col, api.nvim_win_get_width(origin_win) - 2, 'keymap hints should sit near the right edge')
+    assert_eq(cfg.border, 'none', 'keymap hints should not have a border')
+    assert_eq(cfg.title, nil, 'keymap hints should not have a title')
+    local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+    local hint_text = table.concat(hint_lines, '\n')
+    assert(hint_text:match('za%s+→%s+Alpha'), 'keymap hints should include the first custom mapping')
+    assert(hint_text:match('zx%s+→%s+Xray'), 'keymap hints should include the second custom mapping')
+
+    local marks = api.nvim_buf_get_extmarks(buf, -1, 0, -1, {details=true})
+    local has_key, has_arrow, has_desc = false, false, false
+    for _, mark in ipairs(marks) do
+        local hl = mark[4].hl_group
+        has_key = has_key or hl == 'DirtreeHelpKey'
+        has_arrow = has_arrow or hl == 'DirtreeKeymapHintArrow'
+        has_desc = has_desc or hl == 'DirtreeHelpDesc'
+    end
+    assert(has_key, 'keymap hints should highlight keys')
+    assert(has_arrow, 'keymap hints should highlight arrows')
+    assert(has_desc, 'keymap hints should highlight descriptions')
+    window.close(buf, win)
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_visual_keymaps = config.visual_keymaps
+    local old_keymap_hints = config.keymap_hints
+    local old_open = keymap_hint_win.open
+    local captured_prefix
+    local captured_rows
+
+    config.keymaps = {
+        za = {"<Cmd>lua vim.g.dirtree_smoke_hint_keymap = 'za'<CR>", desc='Alpha'},
+        zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
+    }
+    config.visual_keymaps = {}
+    config.keymap_hints = true
+    keymap_hint_win.open = function(prefix, rows)
+        captured_prefix = prefix
+        captured_rows = rows
+        return old_open(prefix, rows)
+    end
+    vim.g.dirtree_smoke_hint_keymap = nil
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    local prefix_map = vim.fn.maparg('z', 'n', false, true)
+    assert_eq(prefix_map.desc, 'Show keymap hints')
+    assert_eq(type(prefix_map.callback), 'function')
+    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Alpha')
+    assert_eq(vim.fn.maparg('zx', 'n', false, true).desc, 'Xray')
+    api.nvim_feedkeys('a', 't', false)
+    prefix_map.callback()
+    assert_eq(vim.g.dirtree_smoke_hint_keymap, 'za', 'keymap hints should dispatch string actions')
+    assert_eq(captured_prefix, 'z')
+    assert_eq(#captured_rows, 2)
+    assert_eq(captured_rows[1].lhs, 'za')
+    assert_eq(captured_rows[1].desc, 'Alpha')
+    assert_eq(captured_rows[2].lhs, 'zx')
+    assert_eq(captured_rows[2].desc, 'Xray')
+    core.quit()
+
+    keymap_hint_win.open = old_open
+    config.keymaps = old_keymaps
+    config.visual_keymaps = old_visual_keymaps
+    config.keymap_hints = old_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_visual_keymaps = config.visual_keymaps
+    local old_keymap_hints = config.keymap_hints
+
+    config.keymaps = {
+        za = {function() vim.g.dirtree_smoke_hint_keymap = 'za' end, desc='Alpha'},
+        zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
+    }
+    config.visual_keymaps = {}
+    config.keymap_hints = false
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    assert_eq(vim.fn.maparg('z', 'n'), '', 'disabled keymap hints should not install prefix mappings')
+    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Alpha')
+    assert_eq(vim.fn.maparg('zx', 'n', false, true).desc, 'Xray')
+    core.quit()
+
+    config.keymaps = old_keymaps
+    config.visual_keymaps = old_visual_keymaps
+    config.keymap_hints = old_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_visual_keymaps = config.visual_keymaps
+    local old_keymap_hints = config.keymap_hints
+
+    config.keymaps = {
+        x = {function() vim.g.dirtree_smoke_hint_keymap = 'x' end, desc='Plain X'},
+        xy = {function() vim.g.dirtree_smoke_hint_keymap = 'xy' end, desc='X Y'},
+    }
+    config.visual_keymaps = {}
+    config.keymap_hints = true
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Plain X')
+    assert_eq(vim.fn.maparg('xy', 'n', false, true).desc, 'X Y')
+    core.quit()
+
+    config.keymaps = old_keymaps
+    config.visual_keymaps = old_visual_keymaps
+    config.keymap_hints = old_keymap_hints
 end
 
 do
@@ -1564,7 +1694,7 @@ do
     assert(table.concat(help_lines, '\n'):match('cf%s+Copy filename'), 'help should include the filename copy mapping')
     assert(table.concat(help_lines, '\n'):match('cn%s+Copy filename without extension'), 'help should include the filename stem copy mapping')
     assert(table.concat(help_lines, '\n'):match('y%s+Copy'), 'help should include the copy mapping')
-    assert(table.concat(help_lines, '\n'):match('<S%-Tab>%s+Clear marks'), 'help should include the clear marks mapping')
+    assert(table.concat(help_lines, '\n'):match('<Esc>%s+Clear marks'), 'help should include the clear marks mapping')
     assert(table.concat(help_lines, '\n'):match('<C%-a>%s+Select all'), 'help should include the select all mapping')
     assert(table.concat(help_lines, '\n'):match('<C%-r>%s+Invert selection'), 'help should include the invert selection mapping')
     assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),
