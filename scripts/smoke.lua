@@ -1426,7 +1426,7 @@ do
     assert_eq(vim.fn.maparg('zx', 'n', false, true).desc, 'Xray')
     api.nvim_feedkeys('a', 't', false)
     prefix_map.callback()
-    assert_eq(vim.g.dirtree_smoke_hint_keymap, 'za', 'keymap hints should dispatch string actions')
+    assert_eq(vim.g.dirtree_smoke_hint_keymap, 'za', 'keymap hints should dispatch legacy string actions')
     assert_eq(captured_prefix, 'z')
     assert_eq(#captured_rows, 2)
     assert_eq(captured_rows[1].lhs, 'za')
@@ -1436,6 +1436,70 @@ do
     core.quit()
 
     keymaps.open_hint_window = old_open
+    config.keymaps = old_keymaps
+    config.visual_keymaps = old_visual_keymaps
+    config.keymap_hints = old_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_visual_keymaps = config.visual_keymaps
+    local old_keymap_hints = config.keymap_hints
+    local old_open = keymaps.open_hint_window
+    local old_reload = core.reload
+
+    config.keymaps = {
+        za = {'reload', desc='Reload'},
+    }
+    config.visual_keymaps = {}
+    config.keymap_hints = true
+    core.reload = function()
+        vim.g.dirtree_smoke_named_keymap = 'reload'
+    end
+    keymaps.open_hint_window = function(prefix, rows)
+        return old_open(prefix, rows)
+    end
+    vim.g.dirtree_smoke_named_keymap = nil
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    local prefix_map = vim.fn.maparg('z', 'n', false, true)
+    api.nvim_feedkeys('a', 't', false)
+    prefix_map.callback()
+    assert_eq(vim.g.dirtree_smoke_named_keymap, 'reload', 'keymap hints should dispatch named core actions')
+    core.quit()
+
+    keymaps.open_hint_window = old_open
+    core.reload = old_reload
+    config.keymaps = old_keymaps
+    config.visual_keymaps = old_visual_keymaps
+    config.keymap_hints = old_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_visual_keymaps = config.visual_keymaps
+    local old_keymap_hints = config.keymap_hints
+    local old_reload = core.reload
+
+    config.keymaps = {
+        x = {'reload', desc='Reload'},
+    }
+    config.visual_keymaps = {}
+    config.keymap_hints = false
+    core.reload = function()
+        vim.g.dirtree_smoke_named_direct_keymap = 'reload'
+    end
+    vim.g.dirtree_smoke_named_direct_keymap = nil
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    local map = vim.fn.maparg('x', 'n', false, true)
+    assert_eq(map.desc, 'Reload')
+    assert_eq(type(map.callback), 'function')
+    map.callback()
+    assert_eq(vim.g.dirtree_smoke_named_direct_keymap, 'reload', 'direct keymaps should dispatch named core actions')
+    core.quit()
+
+    core.reload = old_reload
     config.keymaps = old_keymaps
     config.visual_keymaps = old_visual_keymaps
     config.keymap_hints = old_keymap_hints
@@ -1842,8 +1906,10 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('J', 'x', false, true).rhs, "<Cmd>lua require'dirtree.core'.next_sibling()<CR>")
-    assert_eq(vim.fn.maparg('K', 'x', false, true).rhs, "<Cmd>lua require'dirtree.core'.prev_sibling()<CR>")
+    assert_eq(vim.fn.maparg('J', 'x', false, true).desc, 'Next sibling')
+    assert_eq(type(vim.fn.maparg('J', 'x', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('K', 'x', false, true).desc, 'Previous sibling')
+    assert_eq(type(vim.fn.maparg('K', 'x', false, true).callback), 'function')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

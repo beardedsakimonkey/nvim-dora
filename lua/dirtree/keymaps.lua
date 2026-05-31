@@ -19,9 +19,27 @@ local function normalize_keymap(rhs)
 end
 
 ---@param action DirtreeKeymapAction
+---@return function|string
+local function map_keymap_action(action)
+    if type(action) ~= 'string' then
+        return action
+    end
+    local core_action = require'dirtree.core'[action]
+    if type(core_action) == 'function' then
+        return core_action
+    end
+    return action
+end
+
+---@param action DirtreeKeymapAction
 local function dispatch_keymap_action(action)
     if type(action) == 'function' then
         action()
+        return
+    end
+    local core_action = require'dirtree.core'[action]
+    if type(core_action) == 'function' then
+        core_action()
         return
     end
     api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), 'nx', false)
@@ -172,7 +190,7 @@ function M.setup(buf, config)
     local hint_groups = keymap_hint_groups(config.keymaps)
     for lhs, rhs in pairs(config.keymaps) do
         local action, desc = normalize_keymap(rhs)
-        vim.keymap.set('n', lhs, action, {
+        vim.keymap.set('n', lhs, map_keymap_action(action), {
             nowait = not is_keymap_hint_prefix(lhs, hint_groups),
             silent = true,
             buffer = buf,
@@ -193,7 +211,7 @@ function M.setup(buf, config)
     end
     for lhs, rhs in pairs(config.visual_keymaps or {}) do
         local action, desc = normalize_keymap(rhs)
-        vim.keymap.set('x', lhs, action, {nowait=true, silent=true, buffer=buf, desc=desc})
+        vim.keymap.set('x', lhs, map_keymap_action(action), {nowait=true, silent=true, buffer=buf, desc=desc})
     end
 end
 
