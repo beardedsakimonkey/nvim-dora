@@ -1307,6 +1307,7 @@ do
     assert_eq(vim.fn.maparg('C', 'n'), '')
     assert_eq(vim.fn.maparg('p', 'n', false, true).desc, 'Paste')
     assert_eq(vim.fn.maparg('<S-Tab>', 'n', false, true).desc, 'Clear marks')
+    assert_eq(vim.fn.maparg('<C-a>', 'n', false, true).desc, 'Select all')
     assert_eq(vim.fn.maparg('<Tab>', 'x', false, true).desc, 'Toggle marks')
     core.quit()
 end
@@ -1331,8 +1332,10 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
+    touch(tmp .. '/dir/nested')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
@@ -1343,6 +1346,17 @@ do
     core.toggle_mark()
     assert_eq(mark_count(state), 2)
 
+    core.clear_marks()
+    assert_eq(mark_count(state), 0)
+
+    util.set_cursor_pos('dir')
+    core.expand()
+    core.select_all()
+    assert_eq(mark_count(state), 4)
+    assert(state.marks[state.cwd .. '/a'], 'select all should mark visible files')
+    assert(state.marks[state.cwd .. '/b'], 'select all should mark visible files')
+    assert(state.marks[state.cwd .. '/dir'], 'select all should mark visible directories')
+    assert(state.marks[state.cwd .. '/dir/nested'], 'select all should mark expanded child rows')
     core.clear_marks()
     assert_eq(mark_count(state), 0)
 
@@ -1540,6 +1554,7 @@ do
     assert(table.concat(help_lines, '\n'):match('cn%s+Copy filename without extension'), 'help should include the filename stem copy mapping')
     assert(table.concat(help_lines, '\n'):match('y%s+Copy'), 'help should include the copy mapping')
     assert(table.concat(help_lines, '\n'):match('<S%-Tab>%s+Clear marks'), 'help should include the clear marks mapping')
+    assert(table.concat(help_lines, '\n'):match('<C%-a>%s+Select all'), 'help should include the select all mapping')
     assert(find_line_index(help_lines, '^  q%s+Quit$') < find_line_index(help_lines, '^  h%s+Up directory$'),
         'help should follow configured normal keymap order')
     assert(find_line_index(help_lines, '^  h%s+Up directory$') < find_line_index(help_lines, '^  %-%s+Up directory$'),
