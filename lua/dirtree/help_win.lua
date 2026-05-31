@@ -9,7 +9,7 @@ local KEYMAP_ORDER = {
     'q', 'h', '-', 'J', 'K',
     'o', 'O', ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E', 'u', 'U',
     'l', '<CR>', 's', 'v', 't', 'gx',
-    'R', 'i', 'gy', 'gY', 'cc', 'cC', 'cd', 'cD', 'cf', 'cF', 'cn', 'cN',
+    'R', 'i', 'cc', 'cC', 'cd', 'cD', 'cf', 'cF', 'cn', 'cN',
     'd', 'a', 'r', 'm', 'x', 'X', 'y', 'Y', 'p',
     '<Tab>', '<Esc>', '<C-a>', '<C-r>', 'gh', 'g?',
 }

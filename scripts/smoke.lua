@@ -1730,9 +1730,10 @@ do
     set_cursor_line('archive%.tar%.gz$')
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
     local expected_yank_text = current_line()
-    core.yank_path()
+
+    core.copy_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked path')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '')
@@ -1741,21 +1742,13 @@ do
     vim.g.dirtree_smoke_yankpost_operator = nil
     vim.g.dirtree_smoke_yankpost_regname = nil
     vim.g.dirtree_smoke_yankpost_text = nil
-    core.yank_path('+')
+    core.copy_file_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path to clipboard')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '+')
     assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
-
-    core.copy_file_path()
-    assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path')
-
-    core.copy_file_path_clipboard()
-    assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path to clipboard')
 
     core.copy_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
@@ -1773,13 +1766,13 @@ do
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename to clipboard')
 
-    core.copy_filename_stem()
+    core.copy_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename without extension')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied basename')
 
-    core.copy_filename_stem_clipboard()
+    core.copy_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename without extension to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Copied basename to clipboard')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -2013,16 +2006,16 @@ do
     assert(state.expanded_dirs[root .. '/root/empty'], 'recursive expand should expand empty descendants')
 
     util.set_cursor_pos('root')
-    core.collapse_reset()
-    assert(not state.expanded_dirs[root .. '/root'], 'reset collapse should clear selected directory')
-    assert(not state.expanded_dirs[root .. '/root/a'], 'reset collapse should clear descendants')
-    assert(not state.expanded_dirs[root .. '/root/a/b'], 'reset collapse should clear nested descendants')
-    assert(not state.expanded_dirs[root .. '/root/empty'], 'reset collapse should clear empty descendants')
-    assert(not vim.tbl_contains(lines(), '├── a/'), 'reset collapse should hide children')
+    core.collapse_recursive()
+    assert(not state.expanded_dirs[root .. '/root'], 'recursive collapse should clear selected directory')
+    assert(not state.expanded_dirs[root .. '/root/a'], 'recursive collapse should clear descendants')
+    assert(not state.expanded_dirs[root .. '/root/a/b'], 'recursive collapse should clear nested descendants')
+    assert(not state.expanded_dirs[root .. '/root/empty'], 'recursive collapse should clear empty descendants')
+    assert(not vim.tbl_contains(lines(), '├── a/'), 'recursive collapse should hide children')
 
     core.expand()
-    assert(vim.tbl_contains(lines(), '├── a/'), 'expand after reset should show one level')
-    assert(not vim.tbl_contains(lines(), '│   └── b/'), 'expand after reset should not restore recursive state')
+    assert(vim.tbl_contains(lines(), '├── a/'), 'expand after recursive collapse should show one level')
+    assert(not vim.tbl_contains(lines(), '│   └── b/'), 'expand after recursive collapse should not restore recursive state')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
