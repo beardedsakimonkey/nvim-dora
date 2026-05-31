@@ -512,6 +512,26 @@ do
 end
 
 do
+    local old_home = vim.env.HOME
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    touch(tmp .. '/home/home-file.txt')
+    touch(tmp .. '/other-file.txt')
+    vim.env.HOME = tmp .. '/home'
+
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    core.home_dir()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/home'), 'home directory should navigate to $HOME')
+    assert(vim.tbl_contains(lines(), 'home-file.txt'), 'home directory should render $HOME contents')
+
+    core.quit()
+    vim.env.HOME = old_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
@@ -1366,6 +1386,7 @@ do
     assert_eq(vim.fn.maparg('cd', 'n', false, true).desc, 'Copy directory path')
     assert_eq(vim.fn.maparg('cf', 'n', false, true).desc, 'Copy filename')
     assert_eq(vim.fn.maparg('cn', 'n', false, true).desc, 'Copy filename without extension')
+    assert_eq(vim.fn.maparg('gh', 'n', false, true).desc, 'Home directory')
     assert_eq(vim.fn.maparg('g?', 'n', false, true).desc, 'Show help')
     assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename')
     assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Cut')
@@ -1830,6 +1851,7 @@ do
     assert(vim.tbl_contains(help_lines, 'Normal'), 'help should show normal mappings')
     assert(vim.tbl_contains(help_lines, 'Visual'), 'help should show visual mappings')
     assert(table.concat(help_lines, '\n'):match('g%?%s+Show help'), 'help should include described mappings')
+    assert(table.concat(help_lines, '\n'):match('gh%s+Home directory'), 'help should include the home directory mapping')
     assert(table.concat(help_lines, '\n'):match('i%s+Show info'), 'help should include the info mapping')
     assert(table.concat(help_lines, '\n'):match('gy%s+Yank path'), 'help should include the yank path mapping')
     assert(table.concat(help_lines, '\n'):match('gY%s+Yank path to clipboard'), 'help should include the clipboard yank mapping')
