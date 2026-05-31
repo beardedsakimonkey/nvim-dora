@@ -1,6 +1,5 @@
 local util = require'dirtree.util'
 local window = require'dirtree.window'
-local keymaps = require'dirtree.keymaps'
 
 local api = vim.api
 
@@ -15,17 +14,9 @@ local KEYMAP_ORDER = {
     '<Tab>', '<Esc>', '<C-a>', '<C-r>', 'gh', 'g?',
 }
 
-local VISUAL_KEYMAP_ORDER = {
-    'J', 'K',
-    '<Tab>',
-}
-
 ---@class DirtreeHelpRow
 ---@field lhs? string
 ---@field desc? string
----@field label? string
----@field header? boolean
----@field blank? boolean
 
 ---@param width integer
 ---@param height integer
@@ -39,11 +30,10 @@ local function layout(width, height)
     })
 end
 
----@param label string
 ---@param keymaps? table<string, DirtreeKeymapSpec>
 ---@param order? string[]
 ---@return DirtreeHelpRow[]
-local function keymap_rows(label, keymaps, order)
+local function keymap_rows(keymaps, order)
     local rows = {}
     local handled = {}
     local function add(lhs, rhs)
@@ -67,24 +57,13 @@ local function keymap_rows(label, keymaps, order)
     for _, entry in ipairs(unordered) do
         add(entry.lhs, entry.rhs)
     end
-    if #rows == 0 then
-        return {}
-    end
-    local section = {{label=label, header=true}}
-    vim.list_extend(section, rows)
-    return section
+    return rows
 end
 
 ---@param config DirtreeConfig
 ---@return DirtreeHelpRow[]
 local function rows(config)
-    local normal_rows = keymap_rows('Normal', config.keymaps, KEYMAP_ORDER)
-    local visual_rows = keymap_rows('Visual', keymaps.derive_visual_keymaps(config.keymaps), VISUAL_KEYMAP_ORDER)
-    if #normal_rows > 0 and #visual_rows > 0 then
-        normal_rows[#normal_rows+1] = {blank=true}
-    end
-    vim.list_extend(normal_rows, visual_rows)
-    return normal_rows
+    return keymap_rows(config.keymaps, KEYMAP_ORDER)
 end
 
 ---@param buf integer
@@ -100,25 +79,14 @@ local function render(buf, ns, help_rows)
 
     local lines = {}
     for _, row in ipairs(help_rows) do
-        if row.blank then
-            lines[#lines+1] = ''
-        elseif row.header then
-            lines[#lines+1] = row.label
-        else
-            lines[#lines+1] = ('  %-' .. key_width .. 's  %s'):format(row.lhs, row.desc)
-        end
+        lines[#lines+1] = ('  %-' .. key_width .. 's  %s'):format(row.lhs, row.desc)
     end
 
     api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, row in ipairs(help_rows) do
         local lnum = i - 1
-        if row.header then
-            api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
-                end_col = #row.label,
-                hl_group = 'DirtreeHelpHeader',
-            })
-        elseif row.lhs then
+        if row.lhs then
             api.nvim_buf_set_extmark(buf, ns, lnum, 2, {
                 end_col = 2 + key_width,
                 hl_group = 'DirtreeHelpKey',

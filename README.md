@@ -173,7 +173,6 @@ DirtreeSelectionSign
 DirtreeCutSign
 DirtreeCopySign
 DirtreeSelectionFile
-DirtreeHelpHeader
 DirtreeHelpKey
 DirtreeHelpDesc
 DirtreeKeymapHintArrow

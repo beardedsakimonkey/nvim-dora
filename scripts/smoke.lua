@@ -1889,6 +1889,8 @@ do
     local help_cfg = api.nvim_win_get_config(help_win)
     assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
+    assert(not find_line_index(help_lines, '^Normal$'), 'help should omit the normal section title')
+    assert(not find_line_index(help_lines, '^Visual$'), 'help should omit the visual section')
 
     api.nvim_feedkeys('q', 'xt', false)
     assert_eq(api.nvim_get_current_win(), origin_win, 'closing help should restore origin window')
@@ -1908,7 +1910,8 @@ do
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
     assert(help_text:match("x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(not help_text:match('\nVisual\n'), 'help should omit visual mappings when no normal mappings derive visual mappings')
+    assert(not find_line_index(help_lines, '^Normal$'), 'help should omit the normal section title')
+    assert(not find_line_index(help_lines, '^Visual$'), 'help should omit the visual section')
     assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
         'help should sort unordered custom mappings after local order')
     api.nvim_feedkeys('q', 'xt', false)
