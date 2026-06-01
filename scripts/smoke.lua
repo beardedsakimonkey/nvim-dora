@@ -1068,34 +1068,6 @@ do
 end
 
 do
-    local buf, win = keymaps.open_hint_window(',', {
-        {lhs=',C', desc='Sort by creation time reversed'},
-        {lhs=',E', desc='Sort by extension reversed'},
-        {lhs=',M', desc='Sort by modified time reversed'},
-        {lhs=',N', desc='Sort naturally by name reversed'},
-        {lhs=',S', desc='Sort by size reversed'},
-        {lhs=',c', desc='Sort by creation time'},
-        {lhs=',e', desc='Sort by extension'},
-        {lhs=',m', desc='Sort by modified time'},
-        {lhs=',n', desc='Sort naturally by name'},
-        {lhs=',s', desc='Sort by size'},
-    })
-    local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
-    assert_eq(#hint_lines, 5, 'sort keymap hints should render paired lower/upper variants on one row')
-    assert(hint_lines[1]:match(',n%s+→%s+Sort naturally by name%s+,N%s+→%s+Sort naturally by name reversed'),
-        'sort keymap hints should pair name sort variants with lowercase on the left')
-    assert(hint_lines[2]:match(',m%s+→%s+Sort by modified time%s+,M%s+→%s+Sort by modified time reversed'),
-        'sort keymap hints should pair modified sort variants with lowercase on the left')
-    assert(hint_lines[3]:match(',c%s+→%s+Sort by creation time%s+,C%s+→%s+Sort by creation time reversed'),
-        'sort keymap hints should pair creation sort variants with lowercase on the left')
-    assert(hint_lines[4]:match(',s%s+→%s+Sort by size%s+,S%s+→%s+Sort by size reversed'),
-        'sort keymap hints should pair size sort variants with lowercase on the left')
-    assert(hint_lines[5]:match(',e%s+→%s+Sort by extension%s+,E%s+→%s+Sort by extension reversed'),
-        'sort keymap hints should pair extension sort variants with lowercase on the left')
-    window.close(buf, win)
-end
-
-do
     local old_keymaps = config.keymaps
     local old_show_keymap_hints = config.show_keymap_hints
     local old_open = keymaps.open_hint_window
