@@ -538,8 +538,8 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, 'root/', 'create should prefill the hovered directory parent path')
-        local input = opts.default .. 'file.txt'
+        assert_eq(opts.initial_prompt, 'root/', 'create should prefill the hovered directory parent path')
+        local input = opts.initial_prompt .. 'file.txt'
         cb(input, opts.validate(input))
     end
     core.create()
@@ -567,8 +567,8 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, 'root/child/', 'create should prefill the hovered file parent path')
-        local input = opts.default .. 'sibling.txt'
+        assert_eq(opts.initial_prompt, 'root/child/', 'create should prefill the hovered file parent path')
+        local input = opts.initial_prompt .. 'sibling.txt'
         cb(input, opts.validate(input))
     end
     core.create()
@@ -597,7 +597,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, nil, 'create should not prefill a root-level directory path')
+        assert_eq(opts.initial_prompt, nil, 'create should not prefill a root-level directory path')
         local input = 'duplicate.txt'
         cb(input, opts.validate(input))
     end
@@ -628,7 +628,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert(opts.anchor, 'create should anchor the prompt to the current row')
-        assert_eq(opts.default, nil, 'create should not prefill a root-level file path')
+        assert_eq(opts.initial_prompt, nil, 'create should not prefill a root-level file path')
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)
@@ -923,7 +923,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert_eq(opts.prompt, 'Rename to')
-        assert_eq(opts.default, 'alpha.txt')
+        assert_eq(opts.initial_prompt, 'alpha.txt')
         assert_eq(opts.cwd, state.cwd)
         assert_eq(opts.width, 32)
         assert(opts.anchor, 'rename should anchor the prompt to the current row')
@@ -962,7 +962,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.default, 'dir', 'rename should not append a slash for directories')
+        assert_eq(opts.initial_prompt, 'dir', 'rename should not append a slash for directories')
         cb('renamed', opts.validate('renamed'))
     end
     core.rename()

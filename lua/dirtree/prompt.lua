@@ -6,7 +6,7 @@ local M = {}
 ---@class DirtreePromptOptions
 ---@field prompt? string
 ---@field cwd string
----@field default? string
+---@field initial_prompt? string
 ---@field width? integer
 ---@field anchor? {win: integer, line: integer, col: integer}
 ---@field validate fun(input: string): any
@@ -72,7 +72,7 @@ function Prompt:validate()
     self.is_valid = ok
     self.valid_result = ok and result or nil
     local hl
-    if self:get_input() == self.default then
+    if self:get_input() == self.initial_prompt then
         hl = 'DirtreePromptBorder'
     else
         hl = ok and 'DirtreePromptBorderValid' or 'DirtreePromptBorderInvalid'
@@ -85,11 +85,15 @@ function Prompt:validate()
 end
 
 function Prompt:confirm()
+    local input = self:get_input()
+    if input == self.initial_prompt then
+        self:close()
+        return
+    end
     self:validate()
     if not self.is_valid then
         return
     end
-    local input = self:get_input()
     self:close()
     self.cb(input, self.valid_result)
 end
@@ -137,7 +141,7 @@ function M.input(opts, cb)
         autocmds = {},
     }, {__index = Prompt})
 
-    self.default = opts.default or ''
+    self.initial_prompt = opts.initial_prompt or ''
     self.input_buf = api.nvim_create_buf(false, true)
     vim.bo[self.input_buf].buftype = 'nofile'
     vim.bo[self.input_buf].bufhidden = 'wipe'
@@ -145,8 +149,8 @@ function M.input(opts, cb)
     self.input_win = api.nvim_open_win(self.input_buf, true, win_layout(opts, self.width))
     vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
 
-    api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.default})
-    api.nvim_win_set_cursor(self.input_win, {1, #self.default})
+    api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.initial_prompt})
+    api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
 
     keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert() end, {expr = true, replace_keycodes = true})
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)

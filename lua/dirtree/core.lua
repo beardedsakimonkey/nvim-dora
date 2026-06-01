@@ -323,7 +323,7 @@ end
 ---@param state DirtreeState
 ---@param row DirtreeTreeRow?
 ---@return string?
-local function create_default(state, row)
+local function get_initial_prompt_for_move(state, row)
     if not row or not row.path then
         return nil
     end
@@ -1148,7 +1148,7 @@ local function move()
     prompt.input({
         prompt = prompt_label,
         cwd = state.cwd,
-        default = create_default(state, row),
+        initial_prompt = get_initial_prompt_for_move(state, row),
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(row),
         validate = function(input)
@@ -1182,7 +1182,7 @@ function M.rename()
     prompt.input({
         prompt = 'Rename to',
         cwd = fs.get_parent_dir(path),
-        default = fs.basename(path),
+        initial_prompt = fs.basename(path),
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(row),
         validate = function(input)
@@ -1211,7 +1211,7 @@ function M.create()
         prompt = 'Add file or folder',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
-        default = create_parent_default(state, row),
+        initial_prompt = create_parent_default(state, row),
         anchor = current_name_anchor(row),
         validate = function(input)
             return fs.validate_create(input, state.cwd)
