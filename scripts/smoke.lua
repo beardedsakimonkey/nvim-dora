@@ -681,6 +681,35 @@ do
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Parent directory')
+    local l_map = vim.fn.maparg('l', 'n', false, true)
+    local cr_map = vim.fn.maparg('<CR>', 'n', false, true)
+    assert_eq(l_map.desc, 'Expand directory or open file')
+    assert_eq(type(l_map.callback), 'function')
+    assert_eq(cr_map.desc, 'Open')
+    assert_eq(type(cr_map.callback), 'function')
+
+    local state = store.get()
+    util.set_cursor_pos('alpha')
+    l_map.callback()
+    assert_eq(state.cwd, fs.realpath(tmp), 'l should expand without entering the directory')
+    assert(state.expanded_dirs[state.cwd .. '/alpha'], 'l should expand the hovered directory')
+    cr_map.callback()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/alpha'), '<CR> should enter the hovered directory')
+    core.up_dir()
+
+    util.set_cursor_pos('alpha')
+    core.expand()
+    util.set_cursor_pos('one')
+    core.expand()
+
+    set_cursor_line('file%.txt$')
+    local old_swapfile = vim.go.swapfile
+    vim.go.swapfile = false
+    l_map.callback()
+    vim.go.swapfile = old_swapfile
+    assert_eq(api.nvim_get_current_buf(), state.origin_buf, 'l should open files')
+    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    state = store.get()
     util.set_cursor_pos('alpha')
     core.expand()
     util.set_cursor_pos('one')
