@@ -61,7 +61,7 @@ local TREE_SPACER = '    '
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
 ---@field rows DoraTreeRow[]
----@field paste_operations table<string, DoraPasteOperation>
+---@field marked_paths table<string, DoraPasteOperation>
 
 -- Render ----------------------------------------------------------------------
 
@@ -182,11 +182,21 @@ local function build_tree_rows(state)
     return rows
 end
 
+---@param state DoraState
+local function prune_deleted_marked_paths(state)
+    for marked_path in pairs(state.marked_paths) do
+        if not fs.exists(marked_path) then
+            state.marked_paths[marked_path] = nil
+        end
+    end
+end
+
 local update_tree_cursor_highlight
 
 ---@param state DoraState
 local function render(state)
     local buf, ns = state.buf, state.ns
+    prune_deleted_marked_paths(state)
     local rows = build_tree_rows(state)
     state.rows = rows
     util.set_lines(buf, vim.tbl_map(function(f)
@@ -236,10 +246,10 @@ local function render(state)
                 priority = 10000,
             })
         end
-        local paste_operation = path and state.paste_operations[path] or nil
-        if paste_operation then
+        local mark_operation = path and state.marked_paths[path] or nil
+        if mark_operation then
             local sign_hl = 'DoraCopy'
-            if paste_operation == 'cut' then
+            if mark_operation == 'cut' then
                 sign_hl = 'DoraCut'
             end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
@@ -488,15 +498,15 @@ local function move_to_first_sibling(state)
     end
 end
 
----@class DoraPasteOperationEntry
+---@class DoraMarkedPathEntry
 ---@field path string
 ---@field operation DoraPasteOperation
 
 ---@param state DoraState
----@return DoraPasteOperationEntry[]
-local function paste_operation_entries(state)
+---@return DoraMarkedPathEntry[]
+local function marked_path_entries(state)
     local entries = {}
-    for path, operation in pairs(state.paste_operations) do
+    for path, operation in pairs(state.marked_paths) do
         entries[#entries+1] = {path = path, operation = operation}
     end
     table.sort(entries, function(a, b) return a.path < b.path end)
@@ -532,17 +542,17 @@ local function current_name_anchor(row)
 end
 
 ---@param state DoraState
-local function clear_paste_operations(state)
-    state.paste_operations = {}
+local function clear_marked_paths(state)
+    state.marked_paths = {}
 end
 
 ---@param state DoraState
 ---@param path string
-local function clear_paste_operations_under(state, path)
+local function clear_marked_paths_under(state, path)
     local prefix = path .. util.sep
-    for marked_path in pairs(state.paste_operations) do
+    for marked_path in pairs(state.marked_paths) do
         if marked_path == path or vim.startswith(marked_path, prefix) then
-            state.paste_operations[marked_path] = nil
+            state.marked_paths[marked_path] = nil
         end
     end
 end
@@ -550,20 +560,20 @@ end
 ---@param state DoraState
 ---@param old_path string
 ---@param new_path string
-local function rename_paste_operations_under(state, old_path, new_path)
+local function rename_marked_paths_under(state, old_path, new_path)
     local old_prefix = old_path .. util.sep
     local updated = {}
-    for marked_path, operation in pairs(state.paste_operations) do
+    for marked_path, operation in pairs(state.marked_paths) do
         if marked_path == old_path then
             updated[new_path] = operation
-            state.paste_operations[marked_path] = nil
+            state.marked_paths[marked_path] = nil
         elseif vim.startswith(marked_path, old_prefix) then
             updated[new_path .. marked_path:sub(#old_path + 1)] = operation
-            state.paste_operations[marked_path] = nil
+            state.marked_paths[marked_path] = nil
         end
     end
     for marked_path, operation in pairs(updated) do
-        state.paste_operations[marked_path] = operation
+        state.marked_paths[marked_path] = operation
     end
 end
 
@@ -978,38 +988,38 @@ function M.clear_marks()
 end
 
 ---@param operation DoraPasteOperation
-local function toggle_paste_operation(operation)
+local function toggle_marked_path(operation)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    if state.paste_operations[path] == operation then
-        state.paste_operations[path] = nil
+    if state.marked_paths[path] == operation then
+        state.marked_paths[path] = nil
     else
-        state.paste_operations[path] = operation
+        state.marked_paths[path] = operation
     end
     render(state)
 end
 
 function M.cut()
-    toggle_paste_operation('cut')
+    toggle_marked_path('cut')
 end
 
 function M.copy()
-    toggle_paste_operation('copy')
+    toggle_marked_path('copy')
 end
 
 function M.clear_paste_operation()
     local state = store.get()
-    clear_paste_operations(state)
+    clear_marked_paths(state)
     render(state)
 end
 
 function M.paste()
     local state = store.get()
-    local entries = paste_operation_entries(state)
+    local entries = marked_path_entries(state)
     if #entries == 0 then
         util.err('Nothing to paste')
         return
@@ -1031,7 +1041,7 @@ function M.paste()
         util.err(msg)
         return
     end
-    clear_paste_operations(state)
+    clear_marked_paths(state)
     render(state)
     set_cursor_path(state, dest_path)
 end
@@ -1129,7 +1139,7 @@ function M.delete()
             util.err(err)
             return
         end
-        clear_paste_operations_under(state, path)
+        clear_marked_paths_under(state, path)
         render(state)
     end, {
         anchor = current_name_anchor(row),
@@ -1162,7 +1172,7 @@ local function move()
         if not ok then
             util.err(msg)
         else
-            rename_paste_operations_under(state, path, dest)
+            rename_marked_paths_under(state, path, dest)
             render(state)
             set_cursor_pos(state, fs.basename(dest))
         end
@@ -1198,7 +1208,7 @@ function M.rename()
             return
         end
         rename_expanded_subtree(state, path, dest)
-        rename_paste_operations_under(state, path, dest)
+        rename_marked_paths_under(state, path, dest)
         render(state)
         set_cursor_path(state, dest)
     end)
@@ -1379,7 +1389,7 @@ function M.dora(dir, from_au)
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},
-        paste_operations = {},  -- map<path, DoraPasteOperation>
+        marked_paths = {},  -- map<path, DoraPasteOperation>
     }
     keymaps.setup(buf, config)
     store.set(buf, state)
