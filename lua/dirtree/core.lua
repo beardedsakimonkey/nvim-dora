@@ -240,10 +240,13 @@ local function render(state)
         end
         if path and state.selection[path] then
             local sign_hl = 'DirtreeSelectionSign'
+            local file_hl = 'DirtreeSelectionFile'
             if state.paste_operation == 'cut' then
                 sign_hl = 'DirtreeCutSign'
+                file_hl = sign_hl
             elseif state.paste_operation == 'copy' then
                 sign_hl = 'DirtreeCopySign'
+                file_hl = sign_hl
             end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 sign_text = '▌',
@@ -251,7 +254,7 @@ local function render(state)
             })
             api.nvim_buf_set_extmark(buf, ns, i-1, file.name_start_col, {
                 end_col = file.name_end_col,
-                hl_group = 'DirtreeSelectionFile',
+                hl_group = file_hl,
                 priority = 10000,
             })
         end
