@@ -1160,52 +1160,52 @@ local function copy_value(value, reg, message)
 end
 
 ---@param reg? string
-function M.copy_file_path(reg)
+function M.yank_file_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    copy_value(path, reg, reg == '+' and 'Copied file path to clipboard' or 'Copied file path')
+    copy_value(path, reg, reg == '+' and 'Yanked file path to clipboard' or 'Yanked file path')
 end
 
-function M.copy_file_path_clipboard()
-    M.copy_file_path('+')
+function M.yank_file_path_clipboard()
+    M.yank_file_path('+')
 end
 
 ---@param reg? string
-function M.copy_dir_path(reg)
+function M.yank_dir_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Copied directory path to clipboard' or 'Copied directory path')
+    copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Yanked directory path to clipboard' or 'Yanked directory path')
 end
 
-function M.copy_dir_path_clipboard()
-    M.copy_dir_path('+')
+function M.yank_dir_path_clipboard()
+    M.yank_dir_path('+')
 end
 
 ---@param reg? string
-function M.copy_filename(reg)
+function M.yank_filename(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    copy_value(fs.basename(path), reg, reg == '+' and 'Copied filename to clipboard' or 'Copied filename')
+    copy_value(fs.basename(path), reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename')
 end
 
-function M.copy_filename_clipboard()
-    M.copy_filename('+')
+function M.yank_filename_clipboard()
+    M.yank_filename('+')
 end
 
 ---@param reg? string
-function M.copy_basename(reg)
+function M.yank_basename(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1213,12 +1213,12 @@ function M.copy_basename(reg)
         return
     end
     local filename = fs.basename(path)
-    local message = reg == '+' and 'Copied basename to clipboard' or 'Copied basename'
+    local message = reg == '+' and 'Yanked basename to clipboard' or 'Yanked basename'
     copy_value(vim.fn.fnamemodify(filename, ':r'), reg, message)
 end
 
-function M.copy_basename_clipboard()
-    M.copy_basename('+')
+function M.yank_basename_clipboard()
+    M.yank_basename('+')
 end
 
 function M.delete()
