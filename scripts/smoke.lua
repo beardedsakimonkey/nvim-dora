@@ -893,6 +893,7 @@ do
     assert(state.selection[state.cwd .. '/b'], 'cut should keep selected rows selected')
     assert_eq(state.paste_operation, 'cut', 'cut should set a global paste operation')
     assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use the cut sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'cut should highlight filenames like the cut sign')
 
     set_cursor_line('c$')
     core.toggle_selection()
@@ -900,15 +901,18 @@ do
     assert_match(current_line(), 'c$', 'tab should stay put on the last row')
     assert_eq(state.paste_operation, 'cut', 'tab should preserve the global cut state')
     assert(has_sign_highlight(state, 'DirtreeCutSign'), 'new selections should use the active cut sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'new selections should highlight filenames like the cut sign')
 
     core.clear_paste_operation()
     assert(not state.paste_operation, 'clearing paste operation should keep plain selections')
     assert_eq(selection_count(state), 3)
     assert(has_sign_highlight(state, 'DirtreeSelectionSign'), 'clearing paste operation should use plain selection signs')
+    assert(has_high_priority_highlight(state, 'DirtreeSelectionFile'), 'clearing paste operation should use plain filename highlights')
 
     core.copy()
     assert_eq(state.paste_operation, 'copy', 'copy should replace the global paste operation')
     assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use the copy sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy should highlight filenames like the copy sign')
 
     set_cursor_line('b$')
     core.toggle_selection()
@@ -927,6 +931,7 @@ do
     core.toggle_selection()
     assert_eq(state.paste_operation, 'copy', 'reselecting should keep the preserved paste operation')
     assert(has_sign_highlight(state, 'DirtreeCopySign'), 'reselected files should use the preserved copy sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'reselected files should highlight filenames like the copy sign')
 
     core.clear_selection()
     assert_eq(selection_count(state), 0)
