@@ -310,7 +310,7 @@ do
     end
 
     p:set_input('bad', 3)
-    p:redraw()
+    p:validate()
     assert_eq(p.is_valid, false)
 
     p:set_input('abc', 3)
@@ -392,7 +392,9 @@ do
 
     p:set_input('', 0)
     p:escape_insert()
-    assert(p.closed, 'escape with empty input should close prompt')
+    assert(vim.wait(1000, function()
+        return p.closed
+    end), 'escape with empty input should close prompt')
     assert_eq(vim.g.dirtree_smoke_escape_empty, true)
 end
 

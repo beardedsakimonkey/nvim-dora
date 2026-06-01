@@ -71,16 +71,17 @@ function Prompt:validate()
     local ok, result = pcall(self.opts.validate, self:get_input())
     self.is_valid = ok
     self.valid_result = ok and result or nil
-    local hl = ok and 'DirtreePromptBorderValid' or 'DirtreePromptBorderInvalid'
+    local hl
+    if self:get_input() == self.default then
+        hl = 'DirtreePromptBorder'
+    else
+        hl = ok and 'DirtreePromptBorderValid' or 'DirtreePromptBorderInvalid'
+    end
     if window.valid_win(self.input_win) then
         local cfg = api.nvim_win_get_config(self.input_win)
         cfg.border = window.border(hl)
         api.nvim_win_set_config(self.input_win, cfg)
     end
-end
-
-function Prompt:redraw()
-    self:validate()
 end
 
 function Prompt:confirm()
@@ -99,14 +100,6 @@ function Prompt:cancel()
 end
 
 function Prompt:escape_insert()
-    if self:get_input() == '' then
-        self:cancel()
-        return
-    end
-    vim.cmd'stopinsert'
-end
-
-function Prompt:escape_insert_keys()
     vim.schedule(function()
         if not self.closed and window.valid_buf(self.input_buf) and self:get_input() == '' then
             self:cancel()
@@ -118,7 +111,7 @@ end
 function Prompt:relayout()
     if window.valid_win(self.input_win) then
         api.nvim_win_set_config(self.input_win, win_layout(self.opts, self.width))
-        self:redraw()
+        self:validate()
     end
 end
 
@@ -144,6 +137,7 @@ function M.input(opts, cb)
         autocmds = {},
     }, {__index = Prompt})
 
+    self.default = opts.default or ''
     self.input_buf = api.nvim_create_buf(false, true)
     vim.bo[self.input_buf].buftype = 'nofile'
     vim.bo[self.input_buf].bufhidden = 'wipe'
@@ -151,18 +145,18 @@ function M.input(opts, cb)
     self.input_win = api.nvim_open_win(self.input_buf, true, win_layout(opts, self.width))
     vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
 
-    api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {opts.default or ''})
-    api.nvim_win_set_cursor(self.input_win, {1, #(opts.default or '')})
+    api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.default})
+    api.nvim_win_set_cursor(self.input_win, {1, #self.default})
 
-    keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert_keys() end, {expr = true, replace_keycodes = true})
+    keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert() end, {expr = true, replace_keycodes = true})
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
-    keymap(self.input_buf, 'n', 'q', function() self:cancel() end)
+    keymap(self.input_buf, 'n', 'q',     function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
 
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd({'TextChanged', 'TextChangedI'}, {
         buffer = self.input_buf,
-        callback = function() self:redraw() end,
+        callback = function() self:validate() end,
     })
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('VimResized', {
         callback = function() self:relayout() end,
@@ -175,7 +169,6 @@ function M.input(opts, cb)
         end,
     })
 
-    self:redraw()
     vim.cmd'startinsert!'
     return self
 end
