@@ -10,10 +10,12 @@ local HINT_COLUMN_GAP = '    '
 local SORT_HINT_KEY_ORDER = {n=1, m=2, c=3, s=4, e=5}
 
 local VISUAL_KEYMAP_ACTIONS = {
+    delete = 'delete_visual',
     first_sibling = 'first_sibling',
     last_sibling = 'last_sibling',
     next_sibling = 'next_sibling',
     prev_sibling = 'prev_sibling',
+    trash = 'trash_visual',
 }
 
 ---@param rhs DoraKeymapSpec

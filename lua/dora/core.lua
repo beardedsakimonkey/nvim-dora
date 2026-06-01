@@ -541,6 +541,49 @@ local function current_name_anchor(row)
     }
 end
 
+---@return integer start_line
+---@return integer end_line
+local function visual_line_range()
+    local mode = api.nvim_get_mode().mode
+    local in_visual = mode == 'v' or mode == 'V' or mode == '\022'
+    local start_line = in_visual and api.nvim_win_get_cursor(0)[1] or vim.fn.line("'<")
+    local end_line = in_visual and vim.fn.getpos('v')[2] or vim.fn.line("'>")
+    if start_line > end_line then
+        start_line, end_line = end_line, start_line
+    end
+    return start_line, end_line
+end
+
+---@param path string
+---@param selected string[]
+---@return boolean
+local function path_under_selected(path, selected)
+    for _, selected_path in ipairs(selected) do
+        if path == selected_path or vim.startswith(path, selected_path .. util.sep) then
+            return true
+        end
+    end
+    return false
+end
+
+---@param state DoraState
+---@return string[]? paths
+---@return string? error
+local function visual_paths(state)
+    local start_line, end_line = visual_line_range()
+    local paths = {}
+    for line = start_line, end_line do
+        local row = state.rows and state.rows[line] or nil
+        if row and row.path and not path_under_selected(row.path, paths) then
+            paths[#paths+1] = row.path
+        end
+    end
+    if #paths == 0 then
+        return nil, 'No files selected'
+    end
+    return paths, nil
+end
+
 ---@param state DoraState
 local function clear_marked_paths(state)
     state.marked_paths = {}
@@ -1122,6 +1165,45 @@ function M.yank_basename_clipboard()
     M.yank_basename('+')
 end
 
+---@param state DoraState
+---@param paths string[]
+---@param operation fun(path: string)
+---@param action string
+---@param anchor? {win: integer, line: integer, col: integer}
+local function remove_paths(state, paths, operation, action, anchor)
+    delete_win.delete(paths, state.cwd, function(confirmed)
+        if not confirmed then
+            return
+        end
+        local removed_paths = {}
+        for _, path in ipairs(paths) do
+            local ok, result = pcall(operation, path)
+            if not ok then
+                if #removed_paths > 0 then
+                    for _, removed_path in ipairs(removed_paths) do
+                        clear_marked_paths_under(state, removed_path)
+                    end
+                    render(state)
+                end
+                util.err(result)
+                return
+            end
+            if result ~= false then
+                removed_paths[#removed_paths+1] = path
+            end
+        end
+        if #removed_paths > 0 then
+            for _, removed_path in ipairs(removed_paths) do
+                clear_marked_paths_under(state, removed_path)
+            end
+            render(state)
+        end
+    end, {
+        anchor = #paths == 1 and anchor or nil,
+        action = action,
+    })
+end
+
 ---@param operation fun(path: string)
 ---@param action string
 local function remove_path(operation, action)
@@ -1132,24 +1214,19 @@ local function remove_path(operation, action)
         util.err(msg)
         return
     end
-    delete_win.delete({path}, state.cwd, function(confirmed)
-        if not confirmed then
-            return
-        end
-        local ok, result = pcall(operation, path)
-        if not ok then
-            util.err(result)
-            return
-        end
-        if result == false then
-            return
-        end
-        clear_marked_paths_under(state, path)
-        render(state)
-    end, {
-        anchor = current_name_anchor(row),
-        action = action,
-    })
+    remove_paths(state, {path}, operation, action, current_name_anchor(row))
+end
+
+---@param operation fun(path: string)
+---@param action string
+local function remove_visual_paths(operation, action)
+    local state = store.get()
+    local paths, msg = visual_paths(state)
+    if not paths then
+        util.err(msg)
+        return
+    end
+    remove_paths(state, paths, operation, action, nil)
 end
 
 function M.trash()
@@ -1158,6 +1235,14 @@ end
 
 function M.delete()
     remove_path(fs.delete, 'Delete')
+end
+
+function M.trash_visual()
+    remove_visual_paths(fs.trash, 'Trash')
+end
+
+function M.delete_visual()
+    remove_visual_paths(fs.delete, 'Delete')
 end
 
 local function move()
