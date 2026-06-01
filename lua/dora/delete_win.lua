@@ -85,7 +85,7 @@ end
 
 ---@param count integer
 ---@return string
-local function title(count)
+local function get_title(count)
     if count == 1 then
         return 'Delete?'
     end
@@ -136,7 +136,7 @@ end
 ---@param confirm_title string
 ---@param rendered_lines string[]
 ---@return integer
-local function width(confirm_title, rendered_lines)
+local function get_width(confirm_title, rendered_lines)
     local max_width = #confirm_title
     for _, line in ipairs(rendered_lines) do
         max_width = math.max(max_width, vim.fn.strdisplaywidth(line))
@@ -187,7 +187,7 @@ function M.delete(paths, cwd, cb, opts)
     local confirm_items = items(paths, cwd)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow)
-    local confirm_title = title(#paths)
+    local confirm_title = get_title(#paths)
     local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
     local autocmds = {}
@@ -212,7 +212,7 @@ function M.delete(paths, cwd, cb, opts)
     local function layout()
         local layout_opts = {
             title = confirm_title,
-            width = width(confirm_title, rendered_lines),
+            width = get_width(confirm_title, rendered_lines),
             height = #rendered_lines,
             border_hl = 'DoraPromptBorderInvalid',
         }
