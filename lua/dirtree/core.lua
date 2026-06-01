@@ -238,9 +238,9 @@ local function render(state)
         end
         local paste_operation = path and state.paste_operations[path] or nil
         if paste_operation then
-            local sign_hl = 'DirtreeCopySign'
+            local sign_hl = 'DirtreeCopy'
             if paste_operation == 'cut' then
-                sign_hl = 'DirtreeCutSign'
+                sign_hl = 'DirtreeCut'
             end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 sign_text = '▌',

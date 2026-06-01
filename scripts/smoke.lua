@@ -810,15 +810,15 @@ do
     core.copy()
     assert_eq(paste_operation_count(state), 1)
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
-    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use a distinct sign highlight')
-    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy should highlight filenames like the copy sign')
+    assert(has_sign_highlight(state, 'DirtreeCopy'), 'copy should use a distinct sign highlight')
+    assert(has_high_priority_highlight(state, 'DirtreeCopy'), 'copy should highlight filenames like the copy sign')
 
     core.copy()
     assert_eq(paste_operation_count(state), 0, 'copy should toggle off an existing copy mark')
 
     core.cut()
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
-    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use a distinct sign highlight')
+    assert(has_sign_highlight(state, 'DirtreeCut'), 'cut should use a distinct sign highlight')
     core.copy()
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
@@ -854,10 +854,10 @@ do
     core.copy()
     assert_eq(state.paste_operations[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
     assert_eq(paste_operation_count(state), 2)
-    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut marks should use the cut sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'cut marks should highlight filenames like the cut sign')
-    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy marks should use the copy sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy marks should highlight filenames like the copy sign')
+    assert(has_sign_highlight(state, 'DirtreeCut'), 'cut marks should use the cut sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCut'), 'cut marks should highlight filenames like the cut sign')
+    assert(has_sign_highlight(state, 'DirtreeCopy'), 'copy marks should use the copy sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCopy'), 'copy marks should highlight filenames like the copy sign')
 
     core.clear_selection()
     assert_eq(paste_operation_count(state), 0, 'escape action should clear paste marks')
@@ -1055,9 +1055,9 @@ do
     local has_key, has_arrow, has_desc = false, false, false
     for _, mark in ipairs(marks) do
         local hl = mark[4].hl_group
-        has_key = has_key or hl == 'DirtreeHelpKey'
+        has_key = has_key or hl == 'DirtreeInfoLabel'
         has_arrow = has_arrow or hl == 'DirtreeKeymapHintArrow'
-        has_desc = has_desc or hl == 'DirtreeHelpDesc'
+        has_desc = has_desc or hl == 'DirtreeInfoValue'
     end
     assert(has_key, 'keymap hints should highlight keys')
     assert(has_arrow, 'keymap hints should highlight arrows')
