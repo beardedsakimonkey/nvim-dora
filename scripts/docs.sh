@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 if [ "${1:-}" = "--check" ]; then
-  export DIRTREE_DOCS_CHECK=1
+  export DORA_DOCS_CHECK=1
   shift
 fi
 
@@ -13,7 +13,7 @@ if [ "$#" -ne 0 ]; then
   exit 2
 fi
 
-NVIM_LOG_FILE="${TMPDIR:-/tmp}/dirtree-nvim.log" \
+NVIM_LOG_FILE="${TMPDIR:-/tmp}/dora-nvim.log" \
 nvim --headless -u NONE -i NONE --noplugin \
   -c "set rtp^=$PWD" \
   -c "luafile scripts/docs.lua" \

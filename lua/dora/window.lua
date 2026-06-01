@@ -23,7 +23,7 @@ function M.border(hl)
     }
 end
 
----@class DirtreeFloatLayoutOptions
+---@class DoraFloatLayoutOptions
 ---@field title? string
 ---@field title_pos? 'left'|'center'|'right'
 ---@field width integer
@@ -31,12 +31,12 @@ end
 ---@field border_hl? string
 ---@field min_width? integer
 
----@class DirtreeAnchoredFloatLayoutOptions: DirtreeFloatLayoutOptions
+---@class DoraAnchoredFloatLayoutOptions: DoraFloatLayoutOptions
 ---@field win integer
 ---@field line integer
 ---@field col integer
 
----@param opts DirtreeFloatLayoutOptions
+---@param opts DoraFloatLayoutOptions
 ---@return table
 ---Returns a config for vim.api.nvim_win_set_config()
 function M.centered_layout(opts)
@@ -50,7 +50,7 @@ function M.centered_layout(opts)
         col = math.floor((vim.o.columns - width) / 2),
         width = width,
         height = height,
-        border = M.border(opts.border_hl or 'DirtreePromptBorder'),
+        border = M.border(opts.border_hl or 'DoraPromptBorder'),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,
         style = 'minimal',
@@ -58,7 +58,7 @@ function M.centered_layout(opts)
     }
 end
 
----@param opts DirtreeAnchoredFloatLayoutOptions
+---@param opts DoraAnchoredFloatLayoutOptions
 ---@return table
 ---Anchored to cursor
 function M.anchored_layout(opts)
@@ -80,7 +80,7 @@ function M.anchored_layout(opts)
         col = col,
         width = width,
         height = height,
-        border = M.border(opts.border_hl or 'DirtreePromptBorder'),
+        border = M.border(opts.border_hl or 'DoraPromptBorder'),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,
         style = 'minimal',

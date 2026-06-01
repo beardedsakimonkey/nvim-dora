@@ -1,21 +1,21 @@
-# nvim-dirtree
+# nvim-dora
 
-Dirtree is a small directory viewer for Neovim 0.12+. It opens in the current
+Dora is a small directory viewer for Neovim 0.12+. It opens in the current
 window, works well with normal buffer navigation, and stays out of the way when
 you only need to browse, create, move, copy, delete, or inspect files.
 
 It is closer to [vim-dirvish](https://github.com/justinmk/vim-dirvish) than to
-a project drawer. Dirtree is meant to be opened when you need it, then closed or
+a project drawer. Dora is meant to be opened when you need it, then closed or
 replaced by the file you choose.
 
-## Why Dirtree?
+## Why Dora?
 
-- **Normal buffers, not editable directory listings.** Dirtree does not make the
+- **Normal buffers, not editable directory listings.** Dora does not make the
   directory buffer modifiable, which leaves more keys available for actions.
-- **Quiet navigation history.** Dirtree buffers avoid populating the jumplist, so
+- **Quiet navigation history.** Dora buffers avoid populating the jumplist, so
   `<C-o>` usually takes you back through files rather than directory views.
 - **Isolated instances.** Opening the same directory in two windows creates two
-  independent Dirtree buffers. Navigation, paste marks, and expanded directories in one
+  independent Dora buffers. Navigation, paste marks, and expanded directories in one
   window do not affect the other.
 - **Inline tree expansion.** You can stay in one directory while expanding
   selected subdirectories into a tree.
@@ -26,27 +26,27 @@ replaced by the file you choose.
 
 ## Usage
 
-Open Dirtree with:
+Open Dora with:
 
 ```vim
-:Dirtree
-:Dirtree path/to/dir
+:Dora
+:Dora path/to/dir
 ```
 
 Or add a mapping:
 
 ```lua
-vim.keymap.set('n', '-', '<Cmd>Dirtree<CR>')
+vim.keymap.set('n', '-', '<Cmd>Dora<CR>')
 ```
 
 ## Configuration
 
-Dirtree works without setup. To customize it, mutate `require'dirtree'.config` from
+Dora works without setup. To customize it, mutate `require'dora'.config` from
 your Neovim config.
 
-The default config is generated from `lua/dirtree.lua`:
+The default config is generated from `lua/dora.lua`:
 
-<!-- dirtree-config:start -->
+<!-- dora-config:start -->
 ```lua
 config = {
     keymaps = {
@@ -102,24 +102,24 @@ config = {
     },
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
-    -- Whether hidden files should be shown when dirtree opens
+    -- Whether hidden files should be shown when dora opens
     show_hidden_files = true,
     -- Function used to determine what files should be hidden
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order
     sort_order = 'name',
-    -- Whether to sync the window's current directory with dirtree's current path
+    -- Whether to sync the window's current directory with dora's current path
     sync_local_cwd = true,
 }
 ```
-<!-- dirtree-config:end -->
+<!-- dora-config:end -->
 
 Example:
 
 ```lua
-local dirtree = require'dirtree'
+local dora = require'dora'
 
-dirtree.config = vim.tbl_deep_extend('force', dirtree.config, {
+dora.config = vim.tbl_deep_extend('force', dora.config, {
     show_hidden_files = false,
     is_file_hidden = function(file)
         return vim.startswith(file.name, '.') or file.name == 'node_modules'
@@ -136,42 +136,42 @@ Keymaps may be core action names, Vim RHS strings, functions, or
 appear nicely in `g?` help:
 
 ```lua
-dirtree.config.keymaps.q = {"quit", desc="Quit"}
+dora.config.keymaps.q = {"quit", desc="Quit"}
 ```
 
-Dirtree also shows a small hint window for two-character normal mode mappings.
+Dora also shows a small hint window for two-character normal mode mappings.
 For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
-Set `dirtree.config.show_keymap_hints = false` to disable these prefix hints.
+Set `dora.config.show_keymap_hints = false` to disable these prefix hints.
 
 Files are sorted naturally by name by default, with directories always grouped
 before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
 time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set
-`dirtree.config.sort_order` to choose the initial order.
+`dora.config.sort_order` to choose the initial order.
 
 ## Highlights
 
-Customize Dirtree with these highlight groups:
+Customize Dora with these highlight groups:
 
 ```
-DirtreeDirectory
-DirtreeSymlink
-DirtreeExecutable
-DirtreeTree
-DirtreeTreeActive
-DirtreeVirtText
-DirtreePromptBorder
-DirtreePromptBorderValid
-DirtreePromptBorderInvalid
-DirtreeDeleteMore
-DirtreeDeleteCursor
-DirtreeCut
-DirtreeCopy
-DirtreeInfoLabel
-DirtreeInfoValue
-DirtreeKeymapHintArrow
-DirtreeInfoLabel
-DirtreeInfoValue
+DoraDirectory
+DoraSymlink
+DoraExecutable
+DoraTree
+DoraTreeActive
+DoraVirtText
+DoraPromptBorder
+DoraPromptBorderValid
+DoraPromptBorderInvalid
+DoraDeleteMore
+DoraDeleteCursor
+DoraCut
+DoraCopy
+DoraInfoLabel
+DoraInfoValue
+DoraKeymapHintArrow
+DoraInfoLabel
+DoraInfoValue
 ```
 
 ## Development

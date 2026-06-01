@@ -30,7 +30,7 @@ local function buf_has_var(buf, var_name)
     return ok and ret or false
 end
 
--- Problem: We'd like dirtree buffers to be completely unique (dirtree instances in
+-- Problem: We'd like dora buffers to be completely unique (dora instances in
 -- two different windows should be isolated), and also have a buffer name that
 -- we can `:cd %` to.
 --
@@ -75,12 +75,12 @@ function M.create_buf(cwd)
     local existing_buf = vim.fn.bufnr('^' .. cwd .. '$')
     local buf
     if existing_buf ~= -1 then
-        if buf_has_var(existing_buf, 'is_dirtree') then
-            -- If buffer exists and it's a dirtree buffer, create a new buffer
+        if buf_has_var(existing_buf, 'is_dora') then
+            -- If buffer exists and it's a dora buffer, create a new buffer
             buf = api.nvim_create_buf(false, true)
             api.nvim_buf_set_name(buf, create_buf_name(cwd))
         else
-            -- If buffer exists and it's not a dirtree buffer, reuse it. This can
+            -- If buffer exists and it's not a dora buffer, reuse it. This can
             -- happen when launching nvim with a directory arg.
             buf = existing_buf
             -- Canonicalize the buffer name when launching nvim with a directory
@@ -95,11 +95,11 @@ function M.create_buf(cwd)
         api.nvim_buf_set_name(buf, cwd)
     end
     assert(buf ~= 0)
-    api.nvim_buf_set_var(buf, 'is_dirtree', true)
+    api.nvim_buf_set_var(buf, 'is_dora', true)
     -- Triggers BufEnter
     api.nvim_set_current_buf(buf)
     -- Triggers ftplugin, so must get called after setting the current buffer
-    api.nvim_buf_set_option(buf, 'filetype', 'dirtree')
+    api.nvim_buf_set_option(buf, 'filetype', 'dora')
     return buf
 end
 
@@ -199,11 +199,11 @@ function M.set_cursor_pos(filename, or_top)
 end
 
 ---@param msg any
-function M.err(msg)  vim.notify('[dirtree] ' .. msg, vim.log.levels.ERROR) end
+function M.err(msg)  vim.notify('[dora] ' .. msg, vim.log.levels.ERROR) end
 ---@param msg any
-function M.warn(msg) vim.notify('[dirtree] ' .. msg, vim.log.levels.WARN) end
+function M.warn(msg) vim.notify('[dora] ' .. msg, vim.log.levels.WARN) end
 ---@param msg any
-function M.info(msg) vim.notify('[dirtree] ' .. msg, vim.log.levels.INFO) end
+function M.info(msg) vim.notify('[dora] ' .. msg, vim.log.levels.INFO) end
 
 ---@param str string
 ---@return string

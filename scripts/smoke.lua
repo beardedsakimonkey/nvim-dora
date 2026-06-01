@@ -8,15 +8,15 @@ local function assert_match(str, pattern, msg)
     assert(str:match(pattern), msg or (vim.inspect(str) .. ' does not match ' .. vim.inspect(pattern)))
 end
 
-local fs = require'dirtree.fs'
-local config = require'dirtree'.config
-local delete_win = require'dirtree.delete_win'
-local keymaps = require'dirtree.keymaps'
-local prompt = require'dirtree.prompt'
-local core = require'dirtree.core'
-local store = require'dirtree.store'
-local util = require'dirtree.util'
-local window = require'dirtree.window'
+local fs = require'dora.fs'
+local config = require'dora'.config
+local delete_win = require'dora.delete_win'
+local keymaps = require'dora.keymaps'
+local prompt = require'dora.prompt'
+local core = require'dora.core'
+local store = require'dora.store'
+local util = require'dora.util'
+local window = require'dora.window'
 
 local cwd = assert(vim.loop.cwd())
 
@@ -132,7 +132,7 @@ local function cursor_tree_highlights(state)
     local ret = {}
     local marks = api.nvim_buf_get_extmarks(state.buf, state.cursor_ns, 0, -1, {details = true})
     for _, mark in ipairs(marks) do
-        if mark[4].hl_group == 'DirtreeTreeActive' then
+        if mark[4].hl_group == 'DoraTreeActive' then
             ret[#ret+1] = mark
         end
     end
@@ -184,14 +184,14 @@ do
     end
 
     delete_win.delete(paths, tmp, function(confirmed)
-        vim.g.dirtree_smoke_confirm_delete = confirmed
+        vim.g.dora_smoke_confirm_delete = confirmed
     end)
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
 
-    assert_eq(confirm_cfg.border[1][2], 'DirtreePromptBorderInvalid')
+    assert_eq(confirm_cfg.border[1][2], 'DoraPromptBorderInvalid')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], ' foo.js')
@@ -204,15 +204,15 @@ do
     for _, mark in ipairs(marks) do
         local row, col, details = mark[2], mark[3], mark[4]
         has_path = has_path
-            or details.hl_group == 'DirtreeDeletePath'
+            or details.hl_group == 'DoraDeletePath'
         has_file = has_file
-            or row == 0 and col == 1 and details.end_col == 7 and details.hl_group == 'DirtreeFile'
+            or row == 0 and col == 1 and details.end_col == 7 and details.hl_group == 'DoraFile'
         has_dir = has_dir
-            or row == 1 and col == 1 and details.end_col == 4 and details.hl_group == 'DirtreeDirectory'
+            or row == 1 and col == 1 and details.end_col == 4 and details.hl_group == 'DoraDirectory'
         has_dir_suffix = has_dir_suffix
-            or row == 1 and col == 4 and details.end_col == 5 and details.hl_group == 'DirtreeVirtText'
+            or row == 1 and col == 4 and details.end_col == 5 and details.hl_group == 'DoraVirtText'
         has_more = has_more
-            or row == 10 and details.hl_group == 'DirtreeDeleteMore'
+            or row == 10 and details.hl_group == 'DoraDeleteMore'
     end
     assert(not has_path, 'delete confirmation should not dim the path portion')
     assert(has_file, 'delete confirmation should highlight file names by type')
@@ -221,7 +221,7 @@ do
     assert(has_more, 'delete confirmation should highlight the overflow row')
 
     api.nvim_feedkeys('n', 'xt', false)
-    assert_eq(vim.g.dirtree_smoke_confirm_delete, false)
+    assert_eq(vim.g.dora_smoke_confirm_delete, false)
     assert_eq(api.nvim_get_current_win(), origin_win)
     assert_eq(vim.o.guicursor, old_guicursor)
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -275,11 +275,11 @@ do
     touch(tmp .. '/enter.txt')
 
     delete_win.delete({tmp .. '/enter.txt'}, tmp, function(confirmed)
-        vim.g.dirtree_smoke_enter_confirm_delete = confirmed
+        vim.g.dora_smoke_enter_confirm_delete = confirmed
     end)
 
     api.nvim_feedkeys('\r', 'xt', false)
-    assert_eq(vim.g.dirtree_smoke_enter_confirm_delete, true)
+    assert_eq(vim.g.dora_smoke_enter_confirm_delete, true)
 
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
@@ -293,10 +293,10 @@ do
             return input .. '-ok'
         end,
     }, function(input, result)
-        vim.g.dirtree_smoke_input = input or 'nil'
-        vim.g.dirtree_smoke_result = result or 'nil'
+        vim.g.dora_smoke_input = input or 'nil'
+        vim.g.dora_smoke_result = result or 'nil'
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     local cfg = api.nvim_win_get_config(p.input_win)
     assert_eq(cfg.relative, 'editor')
@@ -315,8 +315,8 @@ do
 
     p:set_input('abc', 3)
     p:confirm()
-    assert_eq(vim.g.dirtree_smoke_input, 'abc')
-    assert_eq(vim.g.dirtree_smoke_result, 'abc-ok')
+    assert_eq(vim.g.dora_smoke_input, 'abc')
+    assert_eq(vim.g.dora_smoke_result, 'abc-ok')
 end
 
 do
@@ -344,7 +344,7 @@ do
             return input
         end,
     }, function() end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     local cfg = api.nvim_win_get_config(p.input_win)
     assert_eq(cfg.relative, 'editor')
@@ -367,15 +367,15 @@ do
             return input
         end,
     }, function(input)
-        vim.g.dirtree_smoke_escape_non_empty = input == nil
+        vim.g.dora_smoke_escape_non_empty = input == nil
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     p:set_input('abc', 3)
     p:escape_insert()
     assert(not p.closed, 'escape with input should leave prompt open')
     p:cancel()
-    assert_eq(vim.g.dirtree_smoke_escape_non_empty, true)
+    assert_eq(vim.g.dora_smoke_escape_non_empty, true)
 end
 
 do
@@ -386,16 +386,16 @@ do
             return input
         end,
     }, function(input)
-        vim.g.dirtree_smoke_escape_empty = input == nil
+        vim.g.dora_smoke_escape_empty = input == nil
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     p:set_input('', 0)
     p:escape_insert()
     assert(vim.wait(1000, function()
         return p.closed
     end), 'escape with empty input should close prompt')
-    assert_eq(vim.g.dirtree_smoke_escape_empty, true)
+    assert_eq(vim.g.dora_smoke_escape_empty, true)
 end
 
 do
@@ -406,9 +406,9 @@ do
             return input
         end,
     }, function(input)
-        vim.g.dirtree_smoke_escape_typed = input == nil
+        vim.g.dora_smoke_escape_typed = input == nil
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     api.nvim_feedkeys(api.nvim_replace_termcodes('ix<Esc>', true, false, true), 'xt', false)
     assert(vim.wait(1000, function()
@@ -416,7 +416,7 @@ do
     end), 'escape after typed input should leave insert mode')
     assert(not p.closed, 'escape after typed input should leave prompt open')
     p:cancel()
-    assert_eq(vim.g.dirtree_smoke_escape_typed, true)
+    assert_eq(vim.g.dora_smoke_escape_typed, true)
 end
 
 do
@@ -427,15 +427,15 @@ do
             return input
         end,
     }, function(input)
-        vim.g.dirtree_smoke_escape_key_empty = input == nil
+        vim.g.dora_smoke_escape_key_empty = input == nil
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     api.nvim_feedkeys(api.nvim_replace_termcodes('i<Esc>', true, false, true), 'xt', false)
     assert(vim.wait(1000, function()
         return p.closed and vim.api.nvim_get_mode().mode == 'n'
     end), 'escape with empty input should close prompt via keypress')
-    assert_eq(vim.g.dirtree_smoke_escape_key_empty, true)
+    assert_eq(vim.g.dora_smoke_escape_key_empty, true)
 end
 
 do
@@ -446,12 +446,12 @@ do
             return input
         end,
     }, function(input)
-        vim.g.dirtree_smoke_cancelled = input == nil
+        vim.g.dora_smoke_cancelled = input == nil
     end)
-    ---@cast p DirtreePrompt
+    ---@cast p DoraPrompt
 
     p:cancel()
-    assert_eq(vim.g.dirtree_smoke_cancelled, true)
+    assert_eq(vim.g.dora_smoke_cancelled, true)
 end
 
 assert_match(fs.validate_create('x-new-file', cwd), 'x%-new%-file$')
@@ -485,7 +485,7 @@ do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
@@ -512,7 +512,7 @@ do
     touch(tmp .. '/other-file.txt')
     vim.env.HOME = tmp .. '/home'
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     core.home_dir()
     assert_eq(state.cwd, fs.realpath(tmp .. '/home'), 'home directory should navigate to $HOME')
@@ -530,7 +530,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root/child', tonumber('755', 8)))
     touch(tmp .. '/root/child/existing.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('root')
     core.expand()
     set_cursor_line('child/$')
@@ -559,7 +559,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root/child', tonumber('755', 8)))
     touch(tmp .. '/root/child/existing.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('root')
     core.expand_recursive()
     set_cursor_line('existing%.txt$')
@@ -588,7 +588,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/beta', tonumber('755', 8)))
     touch(tmp .. '/alpha/duplicate.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('alpha')
     core.expand()
     util.set_cursor_pos('beta')
@@ -618,7 +618,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/anchor.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     util.set_cursor_pos('anchor%.txt')
     local cursor = api.nvim_win_get_cursor(0)
@@ -650,7 +650,7 @@ do
     touch(tmp .. '/alpha/top.txt')
     touch(tmp .. '/beta.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp .. '/alpha'))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp .. '/alpha'))
     local state = store.get()
     local alpha = state.cwd
     local parent = fs.get_parent_dir(alpha)
@@ -679,7 +679,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
     touch(tmp .. '/alpha/one/file.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
@@ -706,7 +706,7 @@ do
     touch(tmp .. '/a')
     touch(tmp .. '/b')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('b')
     local cursor = api.nvim_win_get_cursor(0)
     local row = store.get().rows[cursor[1]]
@@ -736,7 +736,7 @@ do
     local old_show_hidden_files = config.show_hidden_files
     config.show_hidden_files = false
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     config.show_hidden_files = old_show_hidden_files
     assert(not vim.tbl_contains(lines(), '.hidden'), 'hidden files should be hidden when configured')
 
@@ -749,7 +749,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/single.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('single%.txt')
     local origin_win = api.nvim_get_current_win()
     local cursor = api.nvim_win_get_cursor(origin_win)
@@ -777,21 +777,21 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_line('alpha%.txt$')
     core.copy()
     assert_eq(paste_operation_count(state), 1)
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
-    assert(has_sign_highlight(state, 'DirtreeCopy'), 'copy should use a distinct sign highlight')
-    assert(has_high_priority_highlight(state, 'DirtreeCopy'), 'copy should highlight filenames like the copy sign')
+    assert(has_sign_highlight(state, 'DoraCopy'), 'copy should use a distinct sign highlight')
+    assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy should highlight filenames like the copy sign')
 
     core.copy()
     assert_eq(paste_operation_count(state), 0, 'copy should toggle off an existing copy mark')
 
     core.cut()
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
-    assert(has_sign_highlight(state, 'DirtreeCut'), 'cut should use a distinct sign highlight')
+    assert(has_sign_highlight(state, 'DoraCut'), 'cut should use a distinct sign highlight')
     core.copy()
     assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
@@ -817,7 +817,7 @@ do
     touch(tmp .. '/b')
     touch(tmp .. '/c')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     set_cursor_line('a$')
@@ -827,10 +827,10 @@ do
     core.copy()
     assert_eq(state.paste_operations[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
     assert_eq(paste_operation_count(state), 2)
-    assert(has_sign_highlight(state, 'DirtreeCut'), 'cut marks should use the cut sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCut'), 'cut marks should highlight filenames like the cut sign')
-    assert(has_sign_highlight(state, 'DirtreeCopy'), 'copy marks should use the copy sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCopy'), 'copy marks should highlight filenames like the copy sign')
+    assert(has_sign_highlight(state, 'DoraCut'), 'cut marks should use the cut sign')
+    assert(has_high_priority_highlight(state, 'DoraCut'), 'cut marks should highlight filenames like the cut sign')
+    assert(has_sign_highlight(state, 'DoraCopy'), 'copy marks should use the copy sign')
+    assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy marks should highlight filenames like the copy sign')
 
     core.clear_marks()
     assert_eq(paste_operation_count(state), 0, 'escape action should clear paste marks')
@@ -852,7 +852,7 @@ do
     touch(tmp .. '/a')
     touch(tmp .. '/b')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     util.set_cursor_pos('a')
@@ -881,7 +881,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     util.set_cursor_pos('alpha%.txt')
     local cursor = api.nvim_win_get_cursor(0)
@@ -913,7 +913,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     util.set_cursor_pos('alpha%.txt')
     local cursor = api.nvim_win_get_cursor(0)
@@ -951,7 +951,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
     touch(tmp .. '/dir/child/file.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     util.set_cursor_pos('dir')
     core.expand()
@@ -985,7 +985,7 @@ do
     local home = assert(os.getenv'HOME')
     assert(vim.loop.fs_symlink(home, tmp .. '/home-link'))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
     local has_home_link = false
@@ -1017,7 +1017,7 @@ do
     assert_eq(cfg.row, api.nvim_win_get_height(origin_win) - 1, 'keymap hints should sit near the bottom')
     assert_eq(cfg.col, api.nvim_win_get_width(origin_win) - 2, 'keymap hints should sit near the right edge')
     assert_eq(cfg.border[1][1], '╭', 'keymap hints should have a border')
-    assert_eq(cfg.border[1][2], 'DirtreePromptBorder', 'keymap hint border should use the prompt border highlight')
+    assert_eq(cfg.border[1][2], 'DoraPromptBorder', 'keymap hint border should use the prompt border highlight')
     assert_eq(cfg.title, nil, 'keymap hints should not have a title')
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     local hint_text = table.concat(hint_lines, '\n')
@@ -1028,9 +1028,9 @@ do
     local has_key, has_arrow, has_desc = false, false, false
     for _, mark in ipairs(marks) do
         local hl = mark[4].hl_group
-        has_key = has_key or hl == 'DirtreeInfoLabel'
-        has_arrow = has_arrow or hl == 'DirtreeKeymapHintArrow'
-        has_desc = has_desc or hl == 'DirtreeInfoValue'
+        has_key = has_key or hl == 'DoraInfoLabel'
+        has_arrow = has_arrow or hl == 'DoraKeymapHintArrow'
+        has_desc = has_desc or hl == 'DoraInfoValue'
     end
     assert(has_key, 'keymap hints should highlight keys')
     assert(has_arrow, 'keymap hints should highlight arrows')
@@ -1046,8 +1046,8 @@ do
     local captured_rows
 
     config.keymaps = {
-        za = {"<Cmd>lua vim.g.dirtree_smoke_hint_keymap = 'za'<CR>", desc='Alpha'},
-        zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
+        za = {"<Cmd>lua vim.g.dora_smoke_hint_keymap = 'za'<CR>", desc='Alpha'},
+        zx = {function() vim.g.dora_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
     config.show_keymap_hints = true
     keymaps.open_hint_window = function(prefix, rows)
@@ -1055,9 +1055,9 @@ do
         captured_rows = rows
         return old_open(prefix, rows)
     end
-    vim.g.dirtree_smoke_hint_keymap = nil
+    vim.g.dora_smoke_hint_keymap = nil
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('z', 'n', false, true)
     assert_eq(prefix_map.desc, 'Show keymap hints')
     assert_eq(type(prefix_map.callback), 'function')
@@ -1065,7 +1065,7 @@ do
     assert_eq(vim.fn.maparg('zx', 'n', false, true).desc, 'Xray')
     api.nvim_feedkeys('a', 't', false)
     prefix_map.callback()
-    assert_eq(vim.g.dirtree_smoke_hint_keymap, 'za', 'keymap hints should dispatch legacy string actions')
+    assert_eq(vim.g.dora_smoke_hint_keymap, 'za', 'keymap hints should dispatch legacy string actions')
     assert_eq(captured_prefix, 'z')
     assert_eq(#captured_rows, 2)
     assert_eq(captured_rows[1].lhs, 'za')
@@ -1090,18 +1090,18 @@ do
     }
     config.show_keymap_hints = true
     core.reload = function()
-        vim.g.dirtree_smoke_named_keymap = 'reload'
+        vim.g.dora_smoke_named_keymap = 'reload'
     end
     keymaps.open_hint_window = function(prefix, rows)
         return old_open(prefix, rows)
     end
-    vim.g.dirtree_smoke_named_keymap = nil
+    vim.g.dora_smoke_named_keymap = nil
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('z', 'n', false, true)
     api.nvim_feedkeys('a', 't', false)
     prefix_map.callback()
-    assert_eq(vim.g.dirtree_smoke_named_keymap, 'reload', 'keymap hints should dispatch named core actions')
+    assert_eq(vim.g.dora_smoke_named_keymap, 'reload', 'keymap hints should dispatch named core actions')
     core.quit()
 
     keymaps.open_hint_window = old_open
@@ -1120,16 +1120,16 @@ do
     }
     config.show_keymap_hints = false
     core.reload = function()
-        vim.g.dirtree_smoke_named_direct_keymap = 'reload'
+        vim.g.dora_smoke_named_direct_keymap = 'reload'
     end
-    vim.g.dirtree_smoke_named_direct_keymap = nil
+    vim.g.dora_smoke_named_direct_keymap = nil
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local map = vim.fn.maparg('x', 'n', false, true)
     assert_eq(map.desc, 'Reload')
     assert_eq(type(map.callback), 'function')
     map.callback()
-    assert_eq(vim.g.dirtree_smoke_named_direct_keymap, 'reload', 'direct keymaps should dispatch named core actions')
+    assert_eq(vim.g.dora_smoke_named_direct_keymap, 'reload', 'direct keymaps should dispatch named core actions')
     core.quit()
 
     core.reload = old_reload
@@ -1142,12 +1142,12 @@ do
     local old_show_keymap_hints = config.show_keymap_hints
 
     config.keymaps = {
-        za = {function() vim.g.dirtree_smoke_hint_keymap = 'za' end, desc='Alpha'},
-        zx = {function() vim.g.dirtree_smoke_hint_keymap = 'zx' end, desc='Xray'},
+        za = {function() vim.g.dora_smoke_hint_keymap = 'za' end, desc='Alpha'},
+        zx = {function() vim.g.dora_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
     config.show_keymap_hints = false
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('z', 'n'), '', 'disabled keymap hints should not install prefix mappings')
     assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Alpha')
     assert_eq(vim.fn.maparg('zx', 'n', false, true).desc, 'Xray')
@@ -1162,12 +1162,12 @@ do
     local old_show_keymap_hints = config.show_keymap_hints
 
     config.keymaps = {
-        x = {function() vim.g.dirtree_smoke_hint_keymap = 'x' end, desc='Plain X'},
-        xy = {function() vim.g.dirtree_smoke_hint_keymap = 'xy' end, desc='X Y'},
+        x = {function() vim.g.dora_smoke_hint_keymap = 'x' end, desc='Plain X'},
+        xy = {function() vim.g.dora_smoke_hint_keymap = 'xy' end, desc='X Y'},
     }
     config.show_keymap_hints = true
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     assert_eq(vim.fn.maparg('x', 'n', false, true).desc, 'Plain X')
     assert_eq(vim.fn.maparg('xy', 'n', false, true).desc, 'X Y')
     core.quit()
@@ -1192,7 +1192,7 @@ do
     assert(vim.loop.fs_utime(tmp .. '/file2.txt', 200, 200))
     assert(vim.loop.fs_utime(tmp .. '/big.log', 250, 250))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     assert_eq(state.sort_order, 'name')
     assert_line_before('^dir2/$', '^dir10/$', 'natural sort should order directory names naturally')
@@ -1259,7 +1259,7 @@ do
     touch(tmp .. '/visible')
     touch(tmp .. '/.hidden')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert(vim.tbl_contains(lines(), 'visible'), 'visible files should render by default')
     assert(vim.tbl_contains(lines(), '.hidden'), 'dotfiles should render by default')
 
@@ -1275,7 +1275,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/a')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     util.set_cursor_pos('a')
@@ -1298,13 +1298,13 @@ do
     end
     local had_clipboard, old_clipboard = pcall(api.nvim_get_var, 'clipboard')
     vim.g.clipboard = {
-        name = 'dirtree-smoke',
+        name = 'dora-smoke',
         copy = {
-            ['+'] = function(lines) vim.g.dirtree_smoke_clipboard = table.concat(lines, '\n') end,
+            ['+'] = function(lines) vim.g.dora_smoke_clipboard = table.concat(lines, '\n') end,
             ['*'] = function() end,
         },
         paste = {
-            ['+'] = function() return {vim.split(vim.g.dirtree_smoke_clipboard or '', '\n'), 'v'} end,
+            ['+'] = function() return {vim.split(vim.g.dora_smoke_clipboard or '', '\n'), 'v'} end,
             ['*'] = function() return {{''}, 'v'} end,
         },
     }
@@ -1313,17 +1313,17 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
     touch(tmp .. '/dir/archive.tar.gz')
 
-    local augroup = api.nvim_create_augroup('dirtree-smoke-yank', {})
+    local augroup = api.nvim_create_augroup('dora-smoke-yank', {})
     api.nvim_create_autocmd('TextYankPost', {
         group = augroup,
         callback = function()
-            vim.g.dirtree_smoke_yankpost_operator = vim.v.event.operator
-            vim.g.dirtree_smoke_yankpost_regname = vim.v.event.regname
-            vim.g.dirtree_smoke_yankpost_text = vim.v.event.regcontents[1]
+            vim.g.dora_smoke_yankpost_operator = vim.v.event.operator
+            vim.g.dora_smoke_yankpost_regname = vim.v.event.regname
+            vim.g.dora_smoke_yankpost_text = vim.v.event.regcontents[1]
         end,
     })
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     util.set_cursor_pos('dir')
     core.expand()
     set_cursor_line('archive%.tar%.gz$')
@@ -1332,46 +1332,46 @@ do
 
     core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked file path')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
-    assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
-    assert_eq(vim.g.dirtree_smoke_yankpost_regname, '')
-    assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
+    assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
+    assert_eq(vim.g.dora_smoke_yankpost_regname, '')
+    assert_eq(vim.g.dora_smoke_yankpost_text, expected_yank_text)
 
-    vim.g.dirtree_smoke_yankpost_operator = nil
-    vim.g.dirtree_smoke_yankpost_regname = nil
-    vim.g.dirtree_smoke_yankpost_text = nil
+    vim.g.dora_smoke_yankpost_operator = nil
+    vim.g.dora_smoke_yankpost_regname = nil
+    vim.g.dora_smoke_yankpost_text = nil
     core.yank_file_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked file path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path to clipboard')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
-    assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
-    assert_eq(vim.g.dirtree_smoke_yankpost_regname, '+')
-    assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
+    assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
+    assert_eq(vim.g.dora_smoke_yankpost_regname, '+')
+    assert_eq(vim.g.dora_smoke_yankpost_text, expected_yank_text)
 
     core.yank_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked directory path')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path')
 
     core.yank_dir_path_clipboard()
     assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked directory path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path to clipboard')
 
     core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked filename')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename')
 
     core.yank_filename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked filename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename to clipboard')
 
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked basename')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename')
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked basename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename to clipboard')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1383,10 +1383,10 @@ do
         pcall(api.nvim_del_var, 'clipboard')
     end
     vim.notify = old_notify
-    vim.g.dirtree_smoke_clipboard = nil
-    vim.g.dirtree_smoke_yankpost_operator = nil
-    vim.g.dirtree_smoke_yankpost_regname = nil
-    vim.g.dirtree_smoke_yankpost_text = nil
+    vim.g.dora_smoke_clipboard = nil
+    vim.g.dora_smoke_yankpost_operator = nil
+    vim.g.dora_smoke_yankpost_regname = nil
+    vim.g.dora_smoke_yankpost_text = nil
 end
 
 do
@@ -1401,28 +1401,28 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/a')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local expected_path = fs.realpath(tmp) .. '/a'
     vim.ui.open = function(path)
-        vim.g.dirtree_smoke_open_external_path = path
+        vim.g.dora_smoke_open_external_path = path
     end
     core.open_external()
-    assert_eq(vim.g.dirtree_smoke_open_external_path, expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Opening a')
+    assert_eq(vim.g.dora_smoke_open_external_path, expected_path)
+    assert_eq(notifications[#notifications].msg, '[dora] Opening a')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
     vim.ui.open = function()
         error('boom')
     end
     core.open_external()
-    assert_match(notifications[#notifications].msg, '^%[dirtree%] Could not open externally: ')
+    assert_match(notifications[#notifications].msg, '^%[dora%] Could not open externally: ')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
     vim.notify = old_notify
     vim.ui.open = old_open
-    vim.g.dirtree_smoke_open_external_path = nil
+    vim.g.dora_smoke_open_external_path = nil
 end
 
 do
@@ -1430,7 +1430,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     write_file(tmp .. '/alpha.txt', 'hello')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local origin_win = api.nvim_get_current_win()
     core.info()
     local info_win = api.nvim_get_current_win()
@@ -1440,7 +1440,7 @@ do
     local info_text = table.concat(info_lines, '\n')
 
     assert(info_win ~= origin_win, 'info should open in a floating window')
-    assert_eq(info_cfg.border[1][2], 'DirtreePromptBorder')
+    assert_eq(info_cfg.border[1][2], 'DoraPromptBorder')
     assert_match(win_title(info_win), 'Info')
     assert_match(info_text, 'Name%s+alpha%.txt')
     assert_match(info_text, 'Type%s+File')
@@ -1452,8 +1452,8 @@ do
     local has_label, has_value = false, false
     for _, mark in ipairs(marks) do
         local hl = mark[4].hl_group
-        has_label = has_label or hl == 'DirtreeInfoLabel'
-        has_value = has_value or hl == 'DirtreeInfoValue'
+        has_label = has_label or hl == 'DoraInfoLabel'
+        has_value = has_value or hl == 'DoraInfoValue'
     end
     assert(has_label, 'info should highlight labels')
     assert(has_value, 'info should highlight values')
@@ -1465,7 +1465,7 @@ do
 end
 
 do
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local origin_win = api.nvim_get_current_win()
     core.help()
     local help_win = api.nvim_get_current_win()
@@ -1486,19 +1486,19 @@ end
 do
     local old_keymaps = config.keymaps
     config.keymaps = {
-        x = "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>",
-        z = {"<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
+        x = "<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal'<CR>",
+        z = {"<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
-    assert_eq(vim.fn.maparg('x', 'n', false, true).rhs, "<Cmd>lua vim.g.dirtree_smoke_legacy_keymap = 'normal'<CR>")
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
+    assert_eq(vim.fn.maparg('x', 'n', false, true).rhs, "<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal'<CR>")
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
-    assert(help_text:match("x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
+    assert(help_text:match("x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
     assert(not find_line_index(help_lines, '^Normal$'), 'help should omit the normal section title')
     assert(not find_line_index(help_lines, '^Visual$'), 'help should omit the visual section')
-    assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dirtree_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
+    assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
         'help should sort unordered custom mappings after local order')
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
@@ -1510,7 +1510,7 @@ do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('J', 'x', false, true).desc, 'Last sibling')
     assert_eq(type(vim.fn.maparg('J', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('K', 'x', false, true).desc, 'First sibling')
@@ -1535,7 +1535,7 @@ do
     touch(tmp .. '/alpha/file.txt')
     touch(tmp .. '/top.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     util.set_cursor_pos('alpha')
@@ -1607,7 +1607,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root/empty', tonumber('755', 8)))
     touch(tmp .. '/root/a/b/file.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = state.cwd
 
@@ -1649,7 +1649,7 @@ do
     touch(tmp .. '/alpha/one/file.txt')
     touch(tmp .. '/root.txt')
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = state.cwd
 
@@ -1658,10 +1658,10 @@ do
     assert(vim.tbl_contains(lines(), '├── one/'), 'first expand should show alpha children')
     assert(vim.tbl_contains(lines(), '└── two/'), 'first expand should show all alpha children')
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'first expand should not expand grandchildren')
-    assert(has_highlight(state, 'DirtreeDirectory'), 'directory rows should be highlighted')
-    assert(has_priority_highlight(state, 'DirtreeFile', 100), 'file row highlights should not cover yank highlights')
-    assert(has_high_priority_highlight(state, 'DirtreeTree'), 'tree prefixes should be highlighted')
-    assert(has_high_priority_highlight(state, 'DirtreeVirtText'), 'directory suffixes should be highlighted')
+    assert(has_highlight(state, 'DoraDirectory'), 'directory rows should be highlighted')
+    assert(has_priority_highlight(state, 'DoraFile', 100), 'file row highlights should not cover yank highlights')
+    assert(has_high_priority_highlight(state, 'DoraTree'), 'tree prefixes should be highlighted')
+    assert(has_high_priority_highlight(state, 'DoraVirtText'), 'directory suffixes should be highlighted')
 
     set_cursor_line('one/$')
     assert_cursor_tree_highlights(state, 2)
@@ -1731,13 +1731,13 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/empty', tonumber('755', 8)))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     util.set_cursor_pos('empty')
     core.expand()
     assert(vim.tbl_contains(lines(), '└── (empty)'), 'empty directories should render a placeholder')
-    assert(has_highlight(state, 'DirtreeTree'), 'empty placeholder should be highlighted as tree text')
+    assert(has_highlight(state, 'DoraTree'), 'empty placeholder should be highlighted as tree text')
 
     util.set_cursor_pos('empty')
     core.collapse()
@@ -1752,7 +1752,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/unreadable', tonumber('755', 8)))
 
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local old_list = fs.list
     ---@diagnostic disable-next-line: duplicate-set-field
     fs.list = function(path)
@@ -1772,11 +1772,11 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
-vim.cmd('Dirtree ' .. vim.fn.fnameescape(cwd))
+vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
 local state = store.get()
 assert_eq(state.cwd, fs.realpath(cwd))
-assert(api.nvim_buf_get_var(0, 'is_dirtree'), 'Dirtree buffer should be identified')
-assert(#api.nvim_buf_get_lines(0, 0, -1, false) > 0, 'Dirtree buffer should render entries')
+assert(api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
+assert(#api.nvim_buf_get_lines(0, 0, -1, false) > 0, 'Dora buffer should render entries')
 core.quit()
 
-print('[dirtree] smoke ok\n')
+print('[dora] smoke ok\n')

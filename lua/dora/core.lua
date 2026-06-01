@@ -1,13 +1,13 @@
-local fs = require'dirtree.fs'
-local help_win = require'dirtree.help_win'
-local delete_win = require'dirtree.delete_win'
-local info_win = require'dirtree.info_win'
-local keymaps = require'dirtree.keymaps'
-local prompt = require'dirtree.prompt'
-local store = require'dirtree.store'
-local sorter = require'dirtree.sort'
-local util = require'dirtree.util'
-local config = require'dirtree'.config
+local fs = require'dora.fs'
+local help_win = require'dora.help_win'
+local delete_win = require'dora.delete_win'
+local info_win = require'dora.info_win'
+local keymaps = require'dora.keymaps'
+local prompt = require'dora.prompt'
+local store = require'dora.store'
+local sorter = require'dora.sort'
+local util = require'dora.util'
+local config = require'dora'.config
 
 local api = vim.api
 local uv = vim.loop
@@ -21,47 +21,47 @@ local TREE_VERTICAL = '│'
 local TREE_CONTINUATION = TREE_VERTICAL .. '   '
 local TREE_SPACER = '    '
 
----@alias DirtreeCwdScope 'window'|'tab'|'global'
----@alias DirtreePasteOperation 'copy'|'cut'
+---@alias DoraCwdScope 'window'|'tab'|'global'
+---@alias DoraPasteOperation 'copy'|'cut'
 
----@class DirtreeTreeSegment
+---@class DoraTreeSegment
 ---@field parent_path string
 ---@field start_col integer
 ---@field end_col integer
 
----@class DirtreeTreeRow
+---@class DoraTreeRow
 ---@field name string
 ---@field display_name string
 ---@field path? string
 ---@field parent_path? string
----@field type DirtreeFileType|'placeholder'
+---@field type DoraFileType|'placeholder'
 ---@field depth integer
 ---@field tree_prefix_len integer
----@field tree_continuation_segments DirtreeTreeSegment[]
+---@field tree_continuation_segments DoraTreeSegment[]
 ---@field tree_connector_start_col? integer
 ---@field name_start_col? integer
 ---@field name_end_col? integer
 ---@field directory_suffix_col? integer
 
----@class DirtreeCwdRestore
+---@class DoraCwdRestore
 ---@field cwd string
----@field scope DirtreeCwdScope
+---@field scope DoraCwdScope
 
----@class DirtreeState
+---@class DoraState
 ---@field buf integer
 ---@field origin_buf integer
 ---@field alt_buf? integer
 ---@field cwd string
 ---@field sync_local_cwd boolean
----@field cwd_restore? DirtreeCwdRestore
+---@field cwd_restore? DoraCwdRestore
 ---@field ns integer
 ---@field cursor_ns integer
 ---@field show_hidden_files boolean
----@field sort_order DirtreeSortOrder
+---@field sort_order DoraSortOrder
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
----@field rows DirtreeTreeRow[]
----@field paste_operations table<string, DirtreePasteOperation>
+---@field rows DoraTreeRow[]
+---@field paste_operations table<string, DoraPasteOperation>
 
 -- Render ----------------------------------------------------------------------
 
@@ -74,9 +74,9 @@ local function is_permission_error(msg)
         or msg:lower():match('permission denied') ~= nil
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param dir string
----@return DirtreeFile[] files
+---@return DoraFile[] files
 ---@return string? placeholder_label
 local function visible_files(state, dir)
     local ok, all_files = pcall(fs.list, dir)
@@ -98,8 +98,8 @@ local function visible_files(state, dir)
     return files, nil
 end
 
----@param segments DirtreeTreeSegment[]
----@return DirtreeTreeSegment[]
+---@param segments DoraTreeSegment[]
+---@return DoraTreeSegment[]
 local function copy_tree_segments(segments)
     local ret = {}
     for _, segment in ipairs(segments) do
@@ -108,15 +108,15 @@ local function copy_tree_segments(segments)
     return ret
 end
 
----@param state DirtreeState
----@return DirtreeTreeRow[]
+---@param state DoraState
+---@return DoraTreeRow[]
 local function build_tree_rows(state)
     local rows = {}
 
     ---@param dir string
     ---@param prefix string
     ---@param depth integer
-    ---@param continuation_segments DirtreeTreeSegment[]
+    ---@param continuation_segments DoraTreeSegment[]
     local function add_dir(dir, prefix, depth, continuation_segments)
         local files, placeholder_label = visible_files(state, dir)
         if depth > 0 and (#files == 0 or placeholder_label) then
@@ -184,7 +184,7 @@ end
 
 local update_tree_cursor_highlight
 
----@param state DirtreeState
+---@param state DoraState
 local function render(state)
     local buf, ns = state.buf, state.ns
     local rows = build_tree_rows(state)
@@ -198,17 +198,17 @@ local function render(state)
         local path = file.path
         local virttext, hl
         if file.type == 'directory' then
-            virttext, hl = nil, 'DirtreeDirectory'
+            virttext, hl = nil, 'DoraDirectory'
         elseif file.type == 'placeholder' then
-            virttext, hl = nil, 'DirtreeTree'
+            virttext, hl = nil, 'DoraTree'
         elseif file.type == 'link' then
             local link = uv.fs_readlink(path)
             virttext = '@ → ' .. (link and util.display_path(link) or '???')
-            hl = 'DirtreeSymlink'
+            hl = 'DoraSymlink'
         elseif uv.fs_access(path, 'X') then
-            virttext, hl = '*', 'DirtreeExecutable'
+            virttext, hl = '*', 'DoraExecutable'
         else
-            virttext, hl = nil, 'DirtreeFile'
+            virttext, hl = nil, 'DoraFile'
         end
         api.nvim_buf_set_extmark(0, ns, i-1, 0, {
             end_col = #file.display_name,
@@ -217,7 +217,7 @@ local function render(state)
         })
         if virttext then
             api.nvim_buf_set_extmark(0, ns, i-1, #file.display_name, {
-                virt_text = {{virttext, 'DirtreeVirtText'}},
+                virt_text = {{virttext, 'DoraVirtText'}},
                 virt_text_pos = 'overlay',
                 hl_mode = 'combine',
             })
@@ -225,22 +225,22 @@ local function render(state)
         if file.tree_prefix_len > 0 then
             api.nvim_buf_set_extmark(0, ns, i-1, 0, {
                 end_col = file.tree_prefix_len,
-                hl_group = 'DirtreeTree',
+                hl_group = 'DoraTree',
                 priority = 10000,
             })
         end
         if file.directory_suffix_col then
             api.nvim_buf_set_extmark(0, ns, i-1, file.directory_suffix_col, {
                 end_col = #file.display_name,
-                hl_group = 'DirtreeVirtText',
+                hl_group = 'DoraVirtText',
                 priority = 10000,
             })
         end
         local paste_operation = path and state.paste_operations[path] or nil
         if paste_operation then
-            local sign_hl = 'DirtreeCopy'
+            local sign_hl = 'DoraCopy'
             if paste_operation == 'cut' then
-                sign_hl = 'DirtreeCut'
+                sign_hl = 'DoraCut'
             end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 sign_text = '▌',
@@ -256,7 +256,7 @@ local function render(state)
     update_tree_cursor_highlight(state)
 end
 
----@param state DirtreeState
+---@param state DoraState
 function update_tree_cursor_highlight(state)
     local buf, ns = state.buf, state.cursor_ns
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
@@ -273,7 +273,7 @@ function update_tree_cursor_highlight(state)
             if segment.parent_path == row.parent_path then
                 api.nvim_buf_set_extmark(buf, ns, i - 1, segment.start_col, {
                     end_col = segment.end_col,
-                    hl_group = 'DirtreeTreeActive',
+                    hl_group = 'DoraTreeActive',
                     priority = 10001,
                 })
             end
@@ -281,21 +281,21 @@ function update_tree_cursor_highlight(state)
         if sibling.parent_path == row.parent_path and sibling.tree_connector_start_col then
             api.nvim_buf_set_extmark(buf, ns, i - 1, sibling.tree_connector_start_col, {
                 end_col = sibling.tree_prefix_len,
-                hl_group = 'DirtreeTreeActive',
+                hl_group = 'DoraTreeActive',
                 priority = 10001,
             })
         end
     end
 end
 
----@param state DirtreeState
----@return DirtreeTreeRow?
+---@param state DoraState
+---@return DoraTreeRow?
 local function current_row(state)
     local row = api.nvim_win_get_cursor(0)[1]
     return state.rows and state.rows[row] or nil
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 ---@return boolean
 local function set_cursor_path(state, path)
@@ -312,7 +312,7 @@ local function set_cursor_path(state, path)
     return false
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param pattern string?
 ---@param or_top? boolean
 local function set_cursor_pos(state, pattern, or_top)
@@ -320,8 +320,8 @@ local function set_cursor_pos(state, pattern, or_top)
     update_tree_cursor_highlight(state)
 end
 
----@param state DirtreeState
----@param row DirtreeTreeRow?
+---@param state DoraState
+---@param row DoraTreeRow?
 ---@return string?
 local function get_initial_prompt_for_move(state, row)
     if not row or not row.path then
@@ -337,8 +337,8 @@ local function get_initial_prompt_for_move(state, row)
     return relative .. util.sep
 end
 
----@param state DirtreeState
----@param row DirtreeTreeRow?
+---@param state DoraState
+---@param row DoraTreeRow?
 ---@return string?
 local function create_parent_default(state, row)
     if not row or not row.path then
@@ -351,8 +351,8 @@ local function create_parent_default(state, row)
     return parent:sub(#state.cwd + 2) .. util.sep
 end
 
----@param state DirtreeState
----@param row DirtreeTreeRow?
+---@param state DoraState
+---@param row DoraTreeRow?
 ---@return string?
 ---@return integer?
 local function collapse_target(state, row)
@@ -384,7 +384,7 @@ local function relative_dir_depth(path, prefix)
     return select(2, rest:gsub(util.sep, '')) + 1
 end
 
----@param row DirtreeTreeRow
+---@param row DoraTreeRow
 ---@param path string
 ---@return boolean
 local function row_under_path(row, path)
@@ -394,7 +394,7 @@ local function row_under_path(row, path)
     return row.parent_path == path or vim.startswith(row.parent_path or '', path .. util.sep)
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param line integer
 local function move_to_line(state, line)
     if line < 1 or line > #state.rows then
@@ -404,7 +404,7 @@ local function move_to_line(state, line)
     update_tree_cursor_highlight(state)
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param line integer
 ---@param step integer
 ---@return integer?
@@ -420,7 +420,7 @@ local function sibling_line(state, line, step)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param line integer
 ---@param step integer
 ---@return integer?
@@ -436,7 +436,7 @@ local function sibling_edge_line(state, line, step)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function move_to_next_sibling(state)
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
@@ -449,7 +449,7 @@ local function move_to_next_sibling(state)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function move_to_prev_sibling(state)
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
@@ -462,7 +462,7 @@ local function move_to_prev_sibling(state)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function move_to_last_sibling(state)
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
@@ -475,7 +475,7 @@ local function move_to_last_sibling(state)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function move_to_first_sibling(state)
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
@@ -488,12 +488,12 @@ local function move_to_first_sibling(state)
     end
 end
 
----@class DirtreePasteOperationEntry
+---@class DoraPasteOperationEntry
 ---@field path string
----@field operation DirtreePasteOperation
+---@field operation DoraPasteOperation
 
----@param state DirtreeState
----@return DirtreePasteOperationEntry[]
+---@param state DoraState
+---@return DoraPasteOperationEntry[]
 local function paste_operation_entries(state)
     local entries = {}
     for path, operation in pairs(state.paste_operations) do
@@ -503,7 +503,7 @@ local function paste_operation_entries(state)
     return entries
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@return string? path
 ---@return string? error
 local function current_path(state)
@@ -517,7 +517,7 @@ local function current_path(state)
     return row.path
 end
 
----@param row DirtreeTreeRow?
+---@param row DoraTreeRow?
 ---@return {win: integer, line: integer, col: integer}?
 local function current_name_anchor(row)
     if not row or not row.name_start_col then
@@ -531,12 +531,12 @@ local function current_name_anchor(row)
     }
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function clear_paste_operations(state)
     state.paste_operations = {}
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 local function clear_paste_operations_under(state, path)
     local prefix = path .. util.sep
@@ -547,7 +547,7 @@ local function clear_paste_operations_under(state, path)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param old_path string
 ---@param new_path string
 local function rename_paste_operations_under(state, old_path, new_path)
@@ -567,7 +567,7 @@ local function rename_paste_operations_under(state, old_path, new_path)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 ---@return boolean changed
 local function expand_next_level(state, path)
@@ -604,7 +604,7 @@ local function expand_next_level(state, path)
     return #frontier > 0
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 ---@return boolean changed
 local function expand_all_dirs(state, path)
@@ -621,7 +621,7 @@ local function expand_all_dirs(state, path)
     return changed
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 ---@return boolean changed
 local function clear_expanded_subtree(state, path)
@@ -636,7 +636,7 @@ local function clear_expanded_subtree(state, path)
     return changed
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param path string
 ---@param target_depth integer
 ---@return boolean changed
@@ -670,7 +670,7 @@ local function collapse_deepest_visible_dirs(state, path, target_depth)
     return #collapsed > 0
 end
 
----@param state DirtreeState
+---@param state DoraState
 ---@param old_path string
 ---@param new_path string
 local function rename_expanded_subtree(state, old_path, new_path)
@@ -692,7 +692,7 @@ end
 
 ---@param buf integer
 local function setup_autocmds(buf)
-    local group = api.nvim_create_augroup('dirtree.cursor.' .. buf, {clear=true})
+    local group = api.nvim_create_augroup('dora.cursor.' .. buf, {clear=true})
     api.nvim_create_autocmd({'BufEnter', 'CursorMoved', 'CursorMovedI'}, {
         group = group,
         buffer = buf,
@@ -705,13 +705,13 @@ local function setup_autocmds(buf)
     })
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function cleanup(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
 
----@return DirtreeCwdScope
+---@return DoraCwdScope
 local function get_cwd_scope()
     if vim.fn.haslocaldir(0, 0) == 1 then
         return 'window'
@@ -722,7 +722,7 @@ local function get_cwd_scope()
     end
 end
 
----@return DirtreeCwdRestore
+---@return DoraCwdRestore
 local function save_cwd()
     return {
         cwd = vim.fn.getcwd(0, 0),
@@ -730,7 +730,7 @@ local function save_cwd()
     }
 end
 
----@param scope DirtreeCwdScope
+---@param scope DoraCwdScope
 ---@return 'lcd'|'tcd'|'cd'
 local function cd_cmd(scope)
     return ({
@@ -740,13 +740,13 @@ local function cd_cmd(scope)
     })[scope]
 end
 
----@param scope DirtreeCwdScope
+---@param scope DoraCwdScope
 ---@param cwd string
 local function set_cwd(scope, cwd)
     vim.cmd(('sil %s %s'):format(cd_cmd(scope), vim.fn.fnameescape(cwd)))
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function sync_local_cwd(state)
     if state.sync_local_cwd then
         local ok, msg = pcall(set_cwd, 'window', state.cwd)
@@ -756,7 +756,7 @@ local function sync_local_cwd(state)
     end
 end
 
----@param state DirtreeState
+---@param state DoraState
 local function restore_cwd(state)
     if state.cwd_restore then
         local restore = assert(state.cwd_restore)
@@ -860,7 +860,7 @@ function M.info()
     info_win.open(path)
 end
 
----@param cmd? DirtreeOpenCommand
+---@param cmd? DoraOpenCommand
 function M.open(cmd)
     local state = store.get()
     local row = current_row(state)
@@ -977,7 +977,7 @@ function M.clear_marks()
     M.clear_paste_operation()
 end
 
----@param operation DirtreePasteOperation
+---@param operation DoraPasteOperation
 local function toggle_paste_operation(operation)
     local state = store.get()
     local path, msg = current_path(state)
@@ -1243,7 +1243,7 @@ function M.toggle_hidden_files()
     set_cursor_pos(state, hovered_file)
 end
 
----@param order DirtreeSortOrder
+---@param order DoraSortOrder
 function M.sort_by(order)
     local state = store.get()
     local row = current_row(state)
@@ -1313,10 +1313,10 @@ local function getcwd(dir)
     return assert(uv.cwd())
 end
 
--- Handler for the :Dirtree command
+-- Handler for the :Dora command
 ---@param dir? string
 ---@param from_au? boolean
-function M.dirtree(dir, from_au)
+function M.dora(dir, from_au)
     -- If we're executing from the BufEnter autocmd, the current buffer has
     -- already changed, so the origin_buf is actually the altbuf, and we don't
     -- know what the origin-buf's altbuf is.
@@ -1331,8 +1331,8 @@ function M.dirtree(dir, from_au)
     local sync = config.sync_local_cwd
     local cwd_restore = sync and save_cwd() or nil
     local buf = util.create_buf(cwd)
-    local ns = api.nvim_create_namespace('dirtree.' .. buf)
-    local cursor_ns = api.nvim_create_namespace('dirtree/cursor.' .. buf)
+    local ns = api.nvim_create_namespace('dora.' .. buf)
+    local cursor_ns = api.nvim_create_namespace('dora/cursor.' .. buf)
     local state = {
         buf = buf,
         origin_buf = origin_buf,
@@ -1347,7 +1347,7 @@ function M.dirtree(dir, from_au)
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},
-        paste_operations = {},  -- map<path, DirtreePasteOperation>
+        paste_operations = {},  -- map<path, DoraPasteOperation>
     }
     keymaps.setup(buf, config)
     store.set(buf, state)

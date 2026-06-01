@@ -1,7 +1,7 @@
 local readme_path = 'README.md'
-local config_path = 'lua/dirtree.lua'
-local start_marker = '<!-- dirtree-config:start -->'
-local end_marker = '<!-- dirtree-config:end -->'
+local config_path = 'lua/dora.lua'
+local start_marker = '<!-- dora-config:start -->'
+local end_marker = '<!-- dora-config:end -->'
 
 local function read_file(path)
     local fd = assert(io.open(path, 'r'))
@@ -80,7 +80,7 @@ local generated = generate_config_section()
 local readme = read_file(readme_path)
 local updated = replace_config_section(readme, generated)
 
-if vim.env.DIRTREE_DOCS_CHECK == '1' then
+if vim.env.DORA_DOCS_CHECK == '1' then
     if updated ~= readme then
         error(readme_path .. ' config block is stale. Run: sh scripts/docs.sh')
     end

@@ -14,7 +14,7 @@ local VALID_SORT_ORDERS = {
 }
 
 ---@param order any
----@return DirtreeSortOrder
+---@return DoraSortOrder
 function M.normalize_order(order)
     if VALID_SORT_ORDERS[order] then
         return order
@@ -110,9 +110,9 @@ local function compare_time(a, b)
     return 0
 end
 
----@param a DirtreeFile
----@param b DirtreeFile
----@param order DirtreeSortOrder
+---@param a DoraFile
+---@param b DoraFile
+---@param order DoraSortOrder
 ---@return boolean
 local function file_less(a, b, order)
     if (a.type == 'directory') ~= (b.type == 'directory') then
@@ -158,8 +158,8 @@ local function file_less(a, b, order)
     return natural_name_less(a.name, b.name) == true
 end
 
----@param files DirtreeFile[]
----@param order DirtreeSortOrder
+---@param files DoraFile[]
+---@param order DoraSortOrder
 function M.files(files, order)
     order = M.normalize_order(order)
     table.sort(files, function(a, b)

@@ -1,9 +1,9 @@
 local api = vim.api
-local window = require'dirtree.window'
+local window = require'dora.window'
 
 local M = {}
 
----@class DirtreePromptOptions
+---@class DoraPromptOptions
 ---@field prompt? string
 ---@field cwd string
 ---@field initial_prompt? string
@@ -11,7 +11,7 @@ local M = {}
 ---@field anchor? {win: integer, line: integer, col: integer}
 ---@field validate fun(input: string): any
 
----@param opts DirtreePromptOptions
+---@param opts DoraPromptOptions
 ---@param width integer
 ---@return table
 local function win_layout(opts, width)
@@ -19,7 +19,7 @@ local function win_layout(opts, width)
         title = opts.prompt,
         width = width,
         height = 1,
-        border_hl = 'DirtreePromptBorder',
+        border_hl = 'DoraPromptBorder',
     }
     if opts.anchor then
         return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
@@ -27,8 +27,8 @@ local function win_layout(opts, width)
     return window.centered_layout(layout_opts)
 end
 
----@class DirtreePrompt
----@field opts DirtreePromptOptions
+---@class DoraPrompt
+---@field opts DoraPromptOptions
 ---@field cb fun(input?: string, result?: any)
 ---@field origin_win integer
 ---@field width integer
@@ -73,9 +73,9 @@ function Prompt:validate()
     self.valid_result = ok and result or nil
     local hl
     if self:get_input() == self.initial_prompt then
-        hl = 'DirtreePromptBorder'
+        hl = 'DoraPromptBorder'
     else
-        hl = ok and 'DirtreePromptBorderValid' or 'DirtreePromptBorderInvalid'
+        hl = ok and 'DoraPromptBorderValid' or 'DoraPromptBorderInvalid'
     end
     if window.valid_win(self.input_win) then
         local cfg = api.nvim_win_get_config(self.input_win)
@@ -129,9 +129,9 @@ local function keymap(buf, mode, lhs, rhs, opts)
     vim.keymap.set(mode, lhs, rhs, opts)
 end
 
----@param opts DirtreePromptOptions
+---@param opts DoraPromptOptions
 ---@param cb fun(input?: string, result?: any)
----@return DirtreePrompt
+---@return DoraPrompt
 function M.input(opts, cb)
     local self = setmetatable({
         opts = opts,
@@ -147,7 +147,7 @@ function M.input(opts, cb)
     vim.bo[self.input_buf].bufhidden = 'wipe'
 
     self.input_win = api.nvim_open_win(self.input_buf, true, win_layout(opts, self.width))
-    vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
+    vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
 
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.initial_prompt})
     api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
