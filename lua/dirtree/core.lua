@@ -427,6 +427,22 @@ local function sibling_line(state, line, step)
 end
 
 ---@param state DirtreeState
+---@param line integer
+---@param step integer
+---@return integer?
+local function sibling_edge_line(state, line, step)
+    local row = state.rows[line]
+    if not row then
+        return nil
+    end
+    for i = step > 0 and #state.rows or 1, line, -step do
+        if state.rows[i].parent_path == row.parent_path then
+            return i
+        end
+    end
+end
+
+---@param state DirtreeState
 local function move_to_next_sibling(state)
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
@@ -449,6 +465,32 @@ local function move_to_prev_sibling(state)
     local prev_line = sibling_line(state, line, -1)
     if prev_line then
         move_to_line(state, prev_line)
+    end
+end
+
+---@param state DirtreeState
+local function move_to_last_sibling(state)
+    local line = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows[line]
+    if not row or not row.parent_path then
+        return
+    end
+    local last_line = sibling_edge_line(state, line, 1)
+    if last_line then
+        move_to_line(state, last_line)
+    end
+end
+
+---@param state DirtreeState
+local function move_to_first_sibling(state)
+    local line = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows[line]
+    if not row or not row.parent_path then
+        return
+    end
+    local first_line = sibling_edge_line(state, line, -1)
+    if first_line then
+        move_to_line(state, first_line)
     end
 end
 
@@ -840,6 +882,14 @@ end
 
 function M.prev_sibling()
     move_to_prev_sibling(store.get())
+end
+
+function M.last_sibling()
+    move_to_last_sibling(store.get())
+end
+
+function M.first_sibling()
+    move_to_first_sibling(store.get())
 end
 
 function M.help()
