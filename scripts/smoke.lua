@@ -930,10 +930,17 @@ do
 
     core.clear_selection()
     assert_eq(selection_count(state), 0)
-    assert_eq(state.paste_operation, 'copy', 'clearing selection should preserve paste operation')
+    assert(not state.paste_operation, 'clearing selection should clear the paste operation')
 
     core.clear_paste_operation()
     assert(not state.paste_operation, 'clearing paste operation should reset plain selection mode')
+
+    set_cursor_line('b$')
+    core.copy()
+    assert_eq(state.paste_operation, 'copy', 'copy should set paste operation before escape')
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
+    assert_eq(selection_count(state), 0, 'escape should clear selections')
+    assert(not state.paste_operation, 'escape should clear the paste operation')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
