@@ -1051,6 +1051,7 @@ end
 function M.clear_selection()
     local state = store.get()
     clear_selection(state)
+    state.paste_operation = nil
     render(state)
 end
 
