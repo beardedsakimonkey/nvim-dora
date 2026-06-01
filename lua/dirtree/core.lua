@@ -931,19 +931,6 @@ function M.expand()
     end
 end
 
-function M.expand_or_open()
-    local state = store.get()
-    local row = current_row(state)
-    if not row or not row.path then
-        return
-    end
-    if row.type == 'directory' then
-        M.expand()
-    else
-        M.open()
-    end
-end
-
 function M.expand_recursive()
     local state = store.get()
     local row = current_row(state)

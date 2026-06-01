@@ -62,7 +62,7 @@ config = {
         O = {"expand_recursive",                desc="Expand directory recursively"},
         u = {"collapse",                        desc="Collapse directory"},
         U = {"collapse_recursive",              desc="Collapse directory recursively"},
-        l = {"expand_or_open",                  desc="Expand directory or open file"},
+        l = {"open",                            desc="Open"},
         ['<CR>'] = {"open",                     desc="Open"},
         s = {"open_split",                      desc="Open in split"},
         v = {"open_vsplit",                     desc="Open in vertical split"},
