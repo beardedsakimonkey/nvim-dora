@@ -234,7 +234,7 @@ function M.open_hint_window(prefix, rows)
     local origin_win = api.nvim_get_current_win()
     local lines, marks = case_pair_hint_lines(prefix, rows)
     local max_width = 96
-    if not lines then
+    if not lines or not marks then
         lines, marks = single_column_hint_lines(rows)
         max_width = 72
     end

@@ -33,7 +33,8 @@ local function format_time(timestamp)
     if not timestamp or not timestamp.sec then
         return 'unknown'
     end
-    return os.date('%Y-%m-%d %H:%M:%S', timestamp.sec) or 'unknown'
+    local formatted = os.date('%x %X', timestamp.sec)
+    return type(formatted) == 'string' and formatted or 'unknown'
 end
 
 ---@param mode integer
