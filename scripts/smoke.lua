@@ -192,8 +192,6 @@ do
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
 
     assert_eq(confirm_cfg.border[1][2], 'DirtreePromptBorderInvalid')
-    assert_match(vim.wo[confirm_win].winhighlight, 'Cursor:DirtreeDeleteCursor')
-    assert_eq(vim.o.guicursor, 'a:block-DirtreeDeleteCursor')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], ' foo.js')

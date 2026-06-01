@@ -223,8 +223,8 @@ function M.delete(paths, cwd, cb, opts)
     end
 
     local win = api.nvim_open_win(buf, true, layout())
-    vim.o.guicursor = 'a:block-DirtreeDeleteCursor'
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorderInvalid,Cursor:DirtreeDeleteCursor'
+    vim.o.guicursor = 'a:block-Normal'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorderInvalid,Cursor:Normal'
     vim.wo[win].wrap = false
 
     local function finish(confirmed)
