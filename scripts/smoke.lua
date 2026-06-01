@@ -87,6 +87,13 @@ local function win_title(win)
     return ''
 end
 
+local function assert_centered_float(win, msg)
+    local cfg = api.nvim_win_get_config(win)
+    assert_eq(cfg.relative, 'editor', msg)
+    assert_eq(cfg.row, math.max(0, math.floor((vim.o.lines - cfg.height - 2) / 2)), msg)
+    assert_eq(cfg.col, math.floor((vim.o.columns - cfg.width) / 2), msg)
+end
+
 local function has_highlight(state, hl_group)
     local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
     for _, mark in ipairs(marks) do
@@ -813,6 +820,65 @@ do
     api.nvim_feedkeys('y', 'xt', false)
 
     assert(not fs.exists(tmp .. '/deleted.txt'), 'delete should permanently remove the file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+    touch(tmp .. '/c')
+    local trashed_paths = {}
+    local old_trash = fs.trash
+    fs.trash = function(path)
+        trashed_paths[#trashed_paths+1] = path
+        assert_eq(vim.fn.delete(path), 0)
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('a$')
+    api.nvim_feedkeys(api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(win_title(confirm_win), 'Trash 2 files%?')
+    assert_centered_float(confirm_win, 'visual trash confirmation should be centered')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert_eq(#trashed_paths, 2, 'visual trash should trash each selected file')
+    assert_eq(trashed_paths[1], state.cwd .. '/a')
+    assert_eq(trashed_paths[2], state.cwd .. '/b')
+    assert(not fs.exists(tmp .. '/a'), 'visual trash should remove selected file a')
+    assert(not fs.exists(tmp .. '/b'), 'visual trash should remove selected file b')
+    assert(fs.exists(tmp .. '/c'), 'visual trash should leave unselected files')
+
+    core.quit()
+    fs.trash = old_trash
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha')
+    touch(tmp .. '/beta')
+    touch(tmp .. '/gamma')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('alpha$')
+    api.nvim_feedkeys(api.nvim_replace_termcodes('VjD', true, false, true), 'xt', false)
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(win_title(confirm_win), 'Delete 2 files%?')
+    assert_centered_float(confirm_win, 'visual delete confirmation should be centered')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert(not fs.exists(tmp .. '/alpha'), 'visual delete should remove selected file alpha')
+    assert(not fs.exists(tmp .. '/beta'), 'visual delete should remove selected file beta')
+    assert(fs.exists(tmp .. '/gamma'), 'visual delete should leave unselected files')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1594,6 +1660,10 @@ do
     assert_eq(type(vim.fn.maparg('>', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<', 'x', false, true).desc, 'Previous sibling')
     assert_eq(type(vim.fn.maparg('<', 'x', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('d', 'x', false, true).desc, 'Move file to trash')
+    assert_eq(type(vim.fn.maparg('d', 'x', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('D', 'x', false, true).desc, 'Delete file permanently')
+    assert_eq(type(vim.fn.maparg('D', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<Tab>', 'x'), '', 'visual Tab should not be mapped')
 
     core.quit()
