@@ -32,7 +32,7 @@ end
 ---@param path string
 ---@return boolean
 local function exists(path)
-    return (uv.fs_access(path, ''))
+    return uv.fs_access(path, '') == true
 end
 
 ---@param path string
