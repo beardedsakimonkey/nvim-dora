@@ -1094,6 +1094,10 @@ end
 ---@param operation DirtreePasteOperation
 local function set_paste_operation(operation)
     local state = store.get()
+    if state.paste_operation == operation and selection_count(state) > 0 then
+        util.info('Paste mode is already active')
+        return
+    end
     local paths, msg = selected_paths(state)
     if not paths then
         util.err(msg)

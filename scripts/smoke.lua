@@ -881,6 +881,16 @@ do
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
+    local old_notify = vim.notify
+    local notifications = {}
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+    local function assert_paste_mode_warning()
+        assert(notifications[#notifications], 'duplicate paste mode should notify')
+        assert_eq(notifications[#notifications].msg, '[dirtree] Paste mode is already active')
+        notifications = {}
+    end
 
     set_cursor_line('a$')
     core.toggle_selection()
@@ -894,6 +904,10 @@ do
     assert_eq(state.paste_operation, 'cut', 'cut should set a global paste operation')
     assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use the cut sign')
     assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'cut should highlight filenames like the cut sign')
+    core.cut()
+    assert_paste_mode_warning()
+    assert_eq(selection_count(state), 2, 'duplicate cut should preserve selection')
+    assert_eq(state.paste_operation, 'cut', 'duplicate cut should preserve paste operation')
 
     set_cursor_line('c$')
     core.toggle_selection()
@@ -913,6 +927,10 @@ do
     assert_eq(state.paste_operation, 'copy', 'copy should replace the global paste operation')
     assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use the copy sign')
     assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy should highlight filenames like the copy sign')
+    core.copy()
+    assert_paste_mode_warning()
+    assert_eq(selection_count(state), 3, 'duplicate copy should preserve selection')
+    assert_eq(state.paste_operation, 'copy', 'duplicate copy should preserve paste operation')
 
     set_cursor_line('b$')
     core.toggle_selection()
@@ -947,6 +965,7 @@ do
     assert_eq(selection_count(state), 0, 'escape should clear selections')
     assert(not state.paste_operation, 'escape should clear the paste operation')
 
+    vim.notify = old_notify
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
