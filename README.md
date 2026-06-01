@@ -165,10 +165,10 @@ DirtreePromptBorderValid
 DirtreePromptBorderInvalid
 DirtreeDeleteMore
 DirtreeDeleteCursor
-DirtreeCutSign
-DirtreeCopySign
-DirtreeHelpKey
-DirtreeHelpDesc
+DirtreeCut
+DirtreeCopy
+DirtreeInfoLabel
+DirtreeInfoValue
 DirtreeKeymapHintArrow
 DirtreeInfoLabel
 DirtreeInfoValue

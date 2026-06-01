@@ -107,7 +107,7 @@ local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, p
         lnum = lnum,
         col = key_col,
         end_col = key_col + #key,
-        hl_group = 'DirtreeHelpKey',
+        hl_group = 'DirtreeInfoLabel',
     }
     marks[#marks+1] = {
         lnum = lnum,
@@ -119,7 +119,7 @@ local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, p
         lnum = lnum,
         col = desc_col,
         end_col = desc_col + #row.desc,
-        hl_group = 'DirtreeHelpDesc',
+        hl_group = 'DirtreeInfoValue',
     }
     return line
 end

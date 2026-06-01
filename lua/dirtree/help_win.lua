@@ -90,11 +90,11 @@ local function render(buf, ns, help_rows)
         if row.lhs then
             api.nvim_buf_set_extmark(buf, ns, lnum, 2, {
                 end_col = 2 + key_width,
-                hl_group = 'DirtreeHelpKey',
+                hl_group = 'DirtreeInfoLabel',
             })
             api.nvim_buf_set_extmark(buf, ns, lnum, 2 + key_width + 2, {
                 end_col = #lines[i],
-                hl_group = 'DirtreeHelpDesc',
+                hl_group = 'DirtreeInfoValue',
             })
         end
     end
