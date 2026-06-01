@@ -774,6 +774,53 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/trashed.txt')
+    local old_trash = fs.trash
+    fs.trash = function(path)
+        vim.g.dora_smoke_trashed_path = path
+        assert_eq(vim.fn.delete(path), 0)
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    util.set_cursor_pos('trashed%.txt')
+    core.trash()
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(win_title(confirm_win), 'Trash%?')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert_eq(vim.g.dora_smoke_trashed_path, state.cwd .. '/trashed.txt')
+    assert(not fs.exists(tmp .. '/trashed.txt'), 'trash should remove the file from the listing source')
+
+    core.quit()
+    fs.trash = old_trash
+    vim.g.dora_smoke_trashed_path = nil
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/deleted.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('deleted%.txt')
+    core.delete()
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(win_title(confirm_win), 'Delete%?')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert(not fs.exists(tmp .. '/deleted.txt'), 'delete should permanently remove the file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 

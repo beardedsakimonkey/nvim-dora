@@ -125,6 +125,25 @@ function M.delete(path)
 end
 
 ---@param path string
+---@return boolean?
+function M.trash(path)
+    assert(exists(path), ("%s doesn't exist"):format(path))
+    local sysname = uv.os_uname().sysname
+    local trash_dir
+    if sysname:match('Windows') then
+        util.err('Trash is not currently supported on Windows')
+        return
+    elseif sysname == 'Darwin' then
+        trash_dir = util.join_path(assert(os.getenv'HOME'), '.Trash')
+    else
+        local data_home = os.getenv'XDG_DATA_HOME' or util.join_path(assert(os.getenv'HOME'), '.local/share')
+        trash_dir = util.join_path(data_home, 'Trash/files')
+    end
+    assert(vim.fn.mkdir(trash_dir, 'p') == 1)
+    move(path, util.join_path(trash_dir, M.basename(path)))
+end
+
+---@param path string
 function M.create_dir(path)
     assert(not exists(path), ('%q already exists'):format(path))
     -- 755 = RWX for owner, RX for group/other
