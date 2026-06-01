@@ -31,9 +31,9 @@ local function write_file(path, contents)
     assert(vim.loop.fs_close(fd))
 end
 
-local function paste_operation_count(state)
+local function marked_path_count(state)
     local count = 0
-    for _ in pairs(state.paste_operations) do
+    for _ in pairs(state.marked_paths) do
         count = count + 1
     end
     return count
@@ -781,19 +781,19 @@ do
     local state = store.get()
     set_cursor_line('alpha%.txt$')
     core.copy()
-    assert_eq(paste_operation_count(state), 1)
-    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
+    assert_eq(marked_path_count(state), 1)
+    assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
     assert(has_sign_highlight(state, 'DoraCopy'), 'copy should use a distinct sign highlight')
     assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy should highlight filenames like the copy sign')
 
     core.copy()
-    assert_eq(paste_operation_count(state), 0, 'copy should toggle off an existing copy mark')
+    assert_eq(marked_path_count(state), 0, 'copy should toggle off an existing copy mark')
 
     core.cut()
-    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
+    assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
     assert(has_sign_highlight(state, 'DoraCut'), 'cut should use a distinct sign highlight')
     core.copy()
-    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
+    assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
     util.set_cursor_pos('dest')
     core.expand()
@@ -802,10 +802,38 @@ do
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered parent directory')
-    assert_eq(paste_operation_count(state), 0)
+    assert_eq(marked_path_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
 
     core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local old_notify = vim.notify
+    local notifications = {}
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('alpha%.txt$')
+    core.copy()
+    assert_eq(marked_path_count(state), 1)
+
+    assert_eq(vim.fn.delete(tmp .. '/alpha.txt'), 0)
+    core.reload()
+    assert_eq(marked_path_count(state), 0, 'reload should clear marks for files deleted externally')
+    core.paste()
+    assert_eq(notifications[#notifications].msg, '[dora] Nothing to paste')
+    assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
+
+    core.quit()
+    vim.notify = old_notify
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
@@ -822,24 +850,24 @@ do
 
     set_cursor_line('a$')
     core.cut()
-    assert_eq(state.paste_operations[state.cwd .. '/a'], 'cut', 'cut should mark a file')
+    assert_eq(state.marked_paths[state.cwd .. '/a'], 'cut', 'cut should mark a file')
     set_cursor_line('c$')
     core.copy()
-    assert_eq(state.paste_operations[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
-    assert_eq(paste_operation_count(state), 2)
+    assert_eq(state.marked_paths[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
+    assert_eq(marked_path_count(state), 2)
     assert(has_sign_highlight(state, 'DoraCut'), 'cut marks should use the cut sign')
     assert(has_high_priority_highlight(state, 'DoraCut'), 'cut marks should highlight filenames like the cut sign')
     assert(has_sign_highlight(state, 'DoraCopy'), 'copy marks should use the copy sign')
     assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy marks should highlight filenames like the copy sign')
 
     core.clear_marks()
-    assert_eq(paste_operation_count(state), 0, 'escape action should clear paste marks')
+    assert_eq(marked_path_count(state), 0, 'escape action should clear paste marks')
 
     set_cursor_line('b$')
     core.copy()
-    assert_eq(state.paste_operations[state.cwd .. '/b'], 'copy', 'copy should set paste mark before escape')
+    assert_eq(state.marked_paths[state.cwd .. '/b'], 'copy', 'copy should set paste mark before escape')
     api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
-    assert_eq(paste_operation_count(state), 0, 'escape should clear paste marks')
+    assert_eq(marked_path_count(state), 0, 'escape should clear paste marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -859,7 +887,7 @@ do
     core.cut()
     util.set_cursor_pos('b')
     core.copy()
-    assert_eq(paste_operation_count(state), 2)
+    assert_eq(marked_path_count(state), 2)
 
     util.set_cursor_pos('dest')
     core.expand()
@@ -870,7 +898,7 @@ do
     assert(fs.exists(tmp .. '/b'), 'mixed paste should leave copied source b')
     assert(fs.exists(tmp .. '/dest/a'), 'mixed paste should move cut file a')
     assert(fs.exists(tmp .. '/dest/b'), 'mixed paste should copy file b')
-    assert_eq(paste_operation_count(state), 0)
+    assert_eq(marked_path_count(state), 0)
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1280,9 +1308,9 @@ do
 
     util.set_cursor_pos('a')
     core.cut()
-    assert_eq(paste_operation_count(state), 1)
+    assert_eq(marked_path_count(state), 1)
     core.clear_marks()
-    assert_eq(paste_operation_count(state), 0, 'clear_marks should clear paste marks')
+    assert_eq(marked_path_count(state), 0, 'clear_marks should clear paste marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1675,7 +1703,7 @@ do
     assert_cursor_tree_highlights(state, 1)
     assert(state.rows[api.nvim_win_get_cursor(0)[1]].tree_connector_start_col > 0)
     core.copy()
-    assert_eq(state.paste_operations[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
+    assert_eq(state.marked_paths[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
     util.set_cursor_pos('alpha')
     core.collapse()
