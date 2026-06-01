@@ -1243,6 +1243,38 @@ function M.toggle_hidden_files()
     set_cursor_pos(state, hovered_file)
 end
 
+function M.shell_cmd()
+    local state = store.get()
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    prompt.input({
+        prompt = 'Shell command',
+        cwd = state.cwd,
+        width = PROMPT_WIDTH,
+        anchor = current_name_anchor(current_row(state)),
+        validate = function() return true end,
+    }, function(input)
+        if not input then
+            return
+        end
+        local cmd = input .. ' ' .. vim.fn.fnameescape(path) .. ' 2>&1'
+        local ok, result = pcall(vim.fn.system, cmd)
+        if not ok then
+            util.err(tostring(result))
+        elseif vim.v.shell_error ~= 0 then
+            util.err(result or '(command failed)')
+        else
+            if result and result ~= '' then
+                util.info(result:gsub('%s+$', ''))
+            end
+        end
+        render(state)
+    end)
+end
+
 ---@param order DoraSortOrder
 function M.sort_by(order)
     local state = store.get()
