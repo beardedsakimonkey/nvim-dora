@@ -973,7 +973,7 @@ function M.collapse_recursive()
     end
 end
 
-function M.clear_selection()
+function M.clear_marks()
     M.clear_paste_operation()
 end
 

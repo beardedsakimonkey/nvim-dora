@@ -76,7 +76,7 @@ config = {
         x = {"cut",                             desc="Toggle cut mark"},
         c = {"copy",                            desc="Toggle copy mark"},
         p = {"paste",                           desc="Paste"},
-        ['<Esc>'] = {"clear_selection",         desc="Clear paste marks"},
+        ['<Esc>'] = {"clear_marks",             desc="Clear paste marks"},
         ['.'] = {"toggle_hidden_files",         desc="Toggle hidden files"},
         gh = {"home_dir",                       desc="Go to Home directory"},
         gx = {"open_external",                  desc="Open externally"},

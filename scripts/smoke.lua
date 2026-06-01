@@ -830,7 +830,7 @@ do
     assert(has_sign_highlight(state, 'DirtreeCopy'), 'copy marks should use the copy sign')
     assert(has_high_priority_highlight(state, 'DirtreeCopy'), 'copy marks should highlight filenames like the copy sign')
 
-    core.clear_selection()
+    core.clear_marks()
     assert_eq(paste_operation_count(state), 0, 'escape action should clear paste marks')
 
     set_cursor_line('b$')
@@ -1279,8 +1279,8 @@ do
     util.set_cursor_pos('a')
     core.cut()
     assert_eq(paste_operation_count(state), 1)
-    core.clear_selection()
-    assert_eq(paste_operation_count(state), 0, 'clear_selection should clear paste marks')
+    core.clear_marks()
+    assert_eq(paste_operation_count(state), 0, 'clear_marks should clear paste marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
