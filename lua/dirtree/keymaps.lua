@@ -6,6 +6,8 @@ local uv = vim.loop
 local M = {}
 
 local HINT_ARROW = '→'
+local HINT_COLUMN_GAP = '    '
+local SORT_HINT_KEY_ORDER = {n=1, m=2, c=3, s=4, e=5}
 
 local VISUAL_KEYMAP_ACTIONS = {
     next_sibling = 'next_sibling',
@@ -69,47 +71,185 @@ end
 ---@field lhs string
 ---@field desc string
 
----@param prefix string
 ---@param rows DirtreeKeymapHintRow[]
----@return integer buf
----@return integer win
-function M.open_hint_window(prefix, rows)
+---@return integer key_width
+---@return integer desc_width
+local function hint_widths(rows)
     local key_width = 1
     local desc_width = 1
     for _, row in ipairs(rows) do
         key_width = math.max(key_width, vim.fn.strdisplaywidth(row.lhs))
         desc_width = math.max(desc_width, vim.fn.strdisplaywidth(row.desc))
     end
+    return key_width, desc_width
+end
 
-    local width = math.max(24, math.min(72, key_width + desc_width + 7))
-    local height = math.max(1, #rows)
+---@param line string
+---@param marks table[]
+---@param lnum integer
+---@param row DirtreeKeymapHintRow
+---@param key_width integer
+---@param desc_width integer
+---@param pad_desc boolean
+---@return string
+local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, pad_desc)
+    local key = ('%-' .. key_width .. 's'):format(row.lhs)
+    local desc = pad_desc and ('%-' .. desc_width .. 's'):format(row.desc) or row.desc
+    local key_col = #line
+    line = line .. key .. '  '
+    local arrow_col = #line
+    line = line .. HINT_ARROW .. '  '
+    local desc_col = #line
+    line = line .. desc
+
+    marks[#marks+1] = {
+        lnum = lnum,
+        col = key_col,
+        end_col = key_col + #key,
+        hl_group = 'DirtreeHelpKey',
+    }
+    marks[#marks+1] = {
+        lnum = lnum,
+        col = arrow_col,
+        end_col = arrow_col + #HINT_ARROW,
+        hl_group = 'DirtreeKeymapHintArrow',
+    }
+    marks[#marks+1] = {
+        lnum = lnum,
+        col = desc_col,
+        end_col = desc_col + #row.desc,
+        hl_group = 'DirtreeHelpDesc',
+    }
+    return line
+end
+
+---@param prefix string
+---@param rows DirtreeKeymapHintRow[]
+---@return {lower: DirtreeKeymapHintRow, upper: DirtreeKeymapHintRow, key: string}[]?
+local function case_pair_rows(prefix, rows)
+    local prefix_len = #prefix
+    local by_key = {}
+    for _, row in ipairs(rows) do
+        if row.lhs:sub(1, prefix_len) ~= prefix then
+            return nil
+        end
+        local key = row.lhs:sub(prefix_len + 1)
+        if #key ~= 1 or key:lower() == key:upper() then
+            return nil
+        end
+        local lower_key = key:lower()
+        by_key[lower_key] = by_key[lower_key] or {}
+        if key == lower_key then
+            by_key[lower_key].lower = row
+        elseif key == key:upper() then
+            by_key[lower_key].upper = row
+        else
+            return nil
+        end
+    end
+
+    local pair_rows = {}
+    for key, pair in pairs(by_key) do
+        if not pair.lower or not pair.upper then
+            return nil
+        end
+        pair_rows[#pair_rows+1] = {key=key, lower=pair.lower, upper=pair.upper}
+    end
+    if #pair_rows * 2 ~= #rows then
+        return nil
+    end
+
+    table.sort(pair_rows, function(a, b)
+        if prefix == ',' then
+            local a_order = SORT_HINT_KEY_ORDER[a.key] or 100
+            local b_order = SORT_HINT_KEY_ORDER[b.key] or 100
+            if a_order ~= b_order then
+                return a_order < b_order
+            end
+        end
+        return a.key < b.key
+    end)
+    return pair_rows
+end
+
+---@param rows DirtreeKeymapHintRow[]
+---@return string[] lines
+---@return table[] marks
+local function single_column_hint_lines(rows)
+    local key_width, desc_width = hint_widths(rows)
+    local lines = {}
+    local marks = {}
+    for i, row in ipairs(rows) do
+        lines[#lines+1] = append_hint_cell('  ', marks, i - 1, row, key_width, desc_width, false)
+    end
+    return lines, marks
+end
+
+---@param prefix string
+---@param rows DirtreeKeymapHintRow[]
+---@return string[]? lines
+---@return table[]? marks
+local function case_pair_hint_lines(prefix, rows)
+    local pair_rows = case_pair_rows(prefix, rows)
+    if not pair_rows then
+        return nil, nil
+    end
+
+    local lower_rows = {}
+    local upper_rows = {}
+    for _, pair in ipairs(pair_rows) do
+        lower_rows[#lower_rows+1] = pair.lower
+        upper_rows[#upper_rows+1] = pair.upper
+    end
+    local lower_key_width, lower_desc_width = hint_widths(lower_rows)
+    local upper_key_width, upper_desc_width = hint_widths(upper_rows)
+    local lines = {}
+    local marks = {}
+    for i, pair in ipairs(pair_rows) do
+        local line = append_hint_cell('  ', marks, i - 1, pair.lower, lower_key_width, lower_desc_width, true)
+        line = line .. HINT_COLUMN_GAP
+        line = append_hint_cell(line, marks, i - 1, pair.upper, upper_key_width, upper_desc_width, false)
+        lines[#lines+1] = line
+    end
+    return lines, marks
+end
+
+---@param lines string[]
+---@param max_width integer
+---@return integer
+local function hint_window_width(lines, max_width)
+    local width = 1
+    for _, line in ipairs(lines) do
+        width = math.max(width, vim.fn.strdisplaywidth(line))
+    end
+    return math.max(24, math.min(max_width, width))
+end
+
+---@param prefix string
+---@param rows DirtreeKeymapHintRow[]
+---@return integer buf
+---@return integer win
+function M.open_hint_window(prefix, rows)
     local origin_win = api.nvim_get_current_win()
+    local lines, marks = case_pair_hint_lines(prefix, rows)
+    local max_width = 96
+    if not lines then
+        lines, marks = single_column_hint_lines(rows)
+        max_width = 72
+    end
+    local width = hint_window_width(lines, max_width)
+    local height = math.max(1, #lines)
     local buf = api.nvim_create_buf(false, true)
     local ns = api.nvim_create_namespace('dirtree/keymaps.hints.' .. buf)
-    local lines = {}
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
-    for _, row in ipairs(rows) do
-        lines[#lines+1] = ('  %-' .. key_width .. 's  ' .. HINT_ARROW .. '  %s'):format(row.lhs, row.desc)
-    end
     api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    for i, _ in ipairs(rows) do
-        local lnum = i - 1
-        local arrow_col = 2 + key_width + 2
-        local desc_col = arrow_col + #HINT_ARROW + 2
-        api.nvim_buf_set_extmark(buf, ns, lnum, 2, {
-            end_col = 2 + key_width,
-            hl_group = 'DirtreeHelpKey',
-        })
-        api.nvim_buf_set_extmark(buf, ns, lnum, arrow_col, {
-            end_col = arrow_col + #HINT_ARROW,
-            hl_group = 'DirtreeKeymapHintArrow',
-        })
-        api.nvim_buf_set_extmark(buf, ns, lnum, desc_col, {
-            end_col = #lines[i],
-            hl_group = 'DirtreeHelpDesc',
+    for _, mark in ipairs(marks) do
+        api.nvim_buf_set_extmark(buf, ns, mark.lnum, mark.col, {
+            end_col = mark.end_col,
+            hl_group = mark.hl_group,
         })
     end
     vim.bo[buf].modifiable = false
