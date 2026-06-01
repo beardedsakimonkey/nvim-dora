@@ -1,5 +1,4 @@
 local fs = require'dirtree.fs'
-local bulk_rename_win = require'dirtree.bulk_rename_win'
 local help_win = require'dirtree.help_win'
 local delete_win = require'dirtree.delete_win'
 local info_win = require'dirtree.info_win'
@@ -62,8 +61,7 @@ local TREE_SPACER = '    '
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
 ---@field rows DirtreeTreeRow[]
----@field selection table<string, true>
----@field paste_operation? DirtreePasteOperation
+---@field paste_operations table<string, DirtreePasteOperation>
 
 -- Render ----------------------------------------------------------------------
 
@@ -238,15 +236,11 @@ local function render(state)
                 priority = 10000,
             })
         end
-        if path and state.selection[path] then
-            local sign_hl = 'DirtreeSelectionSign'
-            local file_hl = 'DirtreeSelectionFile'
-            if state.paste_operation == 'cut' then
+        local paste_operation = path and state.paste_operations[path] or nil
+        if paste_operation then
+            local sign_hl = 'DirtreeCopySign'
+            if paste_operation == 'cut' then
                 sign_hl = 'DirtreeCutSign'
-                file_hl = sign_hl
-            elseif state.paste_operation == 'copy' then
-                sign_hl = 'DirtreeCopySign'
-                file_hl = sign_hl
             end
             api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 sign_text = '▌',
@@ -254,7 +248,7 @@ local function render(state)
             })
             api.nvim_buf_set_extmark(buf, ns, i-1, file.name_start_col, {
                 end_col = file.name_end_col,
-                hl_group = file_hl,
+                hl_group = sign_hl,
                 priority = 10000,
             })
         end
@@ -494,25 +488,19 @@ local function move_to_first_sibling(state)
     end
 end
 
----@param state DirtreeState
----@return integer
-local function selection_count(state)
-    local count = 0
-    for _ in pairs(state.selection) do
-        count = count + 1
-    end
-    return count
-end
+---@class DirtreePasteOperationEntry
+---@field path string
+---@field operation DirtreePasteOperation
 
 ---@param state DirtreeState
----@return string[]
-local function selection_paths(state)
-    local paths = {}
-    for path in pairs(state.selection) do
-        paths[#paths+1] = path
+---@return DirtreePasteOperationEntry[]
+local function paste_operation_entries(state)
+    local entries = {}
+    for path, operation in pairs(state.paste_operations) do
+        entries[#entries+1] = {path = path, operation = operation}
     end
-    table.sort(paths)
-    return paths
+    table.sort(entries, function(a, b) return a.path < b.path end)
+    return entries
 end
 
 ---@param state DirtreeState
@@ -527,20 +515,6 @@ local function current_path(state)
         return nil, 'No file selected'
     end
     return row.path
-end
-
----@param state DirtreeState
----@return string[]? paths
----@return boolean|string? is_bulk_or_error
-local function selected_paths(state)
-    if selection_count(state) == 0 then
-        local path, msg = current_path(state)
-        if not path then
-            return nil, msg
-        end
-        return {path}, false
-    end
-    return selection_paths(state), true
 end
 
 ---@param row DirtreeTreeRow?
@@ -558,8 +532,39 @@ local function current_name_anchor(row)
 end
 
 ---@param state DirtreeState
-local function clear_selection(state)
-    state.selection = {}
+local function clear_paste_operations(state)
+    state.paste_operations = {}
+end
+
+---@param state DirtreeState
+---@param path string
+local function clear_paste_operations_under(state, path)
+    local prefix = path .. util.sep
+    for marked_path in pairs(state.paste_operations) do
+        if marked_path == path or vim.startswith(marked_path, prefix) then
+            state.paste_operations[marked_path] = nil
+        end
+    end
+end
+
+---@param state DirtreeState
+---@param old_path string
+---@param new_path string
+local function rename_paste_operations_under(state, old_path, new_path)
+    local old_prefix = old_path .. util.sep
+    local updated = {}
+    for marked_path, operation in pairs(state.paste_operations) do
+        if marked_path == old_path then
+            updated[new_path] = operation
+            state.paste_operations[marked_path] = nil
+        elseif vim.startswith(marked_path, old_prefix) then
+            updated[new_path .. marked_path:sub(#old_path + 1)] = operation
+            state.paste_operations[marked_path] = nil
+        end
+    end
+    for marked_path, operation in pairs(updated) do
+        state.paste_operations[marked_path] = operation
+    end
 end
 
 ---@param state DirtreeState
@@ -683,57 +688,6 @@ local function rename_expanded_subtree(state, old_path, new_path)
     for expanded_path in pairs(updated) do
         state.expanded_dirs[expanded_path] = true
     end
-end
-
----@param state DirtreeState
----@param changes DirtreeBulkRenameChange[]
-local function rename_expanded_subtrees(state, changes)
-    local updated = {}
-    for expanded_path in pairs(state.expanded_dirs) do
-        for _, change in ipairs(changes) do
-            local old_path, new_path = change.src, change.dest
-            if expanded_path == old_path then
-                updated[expanded_path] = new_path
-                break
-            elseif vim.startswith(expanded_path, old_path .. util.sep) then
-                updated[expanded_path] = new_path .. expanded_path:sub(#old_path + 1)
-                break
-            end
-        end
-    end
-    for old_path, new_path in pairs(updated) do
-        state.expanded_dirs[old_path] = nil
-        state.expanded_dirs[new_path] = true
-    end
-end
-
----@param state DirtreeState
----@param path string
-local function expand_parent_dirs(state, path)
-    local parent = fs.parent_dir(path)
-    while parent ~= state.cwd and vim.startswith(parent, state.cwd .. util.sep) do
-        state.expanded_dirs[parent] = true
-        parent = fs.parent_dir(parent)
-    end
-end
-
----@param state DirtreeState
----@param paths string[]
-local function open_bulk_rename(state, paths)
-    bulk_rename_win.open({
-        cwd = state.cwd,
-        paths = paths,
-        on_success = function(changes)
-            if #changes == 0 then
-                return
-            end
-            rename_expanded_subtrees(state, changes)
-            expand_parent_dirs(state, changes[1].dest)
-            clear_selection(state)
-            render(state)
-            set_cursor_path(state, changes[1].dest)
-        end,
-    })
 end
 
 ---@param buf integer
@@ -906,48 +860,9 @@ function M.info()
     info_win.open(path)
 end
 
----@param paths string[]
----@return string[]? real_paths
----@return string? err
-local function real_file_paths(paths)
-    local real_paths = {}
-    for _, raw_path in ipairs(paths) do
-        local path, msg = uv.fs_realpath(raw_path)
-        if not path then
-            return nil, msg
-        end
-        if fs.is_dir(path) then
-            return nil, ('Cannot bulk open directory %q'):format(raw_path)
-        end
-        real_paths[#real_paths+1] = path
-    end
-    return real_paths
-end
-
----@param state DirtreeState
----@param paths string[]
----@param cmd? DirtreeOpenCommand
-local function open_files(state, paths, cmd)
-    local real_paths, msg = real_file_paths(paths)
-    if not real_paths then
-        util.err(msg)
-        return
-    end
-    restore_cwd(state)
-    util.set_current_buf(state.origin_buf)
-    for _, path in ipairs(real_paths) do
-        vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
-    end
-    cleanup(state)
-end
-
 ---@param cmd? DirtreeOpenCommand
 function M.open(cmd)
     local state = store.get()
-    if selection_count(state) > 0 then
-        open_files(state, selection_paths(state), cmd)
-        return
-    end
     local row = current_row(state)
     if not row or not row.path then
         return
@@ -1058,125 +973,44 @@ function M.collapse_recursive()
     end
 end
 
-function M.toggle_selection()
+function M.clear_selection()
+    M.clear_paste_operation()
+end
+
+---@param operation DirtreePasteOperation
+local function toggle_paste_operation(operation)
     local state = store.get()
-    local row = current_row(state)
-    if row and not row.path then
-        return
-    end
-    local line = api.nvim_win_get_cursor(0)[1]
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    if state.selection[path] then
-        state.selection[path] = nil
+    if state.paste_operations[path] == operation then
+        state.paste_operations[path] = nil
     else
-        state.selection[path] = true
+        state.paste_operations[path] = operation
     end
-    render(state)
-    move_to_line(state, line + 1)
-end
-
-function M.toggle_visual_selection()
-    local state = store.get()
-    local mode = vim.fn.mode()
-    local is_visual = mode == 'v' or mode == 'V' or mode == '\22'
-    local start_line = is_visual and vim.fn.line('v') or vim.fn.line("'<")
-    local end_line = is_visual and vim.fn.line('.') or vim.fn.line("'>")
-    if start_line > end_line then
-        start_line, end_line = end_line, start_line
-    end
-    for line = start_line, end_line do
-        local row = state.rows and state.rows[line]
-        if row and row.path then
-            if state.selection[row.path] then
-                state.selection[row.path] = nil
-            else
-                state.selection[row.path] = true
-            end
-        end
-    end
-    render(state)
-end
-
-function M.clear_selection()
-    local state = store.get()
-    clear_selection(state)
-    state.paste_operation = nil
-    render(state)
-end
-
-function M.select_all()
-    local state = store.get()
-    for _, row in ipairs(state.rows or {}) do
-        if row.path then
-            state.selection[row.path] = true
-        end
-    end
-    render(state)
-end
-
-function M.invert_selection()
-    local state = store.get()
-    for _, row in ipairs(state.rows or {}) do
-        if row.path then
-            if state.selection[row.path] then
-                state.selection[row.path] = nil
-            else
-                state.selection[row.path] = true
-            end
-        end
-    end
-    render(state)
-end
-
----@param state DirtreeState
----@param paths string[]
-local function replace_selection(state, paths)
-    state.selection = {}
-    for _, path in ipairs(paths) do
-        state.selection[path] = true
-    end
-end
-
----@param operation DirtreePasteOperation
-local function set_paste_operation(operation)
-    local state = store.get()
-    if state.paste_operation == operation and selection_count(state) > 0 then
-        util.info('Paste mode is already active')
-        return
-    end
-    local paths, msg = selected_paths(state)
-    if not paths then
-        util.err(msg)
-        return
-    end
-    replace_selection(state, paths)
-    state.paste_operation = operation
     render(state)
 end
 
 function M.cut()
-    set_paste_operation('cut')
+    toggle_paste_operation('cut')
 end
 
 function M.copy()
-    set_paste_operation('copy')
+    toggle_paste_operation('copy')
 end
 
 function M.clear_paste_operation()
     local state = store.get()
-    state.paste_operation = nil
+    clear_paste_operations(state)
     render(state)
 end
 
 function M.paste()
     local state = store.get()
-    local paths = selection_paths(state)
-    local operation = state.paste_operation
-    if not operation or #paths == 0 then
+    local entries = paste_operation_entries(state)
+    if #entries == 0 then
         util.err('Nothing to paste')
         return
     end
@@ -1186,19 +1020,18 @@ function M.paste()
         util.err('No paste destination')
         return
     end
-    local dest_path = util.join_path(dest_dir, fs.basename(paths[1]))
+    local dest_path = util.join_path(dest_dir, fs.basename(entries[1].path))
     local ok, msg = pcall(function()
         assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
-        for _, path in ipairs(paths) do
-            fs.copy_or_move(operation == 'cut', path, dest_dir, state.cwd)
+        for _, entry in ipairs(entries) do
+            fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
         end
     end)
     if not ok then
         util.err(msg)
         return
     end
-    clear_selection(state)
-    state.paste_operation = nil
+    clear_paste_operations(state)
     render(state)
     set_cursor_path(state, dest_path)
 end
@@ -1281,68 +1114,55 @@ end
 
 function M.delete()
     local state = store.get()
-    local paths, is_bulk = selected_paths(state)
-    if not paths then
-        util.err(is_bulk)
+    local row = current_row(state)
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
         return
     end
-    local row = current_row(state)
-    delete_win.delete(paths, state.cwd, function(confirmed)
+    delete_win.delete({path}, state.cwd, function(confirmed)
         if not confirmed then
             return
         end
-        local ok, msg = pcall(function()
-            for _, path in ipairs(paths) do
-                fs.delete(path)
-            end
-        end)
+        local ok, err = pcall(fs.delete, path)
         if not ok then
-            util.err(msg)
-        else
-            if is_bulk then
-                clear_selection(state)
-            end
-            render(state)
+            util.err(err)
+            return
         end
+        clear_paste_operations_under(state, path)
+        render(state)
     end, {
-        anchor = (not is_bulk and #paths == 1) and current_name_anchor(row) or nil,
+        anchor = current_name_anchor(row),
     })
 end
 
 local function move()
     local state = store.get()
-    local paths, is_bulk = selected_paths(state)
-    if not paths then
-        util.err(is_bulk)
-        return
-    end
-    if is_bulk then
-        open_bulk_rename(state, paths)
-        return
-    end
     local row = current_row(state)
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
     local prompt_label = 'Move to'
     prompt.input({
         prompt = prompt_label,
         cwd = state.cwd,
         default = create_default(state, row),
-        width = #paths == 1 and PROMPT_WIDTH or nil,
-        anchor = (not is_bulk) and current_name_anchor(row) or nil,
+        width = PROMPT_WIDTH,
+        anchor = current_name_anchor(row),
         validate = function(input)
-            return fs.resolve_copy_or_move_dest(paths[1], input, state.cwd)
+            return fs.resolve_copy_or_move_dest(path, input, state.cwd)
         end,
     }, function(input, dest)
         if not input then
             return
         end
-        local ok, msg = pcall(function()
-            for _, src in ipairs(paths) do
-                fs.copy_or_move(true, src, input, state.cwd)
-            end
-        end)
+        local ok, msg = pcall(fs.copy_or_move, true, path, input, state.cwd)
         if not ok then
             util.err(msg)
         else
+            rename_paste_operations_under(state, path, dest)
             render(state)
             set_cursor_pos(state, fs.basename(dest))
         end
@@ -1353,11 +1173,6 @@ function M.move() move() end
 
 function M.rename()
     local state = store.get()
-    if selection_count(state) > 0 then
-        open_bulk_rename(state, selection_paths(state))
-        return
-    end
-
     local row = current_row(state)
     local path, msg = current_path(state)
     if not path then
@@ -1383,6 +1198,7 @@ function M.rename()
             return
         end
         rename_expanded_subtree(state, path, dest)
+        rename_paste_operations_under(state, path, dest)
         render(state)
         set_cursor_path(state, dest)
     end)
@@ -1531,7 +1347,7 @@ function M.dirtree(dir, from_au)
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},
-        selection = {},  -- map<path, true>
+        paste_operations = {},  -- map<path, DirtreePasteOperation>
     }
     keymaps.setup(buf, config)
     store.set(buf, state)

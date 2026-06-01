@@ -14,7 +14,6 @@ local VISUAL_KEYMAP_ACTIONS = {
     last_sibling = 'last_sibling',
     next_sibling = 'next_sibling',
     prev_sibling = 'prev_sibling',
-    toggle_selection = 'toggle_visual_selection',
 }
 
 ---@param rhs DirtreeKeymapSpec

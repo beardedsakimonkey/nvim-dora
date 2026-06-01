@@ -15,7 +15,7 @@ replaced by the file you choose.
 - **Quiet navigation history.** Dirtree buffers avoid populating the jumplist, so
   `<C-o>` usually takes you back through files rather than directory views.
 - **Isolated instances.** Opening the same directory in two windows creates two
-  independent Dirtree buffers. Navigation, selection, and expanded directories in one
+  independent Dirtree buffers. Navigation, paste marks, and expanded directories in one
   window do not affect the other.
 - **Inline tree expansion.** You can stay in one directory while expanding
   selected subdirectories into a tree.
@@ -82,15 +82,10 @@ config = {
         a = {"create",                          desc="Add file"},
         r = {"rename",                          desc="Rename file"},
         m = {"move",                            desc="Move file"},
-        x = {"cut",                             desc="Set paste operation to Cut"},
-        X = {"clear_paste_operation",           desc="Clear paste operation"},
-        c = {"copy",                            desc="Set paste operation to Copy"},
-        C = {"clear_paste_operation",           desc="Clear paste operation"},
+        x = {"cut",                             desc="Toggle cut mark"},
+        c = {"copy",                            desc="Toggle copy mark"},
         p = {"paste",                           desc="Paste"},
-        ['<Tab>'] = {"toggle_selection",        desc="Toggle selection"},
-        ['<Esc>'] = {"clear_selection",         desc="Clear selection"},
-        ['<C-a>'] = {"select_all",              desc="Select all"},
-        ['<C-r>'] = {"invert_selection",        desc="Invert selection"},
+        ['<Esc>'] = {"clear_selection",         desc="Clear paste marks"},
         ['.'] = {"toggle_hidden_files",         desc="Toggle hidden files"},
         gh = {"home_dir",                       desc="Go to Home directory"},
         ['g?'] = {"help",                       desc="Show help"},
@@ -170,11 +165,8 @@ DirtreePromptBorderValid
 DirtreePromptBorderInvalid
 DirtreeDeleteMore
 DirtreeDeleteCursor
-DirtreeSelectionText
-DirtreeSelectionSign
 DirtreeCutSign
 DirtreeCopySign
-DirtreeSelectionFile
 DirtreeHelpKey
 DirtreeHelpDesc
 DirtreeKeymapHintArrow
