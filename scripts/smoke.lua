@@ -31,17 +31,9 @@ local function write_file(path, contents)
     assert(vim.loop.fs_close(fd))
 end
 
-local function read_file(path)
-    local fd = assert(vim.loop.fs_open(path, 'r', tonumber('644', 8)))
-    local stat = assert(vim.loop.fs_fstat(fd))
-    local contents = assert(vim.loop.fs_read(fd, stat.size, 0))
-    assert(vim.loop.fs_close(fd))
-    return contents
-end
-
-local function selection_count(state)
+local function paste_operation_count(state)
     local count = 0
-    for _ in pairs(state.selection) do
+    for _ in pairs(state.paste_operations) do
         count = count + 1
     end
     return count
@@ -715,17 +707,14 @@ do
     touch(tmp .. '/b')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('a')
-    core.toggle_selection()
     util.set_cursor_pos('b')
-    core.toggle_selection()
     local cursor = api.nvim_win_get_cursor(0)
     local row = store.get().rows[cursor[1]]
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert(opts.anchor, 'create should anchor even with multiple selections')
+        assert(opts.anchor, 'create should anchor at the current row')
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)
@@ -750,43 +739,6 @@ do
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     config.show_hidden_files = old_show_hidden_files
     assert(not vim.tbl_contains(lines(), '.hidden'), 'hidden files should be hidden when configured')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
-    touch(tmp .. '/a')
-    touch(tmp .. '/dir/nested.js')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-
-    util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('dir')
-    core.expand()
-    set_cursor_line('nested%.js$')
-    core.toggle_selection()
-    core.delete()
-
-    local confirm_win = api.nvim_get_current_win()
-    local confirm_buf = api.nvim_get_current_buf()
-    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    local confirm_cfg = api.nvim_win_get_config(confirm_win)
-    assert_eq(confirm_cfg.row, math.max(0, math.floor((vim.o.lines - #confirm_lines - 2) / 2)))
-    assert_match(win_title(confirm_win), 'Delete 2 files%?')
-    assert_eq(confirm_lines[1], ' a')
-    assert_eq(confirm_lines[2], ' dir/nested.js')
-
-    api.nvim_feedkeys('y', 'xt', false)
-    assert(not api.nvim_win_is_valid(confirm_win), 'confirming delete should close the confirmation window')
-    assert(not fs.exists(tmp .. '/a'), 'confirmed delete should remove top-level file')
-    assert(not fs.exists(tmp .. '/dir/nested.js'), 'confirmed delete should remove nested selected file')
-    assert_eq(selection_count(state), 0)
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -822,30 +774,6 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/single.txt')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('single%.txt')
-    core.toggle_selection()
-    core.delete()
-
-    local confirm_win = api.nvim_get_current_win()
-    local confirm_buf = api.nvim_get_current_buf()
-    local confirm_cfg = api.nvim_win_get_config(confirm_win)
-    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    assert_eq(confirm_cfg.row, math.max(0, math.floor((vim.o.lines - #confirm_lines - 2) / 2)))
-    assert_eq(confirm_cfg.col, math.floor((vim.o.columns - confirm_cfg.width) / 2))
-    assert_match(win_title(confirm_win), 'Delete%?')
-    assert_eq(confirm_lines[1], ' single.txt')
-
-    api.nvim_feedkeys('n', 'xt', false)
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
 
@@ -853,9 +781,19 @@ do
     local state = store.get()
     set_cursor_line('alpha%.txt$')
     core.copy()
-    assert_eq(selection_count(state), 1)
-    assert_eq(state.paste_operation, 'copy', 'copy should set the paste operation')
+    assert_eq(paste_operation_count(state), 1)
+    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
     assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use a distinct sign highlight')
+    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy should highlight filenames like the copy sign')
+
+    core.copy()
+    assert_eq(paste_operation_count(state), 0, 'copy should toggle off an existing copy mark')
+
+    core.cut()
+    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
+    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use a distinct sign highlight')
+    core.copy()
+    assert_eq(state.paste_operations[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
     util.set_cursor_pos('dest')
     core.expand()
@@ -864,8 +802,7 @@ do
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered parent directory')
-    assert_eq(selection_count(state), 0)
-    assert(not state.paste_operation, 'paste should clear the staged copy')
+    assert_eq(paste_operation_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
 
     core.quit()
@@ -875,97 +812,35 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
     touch(tmp .. '/c')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    local old_notify = vim.notify
-    local notifications = {}
-    vim.notify = function(msg, level)
-        notifications[#notifications+1] = {msg = msg, level = level}
-    end
-    local function assert_paste_mode_warning()
-        assert(notifications[#notifications], 'duplicate paste mode should notify')
-        assert_eq(notifications[#notifications].msg, '[dirtree] Paste mode is already active')
-        notifications = {}
-    end
 
     set_cursor_line('a$')
-    core.toggle_selection()
-    assert_match(current_line(), 'b$', 'tab should move cursor down after selecting')
-    set_cursor_line('b$')
-    core.toggle_selection()
-    assert_match(current_line(), 'c$', 'tab should move cursor down after selecting another row')
     core.cut()
-    assert(state.selection[state.cwd .. '/a'], 'cut should keep selected rows selected')
-    assert(state.selection[state.cwd .. '/b'], 'cut should keep selected rows selected')
-    assert_eq(state.paste_operation, 'cut', 'cut should set a global paste operation')
-    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use the cut sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'cut should highlight filenames like the cut sign')
-    core.cut()
-    assert_paste_mode_warning()
-    assert_eq(selection_count(state), 2, 'duplicate cut should preserve selection')
-    assert_eq(state.paste_operation, 'cut', 'duplicate cut should preserve paste operation')
-
+    assert_eq(state.paste_operations[state.cwd .. '/a'], 'cut', 'cut should mark a file')
     set_cursor_line('c$')
-    core.toggle_selection()
-    assert(state.selection[state.cwd .. '/c'], 'tab should still add selections while cut is active')
-    assert_match(current_line(), 'c$', 'tab should stay put on the last row')
-    assert_eq(state.paste_operation, 'cut', 'tab should preserve the global cut state')
-    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'new selections should use the active cut sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'new selections should highlight filenames like the cut sign')
-
-    core.clear_paste_operation()
-    assert(not state.paste_operation, 'clearing paste operation should keep plain selections')
-    assert_eq(selection_count(state), 3)
-    assert(has_sign_highlight(state, 'DirtreeSelectionSign'), 'clearing paste operation should use plain selection signs')
-    assert(has_high_priority_highlight(state, 'DirtreeSelectionFile'), 'clearing paste operation should use plain filename highlights')
-
     core.copy()
-    assert_eq(state.paste_operation, 'copy', 'copy should replace the global paste operation')
-    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy should use the copy sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy should highlight filenames like the copy sign')
-    core.copy()
-    assert_paste_mode_warning()
-    assert_eq(selection_count(state), 3, 'duplicate copy should preserve selection')
-    assert_eq(state.paste_operation, 'copy', 'duplicate copy should preserve paste operation')
-
-    set_cursor_line('b$')
-    core.toggle_selection()
-    assert(not state.selection[state.cwd .. '/b'], 'tab should remove the toggled selection')
-    assert_match(current_line(), 'c$', 'tab should move cursor down after unselecting')
-    assert_eq(state.paste_operation, 'copy', 'tab should preserve copy while other selections remain')
-
-    set_cursor_line('a$')
-    core.toggle_selection()
-    set_cursor_line('c$')
-    core.toggle_selection()
-    assert_eq(selection_count(state), 0)
-    assert_eq(state.paste_operation, 'copy', 'removing the last selection should preserve paste operation')
-
-    set_cursor_line('b$')
-    core.toggle_selection()
-    assert_eq(state.paste_operation, 'copy', 'reselecting should keep the preserved paste operation')
-    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'reselected files should use the preserved copy sign')
-    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'reselected files should highlight filenames like the copy sign')
+    assert_eq(state.paste_operations[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
+    assert_eq(paste_operation_count(state), 2)
+    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut marks should use the cut sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCutSign'), 'cut marks should highlight filenames like the cut sign')
+    assert(has_sign_highlight(state, 'DirtreeCopySign'), 'copy marks should use the copy sign')
+    assert(has_high_priority_highlight(state, 'DirtreeCopySign'), 'copy marks should highlight filenames like the copy sign')
 
     core.clear_selection()
-    assert_eq(selection_count(state), 0)
-    assert(not state.paste_operation, 'clearing selection should clear the paste operation')
-
-    core.clear_paste_operation()
-    assert(not state.paste_operation, 'clearing paste operation should reset plain selection mode')
+    assert_eq(paste_operation_count(state), 0, 'escape action should clear paste marks')
 
     set_cursor_line('b$')
     core.copy()
-    assert_eq(state.paste_operation, 'copy', 'copy should set paste operation before escape')
+    assert_eq(state.paste_operations[state.cwd .. '/b'], 'copy', 'copy should set paste mark before escape')
     api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
-    assert_eq(selection_count(state), 0, 'escape should clear selections')
-    assert(not state.paste_operation, 'escape should clear the paste operation')
+    assert_eq(paste_operation_count(state), 0, 'escape should clear paste marks')
 
-    vim.notify = old_notify
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
@@ -981,37 +856,21 @@ do
     local state = store.get()
 
     util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('b')
-    core.toggle_selection()
-    assert_eq(selection_count(state), 2)
-    assert(state.selection[state.cwd .. '/a'], 'a should be selected')
-    assert(state.selection[state.cwd .. '/b'], 'b should be selected')
-    local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
-    local has_sign, has_file_hl = false, false
-    for _, mark in ipairs(marks) do
-        local details = mark[4]
-        has_sign = has_sign
-            or details.sign_text and vim.startswith(details.sign_text, '▌') and details.sign_hl_group == 'DirtreeSelectionSign'
-        has_file_hl = has_file_hl or details.hl_group == 'DirtreeSelectionFile'
-    end
-    assert(has_sign, 'selected rows should render a sign marker')
-    assert(has_file_hl, 'selected rows should highlight filenames')
     core.cut()
-    assert_eq(state.paste_operation, 'cut', 'cut should set the paste operation')
-    assert(has_sign_highlight(state, 'DirtreeCutSign'), 'cut should use a distinct sign highlight')
+    util.set_cursor_pos('b')
+    core.copy()
+    assert_eq(paste_operation_count(state), 2)
 
     util.set_cursor_pos('dest')
     core.expand()
     set_cursor_line('%(empty%)$')
     core.paste()
 
-    assert(not fs.exists(tmp .. '/a'), 'bulk cut paste should remove source a')
-    assert(not fs.exists(tmp .. '/b'), 'bulk cut paste should remove source b')
-    assert(fs.exists(tmp .. '/dest/a'), 'bulk cut paste should move a')
-    assert(fs.exists(tmp .. '/dest/b'), 'bulk cut paste should move b')
-    assert_eq(selection_count(state), 0)
-    assert(not state.paste_operation, 'paste should clear the staged cut')
+    assert(not fs.exists(tmp .. '/a'), 'mixed paste should remove cut source a')
+    assert(fs.exists(tmp .. '/b'), 'mixed paste should leave copied source b')
+    assert(fs.exists(tmp .. '/dest/a'), 'mixed paste should move cut file a')
+    assert(fs.exists(tmp .. '/dest/b'), 'mixed paste should copy file b')
+    assert_eq(paste_operation_count(state), 0)
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1115,284 +974,6 @@ do
     assert(state.expanded_dirs[state.cwd .. '/renamed/child'], 'rename should preserve expanded descendant state')
     assert(find_line_index(lines(), 'file%.txt$'), 'rename should render preserved expanded descendants')
     assert_match(current_line(), 'renamed/$', 'rename should move cursor to the renamed directory')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
-    touch(tmp .. '/a')
-    touch(tmp .. '/b')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-    util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('b')
-    core.toggle_selection()
-    core.rename()
-
-    assert_eq(vim.bo.buftype, 'acwrite', 'bulk rename should open an acwrite buffer')
-    assert_eq(vim.bo.filetype, 'dirtree-bulk-rename')
-    assert_eq(table.concat(lines(), '\n'), 'a\nb')
-    api.nvim_buf_set_lines(0, 0, -1, false, {'dest/a-renamed', 'b-renamed'})
-    vim.cmd'write'
-
-    assert(fs.exists(tmp .. '/dest/a-renamed'), 'bulk rename should move files into existing directories')
-    assert(fs.exists(tmp .. '/b-renamed'), 'bulk rename should rename files')
-    assert(not fs.exists(tmp .. '/a'), 'bulk rename should remove old source paths')
-    assert(not fs.exists(tmp .. '/b'), 'bulk rename should remove old source paths')
-    assert_eq(selection_count(state), 0, 'successful bulk rename should clear selection')
-    assert_match(current_line(), 'a%-renamed$', 'bulk rename should move cursor to the first changed destination')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    write_file(tmp .. '/a', 'from-a')
-    write_file(tmp .. '/b', 'from-b')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-    util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('b')
-    core.toggle_selection()
-    core.rename()
-    api.nvim_buf_set_lines(0, 0, -1, false, {'b', 'a'})
-    vim.cmd'write'
-
-    assert_eq(read_file(tmp .. '/a'), 'from-b', 'bulk rename should support swaps')
-    assert_eq(read_file(tmp .. '/b'), 'from-a', 'bulk rename should support swaps')
-    assert_eq(selection_count(state), 0)
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
-    touch(tmp .. '/dir/child/file.txt')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-    util.set_cursor_pos('dir')
-    core.expand()
-    set_cursor_line('child/$')
-    core.expand()
-    util.set_cursor_pos('dir')
-    core.toggle_selection()
-    core.rename()
-    api.nvim_buf_set_lines(0, 0, -1, false, {'renamed'})
-    vim.cmd'write'
-
-    assert(fs.exists(tmp .. '/renamed/child/file.txt'), 'bulk rename should move directory subtrees')
-    assert(state.expanded_dirs[state.cwd .. '/renamed'], 'bulk rename should preserve expanded renamed directories')
-    assert(state.expanded_dirs[state.cwd .. '/renamed/child'], 'bulk rename should preserve expanded descendants')
-    assert(find_line_index(lines(), 'file%.txt$'), 'bulk rename should render preserved expanded descendants')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/a')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-    util.set_cursor_pos('a')
-    core.toggle_selection()
-    core.rename()
-    vim.cmd'write'
-
-    assert(fs.exists(tmp .. '/a'), 'unchanged bulk rename save should keep the source')
-    assert_eq(selection_count(state), 1, 'unchanged bulk rename save should keep selection')
-    assert_eq(api.nvim_get_current_buf(), state.buf, 'unchanged bulk rename save should return to the tree')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local old_notify = vim.notify
-    local notifications = {}
-    vim.notify = function(msg, level)
-        notifications[#notifications+1] = {msg = msg, level = level}
-    end
-
-    local function expect_invalid(setup, new_lines, pattern)
-        notifications = {}
-        local tmp = vim.fn.tempname()
-        assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-        local cleanup = setup(tmp)
-        vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-        local state = store.get()
-        cleanup.select(state)
-        local tree_win = api.nvim_get_current_win()
-        core.rename()
-        local bulk_win = api.nvim_get_current_win()
-        local bulk_buf = api.nvim_get_current_buf()
-        api.nvim_buf_set_lines(bulk_buf, 0, -1, false, new_lines)
-        vim.cmd'write'
-        assert_eq(api.nvim_get_current_buf(), bulk_buf, 'invalid bulk rename should keep the buffer open')
-        assert(notifications[#notifications], 'invalid bulk rename should notify')
-        assert_match(notifications[#notifications].msg, pattern)
-        cleanup.assert_unchanged(tmp, state)
-        api.nvim_win_close(bulk_win, true)
-        api.nvim_set_current_win(tree_win)
-        core.quit()
-        assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-    end
-
-    local function select_files(...)
-        local names = {...}
-        return function()
-            for _, name in ipairs(names) do
-                util.set_cursor_pos(name)
-                core.toggle_selection()
-            end
-        end
-    end
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        touch(tmp .. '/b')
-        return {
-            select = select_files('a', 'b'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a') and fs.exists(tmp .. '/b'))
-            end,
-        }
-    end, {'x', 'x'}, 'Duplicate destination')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a'))
-            end,
-        }
-    end, {'a', 'b'}, 'Expected 1 lines')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a'))
-            end,
-        }
-    end, {''}, 'Line cannot be empty')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a'))
-            end,
-        }
-    end, {'/tmp/a'}, 'must be relative')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a'))
-            end,
-        }
-    end, {'../a'}, 'cannot contain %. or %.%.')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a'))
-            end,
-        }
-    end, {'missing/a'}, 'does not exist')
-
-    expect_invalid(function(tmp)
-        touch(tmp .. '/a')
-        touch(tmp .. '/b')
-        return {
-            select = select_files('a'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/a') and fs.exists(tmp .. '/b'))
-            end,
-        }
-    end, {'b'}, 'already exists')
-
-    expect_invalid(function(tmp)
-        assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
-        touch(tmp .. '/dir/child.txt')
-        return {
-            select = function()
-                util.set_cursor_pos('dir')
-                core.expand()
-                util.set_cursor_pos('dir')
-                core.toggle_selection()
-                set_cursor_line('child%.txt$')
-                core.toggle_selection()
-            end,
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/dir/child.txt'))
-            end,
-        }
-    end, {'dir', 'dir/child.txt'}, 'and its descendant')
-
-    expect_invalid(function(tmp)
-        assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
-        assert(vim.loop.fs_mkdir(tmp .. '/dir/child', tonumber('755', 8)))
-        return {
-            select = select_files('dir'),
-            assert_unchanged = function()
-                assert(fs.exists(tmp .. '/dir/child'))
-            end,
-        }
-    end, {'dir/child/renamed'}, 'into itself')
-
-    vim.notify = old_notify
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
-    touch(tmp .. '/a')
-    touch(tmp .. '/b')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('b')
-    core.toggle_selection()
-    util.set_cursor_pos('dest')
-
-    core.move()
-    assert_eq(vim.bo.buftype, 'acwrite', 'bulk move should open the bulk rename buffer')
-    assert_eq(table.concat(lines(), '\n'), 'a\nb')
-    api.nvim_buf_set_lines(0, 0, -1, false, {'dest/a', 'dest/b'})
-    vim.cmd'write'
-
-    assert(fs.exists(tmp .. '/dest/a'), 'bulk move should move selected files through the bulk rename buffer')
-    assert(fs.exists(tmp .. '/dest/b'), 'bulk move should move selected files through the bulk rename buffer')
-    assert(not fs.exists(tmp .. '/a'))
-    assert(not fs.exists(tmp .. '/b'))
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1720,43 +1301,16 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
     touch(tmp .. '/a')
-    touch(tmp .. '/b')
-    touch(tmp .. '/dir/nested')
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
     util.set_cursor_pos('a')
-    core.toggle_selection()
-    util.set_cursor_pos('b')
-    core.toggle_selection()
-    assert_eq(selection_count(state), 2)
-
+    core.cut()
+    assert_eq(paste_operation_count(state), 1)
     core.clear_selection()
-    assert_eq(selection_count(state), 0)
-
-    util.set_cursor_pos('dir')
-    core.expand()
-    core.select_all()
-    assert_eq(selection_count(state), 4)
-    assert(state.selection[state.cwd .. '/a'], 'select all should select visible files')
-    assert(state.selection[state.cwd .. '/b'], 'select all should select visible files')
-    assert(state.selection[state.cwd .. '/dir'], 'select all should select visible directories')
-    assert(state.selection[state.cwd .. '/dir/nested'], 'select all should select expanded child rows')
-    core.clear_selection()
-    assert_eq(selection_count(state), 0)
-
-    state.selection[state.cwd .. '/a'] = true
-    core.invert_selection()
-    assert_eq(selection_count(state), 3)
-    assert(not state.selection[state.cwd .. '/a'], 'invert selection should clear selected visible rows')
-    assert(state.selection[state.cwd .. '/b'], 'invert selection should select unselected visible rows')
-    assert(state.selection[state.cwd .. '/dir'], 'invert selection should select unselected visible directories')
-    assert(state.selection[state.cwd .. '/dir/nested'], 'invert selection should select unselected expanded child rows')
-    core.clear_selection()
-    assert_eq(selection_count(state), 0)
+    assert_eq(paste_operation_count(state), 0, 'clear_selection should clear paste marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1982,12 +1536,7 @@ end
 
 do
     local tmp = vim.fn.tempname()
-    local old_toggle_visual_selection = core.toggle_visual_selection
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    core.toggle_visual_selection = function()
-        vim.g.dirtree_smoke_visual_keymap = 'tab'
-    end
-    vim.g.dirtree_smoke_visual_keymap = nil
 
     vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('J', 'x', false, true).desc, 'Last sibling')
@@ -1998,15 +1547,9 @@ do
     assert_eq(type(vim.fn.maparg('>', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<', 'x', false, true).desc, 'Previous sibling')
     assert_eq(type(vim.fn.maparg('<', 'x', false, true).callback), 'function')
-    local tab_map = vim.fn.maparg('<Tab>', 'x', false, true)
-    assert_eq(tab_map.desc, 'Toggle selection')
-    assert_eq(type(tab_map.callback), 'function')
-    tab_map.callback()
-    assert_eq(vim.g.dirtree_smoke_visual_keymap, 'tab', 'visual Tab should dispatch the visual selection action')
+    assert_eq(vim.fn.maparg('<Tab>', 'x'), '', 'visual Tab should not be mapped')
 
     core.quit()
-    core.toggle_visual_selection = old_toggle_visual_selection
-    vim.g.dirtree_smoke_visual_keymap = nil
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
@@ -2127,54 +1670,6 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/a')
-    touch(tmp .. '/b')
-    touch(tmp .. '/c')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-
-    vim.fn.setpos("'<", {0, 1, 1, 0})
-    vim.fn.setpos("'>", {0, 2, 1, 0})
-    core.toggle_visual_selection()
-    assert_eq(selection_count(state), 2)
-    assert(state.selection[state.cwd .. '/a'], 'visual toggle should select first selected row')
-    assert(state.selection[state.cwd .. '/b'], 'visual toggle should select second selected row')
-    assert(not state.selection[state.cwd .. '/c'], 'visual toggle should not select unselected rows')
-
-    vim.fn.setpos("'<", {0, 2, 1, 0})
-    vim.fn.setpos("'>", {0, 1, 1, 0})
-    core.toggle_visual_selection()
-    assert_eq(selection_count(state), 0, 'visual toggle should handle reversed ranges')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/a')
-    touch(tmp .. '/b')
-
-    vim.cmd('Dirtree ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-
-    vim.fn.setpos("'<", {0, 1, 1, 0})
-    vim.fn.setpos("'>", {0, 1, 1, 0})
-    api.nvim_win_set_cursor(0, {2, 0})
-    api.nvim_feedkeys(api.nvim_replace_termcodes('V<Tab>', true, false, true), 'xt', false)
-    assert_eq(selection_count(state), 1)
-    assert(not state.selection[state.cwd .. '/a'], 'live visual toggle should not use stale visual selection')
-    assert(state.selection[state.cwd .. '/b'], 'live visual toggle should select the selected cursor line')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/two', tonumber('755', 8)))
@@ -2207,8 +1702,8 @@ do
     set_cursor_line('file%.txt$')
     assert_cursor_tree_highlights(state, 1)
     assert(state.rows[api.nvim_win_get_cursor(0)[1]].tree_connector_start_col > 0)
-    core.toggle_selection()
-    assert(state.selection[root .. '/alpha/one/file.txt'], 'nested row should select its real path')
+    core.copy()
+    assert_eq(state.paste_operations[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
     util.set_cursor_pos('alpha')
     core.collapse()
@@ -2271,10 +1766,6 @@ do
     core.expand()
     assert(vim.tbl_contains(lines(), '└── (empty)'), 'empty directories should render a placeholder')
     assert(has_highlight(state, 'DirtreeTree'), 'empty placeholder should be highlighted as tree text')
-
-    set_cursor_line('%(empty%)$')
-    core.toggle_selection()
-    assert_eq(selection_count(state), 0, 'empty placeholder should not be selectable')
 
     util.set_cursor_pos('empty')
     core.collapse()
