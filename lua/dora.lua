@@ -1,27 +1,27 @@
 local M = {}
 
----@alias DirtreeFileType 'file'|'directory'|'link'
----@alias DirtreeOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
----@alias DirtreeKeymapAction string|function
----@alias DirtreeKeymapSpec DirtreeKeymapAction|{[1]: DirtreeKeymapAction, desc?: string}
----@alias DirtreeSortOrder 'name'|'name_reverse'|'modified'|'modified_reverse'|'created'|'created_reverse'|'size'|'size_reverse'|'extension'|'extension_reverse'
+---@alias DoraFileType 'file'|'directory'|'link'
+---@alias DoraOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
+---@alias DoraKeymapAction string|function
+---@alias DoraKeymapSpec DoraKeymapAction|{[1]: DoraKeymapAction, desc?: string}
+---@alias DoraSortOrder 'name'|'name_reverse'|'modified'|'modified_reverse'|'created'|'created_reverse'|'size'|'size_reverse'|'extension'|'extension_reverse'
 
----@class DirtreeFile
+---@class DoraFile
 ---@field name string
----@field type DirtreeFileType
+---@field type DoraFileType
 ---@field size? integer
 ---@field mtime? table
 ---@field birthtime? table
 
----@class DirtreeConfig
----@field keymaps table<string, DirtreeKeymapSpec>
+---@class DoraConfig
+---@field keymaps table<string, DoraKeymapSpec>
 ---@field show_keymap_hints boolean
 ---@field show_hidden_files boolean
----@field is_file_hidden fun(file: DirtreeFile, files: DirtreeFile[], dir: string): boolean
----@field sort_order DirtreeSortOrder
+---@field is_file_hidden fun(file: DoraFile, files: DoraFile[], dir: string): boolean
+---@field sort_order DoraSortOrder
 ---@field sync_local_cwd boolean
 
----@type DirtreeConfig
+---@type DoraConfig
 M.config = {
     keymaps = {
         q = {"quit",                            desc="Quit"},
@@ -76,20 +76,20 @@ M.config = {
     },
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
-    -- Whether hidden files should be shown when dirtree opens
+    -- Whether hidden files should be shown when dora opens
     show_hidden_files = true,
     -- Function used to determine what files should be hidden
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order
     sort_order = 'name',
-    -- Whether to sync the window's current directory with dirtree's current path
+    -- Whether to sync the window's current directory with dora's current path
     sync_local_cwd = true,
 }
 
 ---@param dir? string
 ---@param from_au? boolean
-function M.dirtree(dir, from_au)
-    require'dirtree.core'.dirtree(dir, from_au)
+function M.dora(dir, from_au)
+    require'dora.core'.dora(dir, from_au)
 end
 
 return M

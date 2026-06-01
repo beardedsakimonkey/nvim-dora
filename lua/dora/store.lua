@@ -1,10 +1,10 @@
 local M = {}
 
----@type table<string, DirtreeState>
+---@type table<string, DoraState>
 local buf_states = {}
 
 ---@param buf integer
----@param state DirtreeState
+---@param state DoraState
 function M.set(buf, state)
     buf_states[tostring(buf)] = state
 end
@@ -15,7 +15,7 @@ function M.remove(buf)
 end
 
 ---@param buf? integer
----@return DirtreeState
+---@return DoraState
 function M.get(buf)
     buf = buf or vim.api.nvim_get_current_buf()
     assert(buf ~= -1)

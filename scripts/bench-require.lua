@@ -1,32 +1,32 @@
 local uv = vim.uv or vim.loop
 
-local iterations = tonumber(vim.env.DIRTREE_BENCH_ITERS) or 1000
-local warmup = tonumber(vim.env.DIRTREE_BENCH_WARMUP) or 50
+local iterations = tonumber(vim.env.DORA_BENCH_ITERS) or 1000
+local warmup = tonumber(vim.env.DORA_BENCH_WARMUP) or 50
 
 local cases = {
     {
-        name = "require'dirtree'",
+        name = "require'dora'",
         fn = function()
-            require'dirtree'
+            require'dora'
         end,
     },
     {
-        name = "require'dirtree' + config write",
+        name = "require'dora' + config write",
         fn = function()
-            require'dirtree'.config.show_hidden_files = false
+            require'dora'.config.show_hidden_files = false
         end,
     },
     {
-        name = "require'dirtree.core'",
+        name = "require'dora.core'",
         fn = function()
-            require'dirtree.core'
+            require'dora.core'
         end,
     },
 }
 
-local function clear_dirtree_modules()
+local function clear_dora_modules()
     for name in pairs(package.loaded) do
-        if name == 'dirtree' or name:match('^dirtree%.') then
+        if name == 'dora' or name:match('^dora%.') then
             package.loaded[name] = nil
         end
     end
@@ -48,7 +48,7 @@ end
 
 local function benchmark(case)
     for _ = 1, warmup do
-        clear_dirtree_modules()
+        clear_dora_modules()
         case.fn()
     end
 
@@ -56,7 +56,7 @@ local function benchmark(case)
 
     local samples = {}
     for i = 1, iterations do
-        clear_dirtree_modules()
+        clear_dora_modules()
         local start = uv.hrtime()
         case.fn()
         samples[i] = (uv.hrtime() - start) / 1e6
@@ -72,7 +72,7 @@ local function benchmark(case)
     }
 end
 
-print(('dirtree require benchmark (%d iterations, %d warmup)'):format(iterations, warmup))
+print(('dora require benchmark (%d iterations, %d warmup)'):format(iterations, warmup))
 print('case                             min ms  mean ms   p50 ms   p95 ms   max ms')
 print('--------------------------------------------------------------------------')
 

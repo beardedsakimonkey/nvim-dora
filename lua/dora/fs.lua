@@ -1,4 +1,4 @@
-local util = require'dirtree.util'
+local util = require'dora.util'
 local uv = vim.loop
 
 local M = {}
@@ -75,7 +75,7 @@ function M.is_dir(path)
 end
 
 ---@param path string
----@return DirtreeFile[]
+---@return DoraFile[]
 function M.list(path)
     local ret = {}
     for basename, type in vim.fs.dir(path) do

@@ -1,9 +1,9 @@
 local api = vim.api
 local uv = vim.loop
 
-local window = require'dirtree.window'
-local fs = require'dirtree.fs'
-local util = require'dirtree.util'
+local window = require'dora.window'
+local fs = require'dora.fs'
+local util = require'dora.util'
 
 local M = {}
 
@@ -13,29 +13,29 @@ local LINE_PREFIX = ' '
 local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
 
----@class DirtreeDeleteConfirmItem
+---@class DoraDeleteConfirmItem
 ---@field display string
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
 
----@class DirtreeDeleteOptions
+---@class DoraDeleteOptions
 ---@field anchor? {win: integer, line: integer, col: integer}
 
 ---@param path string
 ---@return string
 local function file_hl(path)
     if uv.fs_readlink(path) then
-        return 'DirtreeSymlink'
+        return 'DoraSymlink'
     end
     local stat = uv.fs_stat(path)
     if stat and stat.type == 'directory' then
-        return 'DirtreeDirectory'
+        return 'DoraDirectory'
     end
     if uv.fs_access(path, 'X') then
-        return 'DirtreeExecutable'
+        return 'DoraExecutable'
     end
-    return 'DirtreeFile'
+    return 'DoraFile'
 end
 
 ---@param path string
@@ -54,14 +54,14 @@ end
 
 ---@param path string
 ---@param cwd string
----@return DirtreeDeleteConfirmItem
+---@return DoraDeleteConfirmItem
 local function item(path, cwd)
     local display = relative_display_path(path, cwd)
     local basename = fs.basename(path)
     local hl = file_hl(path)
     local file_start_col = math.max(0, #display - #basename)
     local file_end_col = #display
-    if hl == 'DirtreeDirectory' then
+    if hl == 'DoraDirectory' then
         display = display .. util.sep
     end
     return {
@@ -74,7 +74,7 @@ end
 
 ---@param paths string[]
 ---@param cwd string
----@return DirtreeDeleteConfirmItem[]
+---@return DoraDeleteConfirmItem[]
 local function items(paths, cwd)
     local ret = {}
     for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
@@ -92,7 +92,7 @@ local function title(count)
     return string.format('Delete %d %s?', count, count == 1 and 'file' or 'files')
 end
 
----@param confirm_items DirtreeDeleteConfirmItem[]
+---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
 ---@return string[]
 local function lines(confirm_items, overflow)
@@ -108,7 +108,7 @@ end
 
 ---@param buf integer
 ---@param ns integer
----@param confirm_items DirtreeDeleteConfirmItem[]
+---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
 local function render(buf, ns, confirm_items, overflow)
     local rendered_lines = lines(confirm_items, overflow)
@@ -128,7 +128,7 @@ local function render(buf, ns, confirm_items, overflow)
         local row = #rendered_lines - 1
         api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN, {
             end_col = #rendered_lines[#rendered_lines],
-            hl_group = 'DirtreeDeleteMore',
+            hl_group = 'DoraDeleteMore',
         })
     end
 end
@@ -144,7 +144,7 @@ local function width(confirm_title, rendered_lines)
     return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
 end
 
----@param opts DirtreeAnchoredFloatLayoutOptions
+---@param opts DoraAnchoredFloatLayoutOptions
 ---@return table
 local function anchored_layout(opts)
     if not window.valid_win(opts.win) then
@@ -166,7 +166,7 @@ local function anchored_layout(opts)
         col = col,
         width = width,
         height = height,
-        border = window.border(opts.border_hl or 'DirtreePromptBorder'),
+        border = window.border(opts.border_hl or 'DoraPromptBorder'),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,
         style = 'minimal',
@@ -177,7 +177,7 @@ end
 ---@param paths string[]
 ---@param cwd string
 ---@param cb fun(confirmed: boolean)
----@param opts? DirtreeDeleteOptions
+---@param opts? DoraDeleteOptions
 function M.delete(paths, cwd, cb, opts)
     if #paths == 0 then
         cb(false)
@@ -193,7 +193,7 @@ function M.delete(paths, cwd, cb, opts)
     local autocmds = {}
     local closed = false
     local buf = api.nvim_create_buf(false, true)
-    local ns = api.nvim_create_namespace('dirtree/delete_win.' .. buf)
+    local ns = api.nvim_create_namespace('dora/delete_win.' .. buf)
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
@@ -214,7 +214,7 @@ function M.delete(paths, cwd, cb, opts)
             title = confirm_title,
             width = width(confirm_title, rendered_lines),
             height = #rendered_lines,
-            border_hl = 'DirtreePromptBorderInvalid',
+            border_hl = 'DoraPromptBorderInvalid',
         }
         if opts.anchor then
             return anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
@@ -224,7 +224,7 @@ function M.delete(paths, cwd, cb, opts)
 
     local win = api.nvim_open_win(buf, true, layout())
     vim.o.guicursor = 'a:block-Normal'
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorderInvalid,Cursor:Normal'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorderInvalid,Cursor:Normal'
     vim.wo[win].wrap = false
 
     local function finish(confirmed)

@@ -1,13 +1,13 @@
 local api = vim.api
 local uv = vim.loop
 
-local window = require'dirtree.window'
-local fs = require'dirtree.fs'
-local util = require'dirtree.util'
+local window = require'dora.window'
+local fs = require'dora.fs'
+local util = require'dora.util'
 
 local M = {}
 
----@class DirtreeInfoRow
+---@class DoraInfoRow
 ---@field label string
 ---@field value string
 
@@ -64,7 +64,7 @@ local function format_type(type)
     })[type] or type
 end
 
----@param rows DirtreeInfoRow[]
+---@param rows DoraInfoRow[]
 ---@param label string
 ---@param value any
 local function add(rows, label, value)
@@ -75,7 +75,7 @@ end
 
 ---@param path string
 ---@param stat table
----@return DirtreeInfoRow[]
+---@return DoraInfoRow[]
 local function rows(path, stat)
     local ret = {}
     add(ret, 'Name', fs.basename(path))
@@ -103,7 +103,7 @@ local function rows(path, stat)
     return ret
 end
 
----@param info_rows DirtreeInfoRow[]
+---@param info_rows DoraInfoRow[]
 ---@return integer
 local function label_width(info_rows)
     local width = 1
@@ -113,7 +113,7 @@ local function label_width(info_rows)
     return width
 end
 
----@param info_rows DirtreeInfoRow[]
+---@param info_rows DoraInfoRow[]
 ---@param label_len integer
 ---@return string[]
 local function lines(info_rows, label_len)
@@ -137,7 +137,7 @@ end
 
 ---@param buf integer
 ---@param ns integer
----@param info_rows DirtreeInfoRow[]
+---@param info_rows DoraInfoRow[]
 ---@param label_len integer
 local function render(buf, ns, info_rows, label_len)
     local rendered_lines = lines(info_rows, label_len)
@@ -146,11 +146,11 @@ local function render(buf, ns, info_rows, label_len)
     for i, line in ipairs(rendered_lines) do
         api.nvim_buf_set_extmark(buf, ns, i - 1, 0, {
             end_col = label_len,
-            hl_group = 'DirtreeInfoLabel',
+            hl_group = 'DoraInfoLabel',
         })
         api.nvim_buf_set_extmark(buf, ns, i - 1, label_len + 2, {
             end_col = #line,
-            hl_group = 'DirtreeInfoValue',
+            hl_group = 'DoraInfoValue',
         })
     end
 end
@@ -168,7 +168,7 @@ function M.open(path)
     local rendered_lines = lines(info_rows, label_len)
     local origin_win = api.nvim_get_current_win()
     local buf = api.nvim_create_buf(false, true)
-    local ns = api.nvim_create_namespace('dirtree/info_win.' .. buf)
+    local ns = api.nvim_create_namespace('dora/info_win.' .. buf)
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
@@ -180,9 +180,9 @@ function M.open(path)
         title = 'Info',
         width = width(rendered_lines),
         height = #rendered_lines,
-        border_hl = 'DirtreePromptBorder',
+        border_hl = 'DoraPromptBorder',
     }))
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].wrap = false
 
     local function close()

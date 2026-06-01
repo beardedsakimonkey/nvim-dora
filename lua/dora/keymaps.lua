@@ -1,4 +1,4 @@
-local window = require'dirtree.window'
+local window = require'dora.window'
 
 local api = vim.api
 local uv = vim.loop
@@ -16,8 +16,8 @@ local VISUAL_KEYMAP_ACTIONS = {
     prev_sibling = 'prev_sibling',
 }
 
----@param rhs DirtreeKeymapSpec
----@return DirtreeKeymapAction action
+---@param rhs DoraKeymapSpec
+---@return DoraKeymapAction action
 ---@return string? desc
 local function normalize_keymap(rhs)
     if type(rhs) == 'table' then
@@ -27,26 +27,26 @@ local function normalize_keymap(rhs)
     return rhs, nil
 end
 
----@param action DirtreeKeymapAction
+---@param action DoraKeymapAction
 ---@return function|string
 local function map_keymap_action(action)
     if type(action) ~= 'string' then
         return action
     end
-    local core_action = require'dirtree.core'[action]
+    local core_action = require'dora.core'[action]
     if type(core_action) == 'function' then
         return core_action
     end
     return action
 end
 
----@param action DirtreeKeymapAction
+---@param action DoraKeymapAction
 local function dispatch_keymap_action(action)
     if type(action) == 'function' then
         action()
         return
     end
-    local core_action = require'dirtree.core'[action]
+    local core_action = require'dora.core'[action]
     if type(core_action) == 'function' then
         core_action()
         return
@@ -68,11 +68,11 @@ local function read_key(timeout)
     return nil
 end
 
----@class DirtreeKeymapHintRow
+---@class DoraKeymapHintRow
 ---@field lhs string
 ---@field desc string
 
----@param rows DirtreeKeymapHintRow[]
+---@param rows DoraKeymapHintRow[]
 ---@return integer key_width
 ---@return integer desc_width
 local function hint_widths(rows)
@@ -88,7 +88,7 @@ end
 ---@param line string
 ---@param marks table[]
 ---@param lnum integer
----@param row DirtreeKeymapHintRow
+---@param row DoraKeymapHintRow
 ---@param key_width integer
 ---@param desc_width integer
 ---@param pad_desc boolean
@@ -107,26 +107,26 @@ local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, p
         lnum = lnum,
         col = key_col,
         end_col = key_col + #key,
-        hl_group = 'DirtreeInfoLabel',
+        hl_group = 'DoraInfoLabel',
     }
     marks[#marks+1] = {
         lnum = lnum,
         col = arrow_col,
         end_col = arrow_col + #HINT_ARROW,
-        hl_group = 'DirtreeKeymapHintArrow',
+        hl_group = 'DoraKeymapHintArrow',
     }
     marks[#marks+1] = {
         lnum = lnum,
         col = desc_col,
         end_col = desc_col + #row.desc,
-        hl_group = 'DirtreeInfoValue',
+        hl_group = 'DoraInfoValue',
     }
     return line
 end
 
 ---@param prefix string
----@param rows DirtreeKeymapHintRow[]
----@return {lower: DirtreeKeymapHintRow, upper: DirtreeKeymapHintRow, key: string}[]?
+---@param rows DoraKeymapHintRow[]
+---@return {lower: DoraKeymapHintRow, upper: DoraKeymapHintRow, key: string}[]?
 local function case_pair_rows(prefix, rows)
     local prefix_len = #prefix
     local by_key = {}
@@ -173,7 +173,7 @@ local function case_pair_rows(prefix, rows)
     return pair_rows
 end
 
----@param rows DirtreeKeymapHintRow[]
+---@param rows DoraKeymapHintRow[]
 ---@return string[] lines
 ---@return table[] marks
 local function single_column_hint_lines(rows)
@@ -187,7 +187,7 @@ local function single_column_hint_lines(rows)
 end
 
 ---@param prefix string
----@param rows DirtreeKeymapHintRow[]
+---@param rows DoraKeymapHintRow[]
 ---@return string[]? lines
 ---@return table[]? marks
 local function case_pair_hint_lines(prefix, rows)
@@ -227,7 +227,7 @@ local function hint_window_width(lines, max_width)
 end
 
 ---@param prefix string
----@param rows DirtreeKeymapHintRow[]
+---@param rows DoraKeymapHintRow[]
 ---@return integer buf
 ---@return integer win
 function M.open_hint_window(prefix, rows)
@@ -241,7 +241,7 @@ function M.open_hint_window(prefix, rows)
     local width = hint_window_width(lines, max_width)
     local height = math.max(1, #lines)
     local buf = api.nvim_create_buf(false, true)
-    local ns = api.nvim_create_namespace('dirtree/keymaps.hints.' .. buf)
+    local ns = api.nvim_create_namespace('dora/keymaps.hints.' .. buf)
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
@@ -263,7 +263,7 @@ function M.open_hint_window(prefix, rows)
         col = api.nvim_win_get_width(origin_win) - 2,
         width = width,
         height = height,
-        border = window.border('DirtreePromptBorder'),
+        border = window.border('DoraPromptBorder'),
         style = 'minimal',
         noautocmd = true,
         focusable = false,
@@ -273,8 +273,8 @@ function M.open_hint_window(prefix, rows)
     return buf, win
 end
 
----@param keymaps table<string, DirtreeKeymapSpec>
----@return table<string, {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]>
+---@param keymaps table<string, DoraKeymapSpec>
+---@return table<string, {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]>
 local function keymap_hint_groups(keymaps)
     local groups = {}
     for lhs, rhs in pairs(keymaps) do
@@ -297,8 +297,8 @@ local function keymap_hint_groups(keymaps)
 end
 
 ---@param prefix string
----@param group {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]
----@param direct? {action: DirtreeKeymapAction, desc: string?}
+---@param group {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]
+---@param direct? {action: DoraKeymapAction, desc: string?}
 local function show_keymap_hints(prefix, group, direct)
     local buf, win = M.open_hint_window(prefix, vim.tbl_map(function(entry)
         return {lhs=entry.lhs, desc=entry.desc}
@@ -326,14 +326,14 @@ local function show_keymap_hints(prefix, group, direct)
 end
 
 ---@param lhs string
----@param groups table<string, {lhs: string, key: string, action: DirtreeKeymapAction, desc: string}[]>
+---@param groups table<string, {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]>
 ---@return boolean
 local function is_keymap_hint_prefix(lhs, groups)
     return #lhs == 1 and groups[lhs] ~= nil
 end
 
----@param keymaps? table<string, DirtreeKeymapSpec>
----@return table<string, DirtreeKeymapSpec>
+---@param keymaps? table<string, DoraKeymapSpec>
+---@return table<string, DoraKeymapSpec>
 function M.derive_visual_keymaps(keymaps)
     local ret = {}
     for lhs, rhs in pairs(keymaps or {}) do
@@ -347,7 +347,7 @@ function M.derive_visual_keymaps(keymaps)
 end
 
 ---@param buf integer
----@param config DirtreeConfig
+---@param config DoraConfig
 function M.setup(buf, config)
     local hint_groups = keymap_hint_groups(config.keymaps)
     for lhs, rhs in pairs(config.keymaps) do

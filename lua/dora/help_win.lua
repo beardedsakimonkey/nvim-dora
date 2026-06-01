@@ -1,5 +1,5 @@
-local util = require'dirtree.util'
-local window = require'dirtree.window'
+local util = require'dora.util'
+local window = require'dora.window'
 
 local api = vim.api
 
@@ -15,7 +15,7 @@ local KEYMAP_ORDER = {
     ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
 }
 
----@class DirtreeHelpRow
+---@class DoraHelpRow
 ---@field lhs? string
 ---@field desc? string
 
@@ -27,13 +27,13 @@ local function layout(width, height)
         title = 'Help',
         width = width,
         height = height,
-        border_hl = 'DirtreePromptBorder',
+        border_hl = 'DoraPromptBorder',
     })
 end
 
----@param keymaps? table<string, DirtreeKeymapSpec>
+---@param keymaps? table<string, DoraKeymapSpec>
 ---@param order? string[]
----@return DirtreeHelpRow[]
+---@return DoraHelpRow[]
 local function keymap_rows(keymaps, order)
     local rows = {}
     local handled = {}
@@ -61,15 +61,15 @@ local function keymap_rows(keymaps, order)
     return rows
 end
 
----@param config DirtreeConfig
----@return DirtreeHelpRow[]
+---@param config DoraConfig
+---@return DoraHelpRow[]
 local function rows(config)
     return keymap_rows(config.keymaps, KEYMAP_ORDER)
 end
 
 ---@param buf integer
 ---@param ns integer
----@param help_rows DirtreeHelpRow[]
+---@param help_rows DoraHelpRow[]
 local function render(buf, ns, help_rows)
     local key_width = 1
     for _, row in ipairs(help_rows) do
@@ -90,17 +90,17 @@ local function render(buf, ns, help_rows)
         if row.lhs then
             api.nvim_buf_set_extmark(buf, ns, lnum, 2, {
                 end_col = 2 + key_width,
-                hl_group = 'DirtreeInfoLabel',
+                hl_group = 'DoraInfoLabel',
             })
             api.nvim_buf_set_extmark(buf, ns, lnum, 2 + key_width + 2, {
                 end_col = #lines[i],
-                hl_group = 'DirtreeInfoValue',
+                hl_group = 'DoraInfoValue',
             })
         end
     end
 end
 
----@param config DirtreeConfig
+---@param config DoraConfig
 function M.open(config)
     local help_rows = rows(config)
     if #help_rows == 0 then
@@ -121,7 +121,7 @@ function M.open(config)
     local height = #help_rows
     local origin_win = api.nvim_get_current_win()
     local buf = api.nvim_create_buf(false, true)
-    local ns = api.nvim_create_namespace('dirtree/help_win.' .. buf)
+    local ns = api.nvim_create_namespace('dora/help_win.' .. buf)
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'
@@ -130,7 +130,7 @@ function M.open(config)
     vim.bo[buf].modifiable = false
 
     local win = api.nvim_open_win(buf, true, layout(width, height))
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DirtreePromptBorder'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].cursorline = false
 
     local function close()
