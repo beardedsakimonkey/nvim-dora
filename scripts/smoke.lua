@@ -1745,9 +1745,9 @@ do
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
     local expected_yank_text = current_line()
 
-    core.copy_file_path()
+    core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked file path')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '')
@@ -1756,37 +1756,37 @@ do
     vim.g.dirtree_smoke_yankpost_operator = nil
     vim.g.dirtree_smoke_yankpost_regname = nil
     vim.g.dirtree_smoke_yankpost_text = nil
-    core.copy_file_path_clipboard()
+    core.yank_file_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied file path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked file path to clipboard')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dirtree_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dirtree_smoke_yankpost_regname, '+')
     assert_eq(vim.g.dirtree_smoke_yankpost_text, expected_yank_text)
 
-    core.copy_dir_path()
+    core.yank_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied directory path')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked directory path')
 
-    core.copy_dir_path_clipboard()
+    core.yank_dir_path_clipboard()
     assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied directory path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked directory path to clipboard')
 
-    core.copy_filename()
+    core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked filename')
 
-    core.copy_filename_clipboard()
+    core.yank_filename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied filename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked filename to clipboard')
 
-    core.copy_basename()
+    core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied basename')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked basename')
 
-    core.copy_basename_clipboard()
+    core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dirtree] Copied basename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dirtree] Yanked basename to clipboard')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
