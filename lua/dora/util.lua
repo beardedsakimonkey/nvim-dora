@@ -99,7 +99,7 @@ function M.create_buf(cwd)
     -- Triggers BufEnter
     api.nvim_set_current_buf(buf)
     -- Triggers ftplugin, so must get called after setting the current buffer
-    api.nvim_buf_set_option(buf, 'filetype', 'dora')
+    api.nvim_set_option_value('filetype', 'dora', {buf = buf})
     return buf
 end
 
@@ -114,7 +114,7 @@ end
 
 ---@param cwd string
 function M.update_buf_name(cwd)
-    local old_name = vim.fn.bufname
+    local old_name = vim.fn.bufname()
     local new_name = create_buf_name(cwd)
     vim.cmd('sil keepalt file ' .. vim.fn.fnameescape(new_name))
     -- Renaming a buffer creates a new buffer with the old name. Delete it.

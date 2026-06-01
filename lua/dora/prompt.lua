@@ -5,8 +5,8 @@ local M = {}
 
 ---@class DoraPromptOptions
 ---@field prompt? string
----@field cwd string
 ---@field initial_prompt? string
+---@field cwd string
 ---@field width? integer
 ---@field anchor? {win: integer, line: integer, col: integer}
 ---@field validate fun(input: string): any
@@ -38,6 +38,7 @@ end
 ---@field closed? boolean
 ---@field is_valid? boolean
 ---@field valid_result? any
+---@field initial_prompt string
 local Prompt = {}
 
 function Prompt:close()
