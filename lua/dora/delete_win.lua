@@ -21,6 +21,7 @@ local RIGHT_PADDING = 1
 
 ---@class DoraDeleteOptions
 ---@field anchor? {win: integer, line: integer, col: integer}
+---@field action? string
 
 ---@param path string
 ---@return string
@@ -84,12 +85,14 @@ local function items(paths, cwd)
 end
 
 ---@param count integer
+---@param action? string
 ---@return string
-local function get_title(count)
+local function get_title(count, action)
+    action = action or 'Delete'
     if count == 1 then
-        return 'Delete?'
+        return action .. '?'
     end
-    return string.format('Delete %d %s?', count, count == 1 and 'file' or 'files')
+    return string.format('%s %d files?', action, count)
 end
 
 ---@param confirm_items DoraDeleteConfirmItem[]
@@ -187,7 +190,7 @@ function M.delete(paths, cwd, cb, opts)
     local confirm_items = items(paths, cwd)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow)
-    local confirm_title = get_title(#paths)
+    local confirm_title = get_title(#paths, opts.action)
     local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
     local autocmds = {}

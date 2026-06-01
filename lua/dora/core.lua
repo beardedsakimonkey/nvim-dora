@@ -1122,7 +1122,9 @@ function M.yank_basename_clipboard()
     M.yank_basename('+')
 end
 
-function M.delete()
+---@param operation fun(path: string)
+---@param action string
+local function remove_path(operation, action)
     local state = store.get()
     local row = current_row(state)
     local path, msg = current_path(state)
@@ -1134,16 +1136,28 @@ function M.delete()
         if not confirmed then
             return
         end
-        local ok, err = pcall(fs.delete, path)
+        local ok, result = pcall(operation, path)
         if not ok then
-            util.err(err)
+            util.err(result)
+            return
+        end
+        if result == false then
             return
         end
         clear_marked_paths_under(state, path)
         render(state)
     end, {
         anchor = current_name_anchor(row),
+        action = action,
     })
+end
+
+function M.trash()
+    remove_path(fs.trash, 'Trash')
+end
+
+function M.delete()
+    remove_path(fs.delete, 'Delete')
 end
 
 local function move()
