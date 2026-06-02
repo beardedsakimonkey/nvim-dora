@@ -147,36 +147,6 @@ local function get_width(confirm_title, rendered_lines)
     return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
 end
 
----@param opts DoraAnchoredFloatLayoutOptions
----@return table
-local function anchored_layout(opts)
-    if not window.valid_win(opts.win) then
-        return window.centered_layout(opts)
-    end
-    local pos = vim.fn.screenpos(opts.win, opts.line, opts.col + 1)
-    if pos.row == 0 or pos.col == 0 then
-        return window.centered_layout(opts)
-    end
-    local anchor_col = math.max(0, pos.col - 1)
-    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
-    local col = math.min(anchor_col, math.max(0, vim.o.columns - width - 2))
-    local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
-    local title = opts.title and (' ' .. opts.title .. ' ') or nil
-    return {
-        relative = 'editor',
-        anchor = 'NW',
-        row = math.max(0, pos.row),
-        col = col,
-        width = width,
-        height = height,
-        border = window.border(opts.border_hl or 'DoraPromptBorder'),
-        title = title,
-        title_pos = title and (opts.title_pos or 'left') or nil,
-        style = 'minimal',
-        noautocmd = true,
-    }
-end
-
 ---@param paths string[]
 ---@param cwd string
 ---@param cb fun(confirmed: boolean)
@@ -220,7 +190,7 @@ function M.delete(paths, cwd, cb, opts)
             border_hl = 'DoraPromptBorderInvalid',
         }
         if opts.anchor then
-            return anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
+            return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
         end
         return window.centered_layout(layout_opts)
     end

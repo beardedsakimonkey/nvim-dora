@@ -69,8 +69,9 @@ function M.anchored_layout(opts)
     if pos.row == 0 or pos.col == 0 then
         return M.centered_layout(opts)
     end
-    local col = math.max(0, pos.col - 1)
-    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - col - 2))
+    local anchor_col = math.max(0, pos.col - 1)
+    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
+    local col = math.min(anchor_col, math.max(0, vim.o.columns - width - 2))
     local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
     local title = opts.title and (' ' .. opts.title .. ' ') or nil
     return {
