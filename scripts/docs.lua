@@ -1,7 +1,15 @@
 local readme_path = 'README.md'
 local config_path = 'lua/dora.lua'
-local start_marker = '<!-- dora-config:start -->'
-local end_marker = '<!-- dora-config:end -->'
+local highlights_path = 'plugin/dora.lua'
+local config_start_marker = '<!-- dora-config:start -->'
+local config_end_marker = '<!-- dora-config:end -->'
+local highlights_start_marker = '<!-- dora-highlights:start -->'
+local highlights_end_marker = '<!-- dora-highlights:end -->'
+
+local function fail(message)
+    vim.api.nvim_err_writeln(message)
+    vim.cmd.cquit()
+end
 
 local function read_file(path)
     local fd = assert(io.open(path, 'r'))
@@ -50,7 +58,7 @@ local function extract_config_block(contents)
         end
     end
 
-    error('could not find M.config block in ' .. config_path)
+    fail('could not find M.config block in ' .. config_path)
 end
 
 local function generate_config_section()
@@ -61,7 +69,34 @@ local function generate_config_section()
     }, '\n')
 end
 
-local function replace_config_section(readme, generated)
+local function extract_highlight_groups(contents)
+    local groups = {}
+
+    for _, line in ipairs(split_lines(contents)) do
+        local cmd = line:match("^vim%.cmd%s*'(.*)'%s*$")
+            or line:match('^vim%.cmd%s*"(.*)"%s*$')
+        local group = cmd and cmd:match('^hi%s+default%s+link%s+(Dora%S+)%s+%S+$')
+        if group then
+            groups[#groups+1] = group
+        end
+    end
+
+    if #groups == 0 then
+        fail('could not find highlight groups in ' .. highlights_path)
+    end
+
+    return groups
+end
+
+local function generate_highlights_section()
+    return table.concat({
+        '```',
+        table.concat(extract_highlight_groups(read_file(highlights_path)), '\n'),
+        '```',
+    }, '\n')
+end
+
+local function replace_section(readme, start_marker, end_marker, generated)
     local start_at, start_end = readme:find(start_marker, 1, true)
     assert(start_at, 'missing ' .. start_marker)
     local end_at, end_end = readme:find(end_marker, start_end + 1, true)
@@ -76,13 +111,23 @@ local function replace_config_section(readme, generated)
     })
 end
 
-local generated = generate_config_section()
 local readme = read_file(readme_path)
-local updated = replace_config_section(readme, generated)
+local updated = replace_section(
+    readme,
+    config_start_marker,
+    config_end_marker,
+    generate_config_section()
+)
+updated = replace_section(
+    updated,
+    highlights_start_marker,
+    highlights_end_marker,
+    generate_highlights_section()
+)
 
 if vim.env.DORA_DOCS_CHECK == '1' then
     if updated ~= readme then
-        error(readme_path .. ' config block is stale. Run: sh scripts/docs.sh')
+        fail(readme_path .. ' generated docs are stale. Run: sh scripts/docs.sh')
     end
 else
     write_file(readme_path, updated)
