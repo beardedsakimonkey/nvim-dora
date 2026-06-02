@@ -306,6 +306,45 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/icon.txt')
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function(category, path)
+            assert_eq(category, 'file')
+            assert_eq(path, tmp .. '/icon.txt')
+            return '[del]', 'DoraIcon'
+        end,
+    }
+
+    delete_win.delete({tmp .. '/icon.txt'}, tmp, function() end)
+    local confirm_buf = api.nvim_get_current_buf()
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    assert_eq(confirm_lines[1], ' [del] icon.txt', 'delete confirmation should render file icons when enabled')
+
+    local marks = api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
+    local has_icon, has_file = false, false
+    for _, mark in ipairs(marks) do
+        local row, col, details = mark[2], mark[3], mark[4]
+        has_icon = has_icon
+            or row == 0 and col == 1 and details.end_col == 6 and details.hl_group == 'DoraIcon'
+        has_file = has_file
+            or row == 0 and col == 7 and details.end_col == 15 and details.hl_group == 'DoraFile'
+    end
+    assert(has_icon, 'delete confirmation should highlight icons')
+    assert(has_file, 'delete confirmation should keep highlighting filenames after icons')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
 
     delete_win.delete({tmp .. '/enter.txt'}, tmp, function(confirmed)

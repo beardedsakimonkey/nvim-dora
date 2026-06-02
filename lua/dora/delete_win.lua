@@ -3,7 +3,9 @@ local uv = vim.loop
 
 local window = require'dora.window'
 local fs = require'dora.fs'
+local icons = require'dora.icons'
 local util = require'dora.util'
+local config = require'dora'.config
 
 local M = {}
 
@@ -15,6 +17,9 @@ local RIGHT_PADDING = 1
 
 ---@class DoraDeleteConfirmItem
 ---@field display string
+---@field icon_start_col? integer
+---@field icon_end_col? integer
+---@field icon_hl? string
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
@@ -60,15 +65,21 @@ local function item(path, cwd)
     local display = relative_display_path(path, cwd)
     local basename = fs.basename(path)
     local hl = file_hl(path)
+    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path)
+    local icon_prefix = icon and icon .. ' ' or ''
     local file_start_col = math.max(0, #display - #basename)
     local file_end_col = #display
     if hl == 'DoraDirectory' then
         display = display .. util.sep
     end
+    display = icon_prefix .. display
     return {
         display = display,
-        file_start_col = file_start_col,
-        file_end_col = file_end_col,
+        icon_start_col = icon and 0 or nil,
+        icon_end_col = icon and #icon or nil,
+        icon_hl = icon_hl or 'DoraIcon',
+        file_start_col = #icon_prefix + file_start_col,
+        file_end_col = #icon_prefix + file_end_col,
         file_hl = hl,
     }
 end
@@ -118,6 +129,13 @@ local function render(buf, ns, confirm_items, overflow)
     api.nvim_buf_set_lines(buf, 0, -1, false, rendered_lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, confirm_item in ipairs(confirm_items) do
+        if confirm_item.icon_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i - 1, LINE_PREFIX_LEN + confirm_item.icon_start_col, {
+                end_col = LINE_PREFIX_LEN + confirm_item.icon_end_col,
+                hl_group = confirm_item.icon_hl,
+                priority = 10000,
+            })
+        end
         local file_start_col = LINE_PREFIX_LEN + confirm_item.file_start_col
         local file_end_col   = LINE_PREFIX_LEN + confirm_item.file_end_col
         api.nvim_buf_set_extmark(buf, ns, i - 1, file_start_col, {
