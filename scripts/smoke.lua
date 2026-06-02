@@ -889,6 +889,59 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/split.txt')
+    touch(tmp .. '/vsplit.txt')
+    touch(tmp .. '/tab.txt')
+    local real_tmp = fs.realpath(tmp)
+    local swap_dir = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(swap_dir, tonumber('755', 8)))
+    local old_directory = vim.o.directory
+    vim.o.directory = fs.realpath(swap_dir) .. '//'
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local dora_win = api.nvim_get_current_win()
+    local dora_buf = api.nvim_get_current_buf()
+    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split without closing Dora')
+    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split without closing Dora')
+    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab without closing Dora')
+
+    set_cursor_line('split%.txt$')
+    local win_count = #api.nvim_tabpage_list_wins(0)
+    core.open_split_keep()
+    assert_eq(api.nvim_buf_get_name(0), real_tmp .. '/split.txt', '<C-s> should open the file in a split')
+    assert(#vim.fn.win_findbuf(dora_buf) > 0, '<C-s> should keep the Dora buffer visible')
+    assert_eq(#api.nvim_tabpage_list_wins(0), win_count + 1, '<C-s> should create a split')
+    vim.cmd('close')
+    api.nvim_set_current_win(dora_win)
+
+    set_cursor_line('vsplit%.txt$')
+    win_count = #api.nvim_tabpage_list_wins(0)
+    core.open_vsplit_keep()
+    assert_eq(api.nvim_buf_get_name(0), real_tmp .. '/vsplit.txt', '<C-v> should open the file in a vertical split')
+    assert(#vim.fn.win_findbuf(dora_buf) > 0, '<C-v> should keep the Dora buffer visible')
+    assert_eq(#api.nvim_tabpage_list_wins(0), win_count + 1, '<C-v> should create a vertical split')
+    vim.cmd('close')
+    api.nvim_set_current_win(dora_win)
+
+    set_cursor_line('tab%.txt$')
+    local tab_count = #api.nvim_list_tabpages()
+    core.open_tab_keep()
+    assert_eq(api.nvim_buf_get_name(0), real_tmp .. '/tab.txt', '<C-t> should open the file in a tab')
+    assert_eq(#api.nvim_list_tabpages(), tab_count + 1, '<C-t> should create a tab')
+    assert(api.nvim_win_is_valid(dora_win), '<C-t> should keep the Dora window')
+    assert_eq(api.nvim_win_get_buf(dora_win), dora_buf, '<C-t> should keep the Dora buffer in its original tab')
+    vim.cmd('tabclose')
+    api.nvim_set_current_win(dora_win)
+
+    core.quit()
+    vim.o.directory = old_directory
+    assert_eq(vim.fn.delete(swap_dir, 'rf'), 0)
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/trashed.txt')
     local old_trash = fs.trash
     fs.trash = function(path)
