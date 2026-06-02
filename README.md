@@ -90,7 +90,9 @@ config = {
         D = {"delete",                          desc="Delete file permanently"},
         a = {"create",                          desc="Add file"},
         r = {"rename",                          desc="Rename file"},
-        m = {"move",                            desc="Move file"},
+        M = {"move",                            desc="Move file"},
+        m = {"set_bookmark",                    desc="Set bookmark"},
+        ["'"] = {"jump_bookmark",               desc="Jump to bookmark"},
         x = {"cut",                             desc="Toggle cut mark"},
         c = {"copy",                            desc="Toggle copy mark"},
         p = {"paste",                           desc="Paste"},
@@ -130,17 +132,16 @@ Example:
 local dora = require'dora'
 
 -- The config table is deeply merged with the defaults, so you only need to
--- specify the options you want to add/change. 
+-- specify the options you want to add/change.
 dora.setup({
     keymaps = {
         d = "delete",
-        C = function() --[[...]] end,  -- keymaps can also be lua functions
     },
-    show_hidden_files = false,
+    icons = true,
 })
 
 -- To remove a default keymap, set it to `nil`
-dora.config.keymaps['<Esc>'] = nil
+dora.config.keymaps.l = nil
 ```
 
 Keymaps may be core action names, Vim RHS strings, functions, or

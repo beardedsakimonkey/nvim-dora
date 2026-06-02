@@ -11,7 +11,7 @@ local KEYMAP_ORDER = {
     's', 'v', 't', 'gx', 'J', 'K', '>', '<', 'P',
     'o', 'O', 'u', 'U', 'R',
     '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
-    'd', 'D', 'a', 'r', 'm', 'x', 'c', 'p', '.',
+    'd', 'D', 'a', 'r', 'M', 'm', "'", 'x', 'c', 'p', '.',
     'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
     ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
 }
@@ -19,6 +19,7 @@ local KEYMAP_ORDER = {
 ---@class DoraHelpRow
 ---@field lhs? string
 ---@field desc? string
+---@field section? string
 
 ---@param width integer
 ---@param height integer
@@ -63,9 +64,16 @@ local function keymap_rows(keymaps, order)
 end
 
 ---@param config DoraConfig
+---@param bookmark_rows? DoraHelpRow[]
 ---@return DoraHelpRow[]
-local function rows(config)
-    return keymap_rows(config.keymaps, KEYMAP_ORDER)
+local function rows(config, bookmark_rows)
+    local ret = keymap_rows(config.keymaps, KEYMAP_ORDER)
+    if bookmark_rows and #bookmark_rows > 0 then
+        ret[#ret+1] = {}
+        ret[#ret+1] = {section='Bookmarks'}
+        vim.list_extend(ret, bookmark_rows)
+    end
+    return ret
 end
 
 ---@param buf integer
@@ -81,14 +89,25 @@ local function render(buf, ns, help_rows)
 
     local lines = {}
     for _, row in ipairs(help_rows) do
-        lines[#lines+1] = ('  %-' .. key_width .. 's  %s'):format(row.lhs, row.desc)
+        if row.section then
+            lines[#lines+1] = row.section
+        elseif row.lhs then
+            lines[#lines+1] = ('  %-' .. key_width .. 's  %s'):format(row.lhs, row.desc)
+        else
+            lines[#lines+1] = ''
+        end
     end
 
     api.nvim_buf_set_lines(buf, 0, -1, false, lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, row in ipairs(help_rows) do
         local lnum = i - 1
-        if row.lhs then
+        if row.section then
+            api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
+                end_col = #row.section,
+                hl_group = 'DoraInfoLabel',
+            })
+        elseif row.lhs then
             api.nvim_buf_set_extmark(buf, ns, lnum, 2, {
                 end_col = 2 + key_width,
                 hl_group = 'DoraInfoLabel',
@@ -102,8 +121,9 @@ local function render(buf, ns, help_rows)
 end
 
 ---@param config DoraConfig
-function M.open(config)
-    local help_rows = rows(config)
+---@param bookmark_rows? DoraHelpRow[]
+function M.open(config, bookmark_rows)
+    local help_rows = rows(config, bookmark_rows)
     if #help_rows == 0 then
         util.warn('No keymap descriptions configured')
         return
