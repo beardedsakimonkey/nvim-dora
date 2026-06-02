@@ -75,19 +75,26 @@ function M.is_dir(path)
 end
 
 ---@param path string
+---@param fallback_type? DoraFileType
+---@return DoraFile
+function M.file_from_path(path, fallback_type)
+    local stat = uv.fs_lstat(path) or {}
+    return {
+        name = M.basename(path),
+        type = stat.type or fallback_type or 'file',
+        size = stat.size or 0,
+        mtime = stat.mtime,
+        birthtime = stat.birthtime,
+    }
+end
+
+---@param path string
 ---@return DoraFile[]
 function M.list(path)
     local ret = {}
-    for basename, type in vim.fs.dir(path) do
+    for basename, file_type in vim.fs.dir(path) do
         local full_path = util.join_path(path, basename)
-        local stat = uv.fs_lstat(full_path) or {}
-        table.insert(ret, {
-            name = basename,
-            type = type,
-            size = stat.size or 0,
-            mtime = stat.mtime,
-            birthtime = stat.birthtime,
-        })
+        table.insert(ret, M.file_from_path(full_path, file_type))
     end
     return ret
 end
