@@ -1,4 +1,5 @@
 local fs = require'dora.fs'
+local icons = require'dora.icons'
 local help_win = require'dora.help_win'
 local delete_win = require'dora.delete_win'
 local info_win = require'dora.info_win'
@@ -111,57 +112,6 @@ local function copy_tree_segments(segments)
     return ret
 end
 
-local devicons
-local devicons_loaded = false
-
----@return table?
-local function get_devicons()
-    if not devicons_loaded then
-        local ok, mod = pcall(require, 'nvim-web-devicons')
-        devicons = ok and mod or nil
-        devicons_loaded = true
-    end
-    return devicons
-end
-
----@param file DoraFile
----@param path string
----@return string? icon
----@return string? hl
-local function devicon(file, path)
-    if file.type == 'directory' then
-        return '', 'DoraDirectory'
-    elseif file.type == 'link' then
-        return '', 'DoraSymlink'
-    end
-
-    local provider = get_devicons()
-    if provider and type(provider.get_icon) == 'function' then
-        local icon, hl = provider.get_icon(file.name, vim.fn.fnamemodify(path, ':e'), {default = true})
-        if icon then
-            return icon, hl
-        end
-    end
-
-    return '', 'DoraIcon'
-end
-
----@param file DoraFile
----@param path string
----@return string? icon
----@return string? hl
-local function file_icon(file, path)
-    local provider = config.icons
-    if provider == false or provider == nil then
-        return nil, nil
-    elseif provider == true or provider == 'nvim-web-devicons' then
-        return devicon(file, path)
-    elseif type(provider) == 'function' then
-        return provider(file, path)
-    end
-    return nil, nil
-end
-
 ---@param state DoraState
 ---@return DoraTreeRow[]
 local function build_tree_rows(state)
@@ -206,13 +156,7 @@ local function build_tree_rows(state)
             end
             local path = util.join_path(dir, file.name)
             local tree_prefix = prefix .. connector
-            local icon, icon_hl = file_icon(file, path)
-            if type(icon) ~= 'string' or icon == '' then
-                icon = nil
-            end
-            if type(icon_hl) ~= 'string' then
-                icon_hl = nil
-            end
+            local icon, icon_hl = icons.get(config.icons, file, path)
             local icon_prefix = icon and icon .. ' ' or ''
             local display_name = tree_prefix .. icon_prefix .. file.name
             local directory_suffix_col
