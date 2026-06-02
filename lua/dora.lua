@@ -71,6 +71,7 @@ M.config = {
         c = {"copy",                            desc="Toggle copy mark"},
         p = {"paste",                           desc="Paste"},
         ['<Esc>'] = {"clear_marks",             desc="Clear paste marks"},
+        gf = {"follow_symlink",                 desc="Follow symlink"},
         gh = {"home_dir",                       desc="Go to Home directory"},
         gx = {"open_external",                  desc="Open externally"},
         ['.'] = {"shell_cmd",                   desc="Shell command on file"},
