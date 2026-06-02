@@ -979,6 +979,22 @@ function M.open(cmd)
     end
 end
 
+---@param cmd DoraOpenCommand
+local function open_keep(cmd)
+    local state = store.get()
+    local row = current_row(state)
+    if not row or not row.path then
+        return
+    end
+    -- fs_realpath also checks file existence
+    local path, msg = uv.fs_realpath(row.path)
+    if not path then
+        util.err(msg)
+        return
+    end
+    vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
+end
+
 function M.open_split()
     M.open('split')
 end
@@ -989,6 +1005,18 @@ end
 
 function M.open_tab()
     M.open('tabedit')
+end
+
+function M.open_split_keep()
+    open_keep('split')
+end
+
+function M.open_vsplit_keep()
+    open_keep('vsplit')
+end
+
+function M.open_tab_keep()
+    open_keep('tabedit')
 end
 
 function M.open_external()
