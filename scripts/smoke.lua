@@ -810,6 +810,58 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    touch(tmp .. '/file.lua')
+    local real_tmp = fs.realpath(tmp)
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function(category, path)
+            if category == 'directory' then
+                assert_eq(path, real_tmp .. '/dir')
+                return '[dir]', 'DoraDirectory'
+            end
+            assert_eq(category, 'file')
+            assert_eq(path, real_tmp .. '/file.lua')
+            return '[mini]', 'DoraIcon'
+        end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    assert(vim.tbl_contains(lines(), '[dir] dir/'), 'mini.icons should render directory icons')
+    assert(vim.tbl_contains(lines(), '[mini] file.lua'), 'mini.icons should render file icons')
+    assert_eq(state.rows[2].name_start_col, #'[mini] ', 'mini.icons rows should keep name column after the icon')
+
+    core.quit()
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/file.lua')
+
+    local old_icons = config.icons
+    config.icons = function()
+        error('custom icon functions should not be called')
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    assert(vim.tbl_contains(lines(), 'file.lua'), 'function-valued icons should be ignored')
+
+    core.quit()
+    config.icons = old_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/single.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))

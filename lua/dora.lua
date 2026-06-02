@@ -4,7 +4,7 @@ local M = {}
 ---@alias DoraOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
 ---@alias DoraKeymapAction string|function
 ---@alias DoraKeymapSpec DoraKeymapAction|{[1]: DoraKeymapAction, desc?: string}
----@alias DoraIconConfig boolean|'nvim-web-devicons'|fun(file: DoraFile, path: string): string?, string?
+---@alias DoraIconConfig boolean|'nvim-web-devicons'|'mini.icons'
 ---@alias DoraSortOrder 'name'|'name_reverse'|'modified'|'modified_reverse'|'created'|'created_reverse'|'size'|'size_reverse'|'extension'|'extension_reverse'
 
 ---@class DoraFile
@@ -32,8 +32,8 @@ M.config = {
     -- Function used to determine what files should be hidden
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
-    -- nvim-web-devicons, or set a function that returns icon and highlight.
-    icons = true,
+    -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
+    icons = false,
     -- Default file sorting order
     sort_order = 'name',
     -- Whether to sync the window's current directory with dora's current path

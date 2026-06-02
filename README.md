@@ -56,7 +56,7 @@ config = {
     -- Function used to determine what files should be hidden
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
-    -- nvim-web-devicons, or set a function that returns icon and highlight.
+    -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
     -- Default file sorting order
     sort_order = 'name',
