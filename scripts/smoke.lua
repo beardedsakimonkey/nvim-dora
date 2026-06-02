@@ -781,6 +781,35 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/file.lua')
+
+    local old_icons = config.icons
+    local old_devicons = package.loaded['nvim-web-devicons']
+    config.icons = 'nvim-web-devicons'
+    package.loaded['nvim-web-devicons'] = {
+        get_icon = function(name, ext, opts)
+            assert_eq(name, 'file.lua')
+            assert_eq(ext, 'lua')
+            assert_eq(opts.default, true)
+            return '[lua]', 'DoraIcon'
+        end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    assert(vim.tbl_contains(lines(), '[lua] file.lua'), 'icons should render before filenames')
+    assert_eq(state.rows[1].name_start_col, #'[lua] ', 'icon rows should keep name column after the icon')
+    assert(has_high_priority_highlight(state, 'DoraIcon'), 'icons should use the provider highlight')
+
+    core.quit()
+    config.icons = old_icons
+    package.loaded['nvim-web-devicons'] = old_devicons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/single.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
