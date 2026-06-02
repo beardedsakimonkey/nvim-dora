@@ -935,6 +935,9 @@ do
 
     core.quit()
     vim.o.directory = old_directory
+    for _, path in ipairs({'split.txt', 'vsplit.txt', 'tab.txt'}) do
+        pcall(vim.cmd, 'bdelete! ' .. vim.fn.fnameescape(real_tmp .. '/' .. path))
+    end
     assert_eq(vim.fn.delete(swap_dir, 'rf'), 0)
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
@@ -1301,6 +1304,56 @@ do
     assert(has_home_link, 'symlink virtual text should abbreviate home directory and combine highlights')
 
     core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/target-dir', tonumber('755', 8)))
+    touch(tmp .. '/target-dir/inside.txt')
+    touch(tmp .. '/regular.txt')
+    assert(vim.loop.fs_symlink(tmp .. '/target-dir', tmp .. '/dir-link'))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    assert_eq(vim.fn.maparg('gf', 'n', false, true).desc, 'Follow symlink')
+
+    set_cursor_line('regular%.txt$')
+    local cwd = state.cwd
+    core.follow_symlink()
+    assert_eq(state.cwd, cwd, 'follow symlink should ignore regular files')
+    assert_eq(api.nvim_get_current_buf(), state.buf, 'follow symlink should keep Dora focused for regular files')
+
+    set_cursor_line('dir%-link$')
+    core.follow_symlink()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/target-dir'), 'follow symlink should navigate to directory targets')
+    assert(vim.tbl_contains(lines(), 'inside.txt'), 'follow symlink should render the target directory contents')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/target.txt')
+    assert(vim.loop.fs_symlink(tmp .. '/target.txt', tmp .. '/file-link'))
+    local swap_dir = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(swap_dir, tonumber('755', 8)))
+    local old_directory = vim.o.directory
+    vim.o.directory = fs.realpath(swap_dir) .. '//'
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local dora_buf = api.nvim_get_current_buf()
+    set_cursor_line('file%-link$')
+    core.follow_symlink()
+    assert_eq(api.nvim_buf_get_name(0), fs.realpath(tmp .. '/target.txt'), 'follow symlink should open file targets')
+    assert_eq(vim.fn.bufexists(dora_buf), 0, 'following a file symlink should close Dora')
+
+    vim.cmd('bdelete!')
+    vim.o.directory = old_directory
+    assert_eq(vim.fn.delete(swap_dir, 'rf'), 0)
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
