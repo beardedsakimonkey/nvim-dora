@@ -1457,7 +1457,7 @@ end
 -- Handler for the :Dora command
 ---@param dir? string
 ---@param from_au? boolean
-function M.dora(dir, from_au)
+function M.initialize(dir, from_au)
     -- If we're executing from the BufEnter autocmd, the current buffer has
     -- already changed, so the origin_buf is actually the altbuf, and we don't
     -- know what the origin-buf's altbuf is.

@@ -89,10 +89,4 @@ M.config = {
     sync_local_cwd = true,
 }
 
----@param dir? string
----@param from_au? boolean
-function M.dora(dir, from_au)
-    require'dora.core'.dora(dir, from_au)
-end
-
 return M
