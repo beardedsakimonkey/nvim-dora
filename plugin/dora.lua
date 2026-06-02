@@ -21,7 +21,7 @@ vim.cmd 'hi default link DoraDeleteMore          NonText'
 vim.cmd 'hi default link DoraKeymapHintArrow     NonText'
 
 vim.api.nvim_create_user_command('Dora', function(o)
-    require'dora'.dora(o.args)
+    require'dora.core'.initialize(o.args)
 end, {bar=true, nargs='?', complete='dir'})
 
 local function buf_has_var(buf, var_name)
@@ -35,7 +35,7 @@ vim.api.nvim_create_autocmd('BufEnter', {
     callback = function()
         local path = vim.fn.expand('%')
         if not buf_has_var(0, 'is_dora') and vim.fn.isdirectory(path) == 1 then
-            require'dora'.dora('', true)
+            require'dora.core'.initialize('', true)
         end
     end,
 })
