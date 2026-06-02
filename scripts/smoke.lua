@@ -8,8 +8,9 @@ local function assert_match(str, pattern, msg)
     assert(str:match(pattern), msg or (vim.inspect(str) .. ' does not match ' .. vim.inspect(pattern)))
 end
 
+local dora = require'dora'
 local fs = require'dora.fs'
-local config = require'dora'.config
+local config = dora.config
 local delete_win = require'dora.delete_win'
 local keymaps = require'dora.keymaps'
 local prompt = require'dora.prompt'
@@ -17,6 +18,32 @@ local core = require'dora.core'
 local store = require'dora.store'
 local util = require'dora.util'
 local window = require'dora.window'
+
+do
+    local old_config = dora.config
+    local old_keymaps = dora.config.keymaps
+    local old_show_hidden_files = dora.config.show_hidden_files
+    local old_q = dora.config.keymaps.q
+    local old_smoke_key = dora.config.keymaps.__dora_smoke_setup
+
+    dora.setup({
+        show_hidden_files = false,
+        keymaps = {
+            q = {'quit'},
+            __dora_smoke_setup = 'help',
+        },
+    })
+
+    assert_eq(dora.config, old_config, 'setup should preserve the config table')
+    assert_eq(dora.config.keymaps, old_keymaps, 'setup should preserve the keymaps table')
+    assert_eq(config.show_hidden_files, false, 'setup should update config values in place')
+    assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
+    assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
+
+    dora.config.show_hidden_files = old_show_hidden_files
+    dora.config.keymaps.q = old_q
+    dora.config.keymaps.__dora_smoke_setup = old_smoke_key
+end
 
 local cwd = assert(vim.loop.cwd())
 

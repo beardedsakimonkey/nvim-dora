@@ -122,7 +122,7 @@ Example:
 ```lua
 local dora = require'dora'
 
-dora.config = vim.tbl_deep_extend('force', dora.config, {
+dora.setup({
     show_hidden_files = false,
     is_file_hidden = function(file)
         return vim.startswith(file.name, '.') or file.name == 'node_modules'

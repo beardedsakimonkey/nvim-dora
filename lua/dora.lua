@@ -89,4 +89,24 @@ M.config = {
     sync_local_cwd = true,
 }
 
+local function merge_config(dst, src)
+    for key, value in pairs(src or {}) do
+        if key == 'keymaps' and type(value) == 'table' and type(dst.keymaps) == 'table' then
+            for lhs, rhs in pairs(value) do
+                dst.keymaps[lhs] = rhs
+            end
+        elseif type(value) == 'table' and type(dst[key]) == 'table' then
+            merge_config(dst[key], value)
+        else
+            dst[key] = value
+        end
+    end
+end
+
+---@param opts? table
+function M.setup(opts)
+    assert(opts == nil or type(opts) == 'table', 'dora.setup() expects a table')
+    merge_config(M.config, opts)
+end
+
 return M
