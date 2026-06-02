@@ -7,9 +7,10 @@ local M = {}
 
 -- Needed because Lua tables don't preserve order.
 local KEYMAP_ORDER = {
-    'q', '-', 'h', 'l', '<CR>', 's', 'v', 't', 'gx', 'J', 'K', '>', '<', 'P',
+    'q', '-', 'h', 'l', '<CR>', '<2-LeftMouse>',
+    's', 'v', 't', 'gx', 'J', 'K', '>', '<', 'P',
     'o', 'O', 'u', 'U', 'R',
-    '<Esc>', 'gh', 'g?', 'g.', 'i',
+    '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
     'd', 'D', 'a', 'r', 'm', 'x', 'c', 'p', '.',
     'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
     ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
