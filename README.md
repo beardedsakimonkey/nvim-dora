@@ -49,6 +49,16 @@ The default config is generated from `lua/dora.lua`:
 <!-- dora-config:start -->
 ```lua
 config = {
+    -- Whether to show keymap hints for two-key normal mode mappings
+    show_keymap_hints = true,
+    -- Whether hidden files should be shown when dora opens
+    show_hidden_files = true,
+    -- Function used to determine what files should be hidden
+    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
+    -- Default file sorting order
+    sort_order = 'name',
+    -- Whether to sync the window's current directory with dora's current path
+    sync_local_cwd = true,
     keymaps = {
         q = {"quit",                            desc="Quit"},
         h = {"up_dir",                          desc="Up directory"},
@@ -103,16 +113,6 @@ config = {
         [',e'] = {"sort_by_extension",          desc="Sort by extension"},
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension (reversed)"},
     },
-    -- Whether to show keymap hints for two-key normal mode mappings
-    show_keymap_hints = true,
-    -- Whether hidden files should be shown when dora opens
-    show_hidden_files = true,
-    -- Function used to determine what files should be hidden
-    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
-    -- Default file sorting order
-    sort_order = 'name',
-    -- Whether to sync the window's current directory with dora's current path
-    sync_local_cwd = true,
 }
 ```
 <!-- dora-config:end -->
@@ -122,16 +122,18 @@ Example:
 ```lua
 local dora = require'dora'
 
+-- The config table is deeply merged with the defaults, so you only need to
+-- specify the options you want to add/change. 
 dora.setup({
-    show_hidden_files = false,
-    is_file_hidden = function(file)
-        return vim.startswith(file.name, '.') or file.name == 'node_modules'
-    end,
     keymaps = {
-        H = "help",
+        d = "delete",
         C = function() --[[...]] end,  -- keymaps can also be lua functions
     },
+    show_hidden_files = false,
 })
+
+-- To remove a default keymap, set it to `nil`
+dora.config.keymaps['<Esc>'] = nil
 ```
 
 Keymaps may be core action names, Vim RHS strings, functions, or

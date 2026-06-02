@@ -23,6 +23,16 @@ local M = {}
 
 ---@type DoraConfig
 M.config = {
+    -- Whether to show keymap hints for two-key normal mode mappings
+    show_keymap_hints = true,
+    -- Whether hidden files should be shown when dora opens
+    show_hidden_files = true,
+    -- Function used to determine what files should be hidden
+    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
+    -- Default file sorting order
+    sort_order = 'name',
+    -- Whether to sync the window's current directory with dora's current path
+    sync_local_cwd = true,
     keymaps = {
         q = {"quit",                            desc="Quit"},
         h = {"up_dir",                          desc="Up directory"},
@@ -77,16 +87,6 @@ M.config = {
         [',e'] = {"sort_by_extension",          desc="Sort by extension"},
         [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension (reversed)"},
     },
-    -- Whether to show keymap hints for two-key normal mode mappings
-    show_keymap_hints = true,
-    -- Whether hidden files should be shown when dora opens
-    show_hidden_files = true,
-    -- Function used to determine what files should be hidden
-    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
-    -- Default file sorting order
-    sort_order = 'name',
-    -- Whether to sync the window's current directory with dora's current path
-    sync_local_cwd = true,
 }
 
 local function merge_config(dst, src)
