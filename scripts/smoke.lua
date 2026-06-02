@@ -1397,6 +1397,63 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/project', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/other', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local root = fs.realpath(tmp)
+    local project = fs.realpath(tmp .. '/project')
+
+    local set_map = vim.fn.maparg('m', 'n', false, true)
+    local jump_map = vim.fn.maparg("'", 'n', false, true)
+    assert_eq(set_map.desc, 'Set bookmark')
+    assert_eq(type(set_map.callback), 'function')
+    assert_eq(jump_map.desc, 'Jump to bookmark')
+    assert_eq(type(jump_map.callback), 'function')
+    assert_eq(vim.fn.maparg('M', 'n', false, true).desc, 'Move file')
+
+    api.nvim_feedkeys('a', 't', false)
+    set_map.callback()
+    assert_eq(state.bookmarks.paths.a, root, 'ma should bookmark the current directory')
+
+    set_cursor_line('^project/$')
+    core.open()
+    assert_eq(state.cwd, project)
+    assert_eq(state.bookmarks.previous_directory, root, 'directory changes should update the builtin bookmark')
+
+    api.nvim_feedkeys('b', 't', false)
+    set_map.callback()
+    assert_eq(state.bookmarks.paths.b, project, 'mb should bookmark the new current directory')
+
+    api.nvim_feedkeys('a', 't', false)
+    jump_map.callback()
+    assert_eq(state.cwd, root, "'a should jump to bookmark a")
+    assert_eq(state.bookmarks.previous_directory, project, 'jumping to a bookmark should update the previous directory')
+
+    api.nvim_feedkeys("'", 't', false)
+    jump_map.callback()
+    assert_eq(state.cwd, project, "'' should jump to the previous directory")
+    assert_eq(state.bookmarks.previous_directory, root, "'' should toggle the previous directory")
+
+    core.help()
+    local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    local help_text = table.concat(help_lines, '\n')
+    assert(find_line_index(help_lines, '^Bookmarks$'), 'help should include a bookmarks section')
+    assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
+    assert(help_text:find("'a", 1, true), 'help should include bookmark a')
+    assert(help_text:find("'b", 1, true), 'help should include bookmark b')
+    assert(help_text:find(root, 1, true), 'help should include the bookmarked root directory')
+    assert(help_text:find(project, 1, true), 'help should include the bookmarked project directory')
+
+    api.nvim_feedkeys('q', 'xt', false)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local origin_win = api.nvim_get_current_win()
     local buf, win = keymaps.open_hint_window('z', {
         {lhs='za', desc='Alpha'},

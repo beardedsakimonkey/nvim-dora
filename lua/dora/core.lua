@@ -1,5 +1,6 @@
 local fs = require'dora.fs'
 local icons = require'dora.icons'
+local bookmarks = require'dora.bookmarks'
 local help_win = require'dora.help_win'
 local delete_win = require'dora.delete_win'
 local info_win = require'dora.info_win'
@@ -66,6 +67,7 @@ local TREE_SPACER = '    '
 ---@field expanded_dirs table<string, true>
 ---@field rows DoraTreeRow[]
 ---@field marked_paths table<string, DoraPasteOperation>
+---@field bookmarks DoraBookmarks
 
 -- Render ----------------------------------------------------------------------
 
@@ -855,6 +857,29 @@ local function restore_cwd(state)
     end
 end
 
+---@param state DoraState
+local function remember_hovered_file(state)
+    local row = current_row(state)
+    if row then
+        state.hovered_files[state.cwd] = row.name
+    end
+end
+
+---@param state DoraState
+---@param path string
+---@param cursor_pattern? string
+---@param or_top? boolean
+local function change_cwd(state, path, cursor_pattern, or_top)
+    if state.cwd ~= path then
+        bookmarks.record_previous_directory(state.bookmarks, state.cwd)
+    end
+    state.cwd = path
+    render(state)
+    util.update_buf_name(state.cwd)
+    sync_local_cwd(state)
+    set_cursor_pos(state, cursor_pattern, or_top)
+end
+
 function M.quit()
     local state = store.get()
     restore_cwd(state)
@@ -869,16 +894,9 @@ function M.up_dir()
     local state = store.get()
     local cwd = state.cwd
     local parent_dir = fs.get_parent_dir(state.cwd)
-    local row = current_row(state)
-    if row then
-        state.hovered_files[state.cwd] = row.name
-    end
+    remember_hovered_file(state)
     state.expanded_dirs[cwd] = true
-    state.cwd = parent_dir
-    render(state)
-    util.update_buf_name(state.cwd)
-    sync_local_cwd(state)
-    set_cursor_pos(state, fs.basename(cwd), --[[or_top]]true)
+    change_cwd(state, parent_dir, fs.basename(cwd), --[[or_top]]true)
 end
 
 function M.home_dir()
@@ -897,15 +915,8 @@ function M.home_dir()
         return
     end
     local state = store.get()
-    local row = current_row(state)
-    if row then
-        state.hovered_files[state.cwd] = row.name
-    end
-    state.cwd = path
-    render(state)
-    util.update_buf_name(state.cwd)
-    sync_local_cwd(state)
-    set_cursor_pos(state, state.hovered_files[path], --[[or_top]]true)
+    remember_hovered_file(state)
+    change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
 end
 
 function M.parent_dir()
@@ -934,7 +945,32 @@ function M.first_sibling()
 end
 
 function M.help()
-    help_win.open(config)
+    local ok, state = pcall(store.get)
+    help_win.open(config, ok and bookmarks.help_rows(state.bookmarks) or nil)
+end
+
+function M.set_bookmark()
+    local state = store.get()
+    bookmarks.set_current_directory(state.bookmarks, state.cwd)
+end
+
+function M.jump_bookmark()
+    local state = store.get()
+    local path = bookmarks.read_jump_directory(state.bookmarks)
+    if not path then
+        return
+    end
+    local realpath, msg = uv.fs_realpath(path)
+    if not realpath then
+        util.err(msg)
+        return
+    end
+    if not fs.is_dir(realpath) then
+        util.err(('%q is not a directory'):format(path))
+        return
+    end
+    remember_hovered_file(state)
+    change_cwd(state, realpath, state.hovered_files[realpath], --[[or_top]]true)
 end
 
 function M.info()
@@ -963,12 +999,8 @@ function M.open(cmd)
             if cmd then
                 vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
             else
-                state.cwd = path
-                render(state)
-                util.update_buf_name(state.cwd)
-                sync_local_cwd(state)
-                local hovered_file = state.hovered_files[path]
-                set_cursor_pos(state, hovered_file, --[[or_top]]true)
+                remember_hovered_file(state)
+                change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
             end
         else
             restore_cwd(state)
@@ -1032,11 +1064,8 @@ function M.follow_symlink()
         return
     end
     if fs.is_dir(path) then
-        state.cwd = path
-        render(state)
-        util.update_buf_name(state.cwd)
-        sync_local_cwd(state)
-        set_cursor_pos(state, state.hovered_files[path], --[[or_top]]true)
+        remember_hovered_file(state)
+        change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
         return
     end
     restore_cwd(state)
@@ -1577,6 +1606,7 @@ function M.initialize(dir, from_au)
         expanded_dirs = {},  -- map<realpath, true>
         rows = {},
         marked_paths = {},  -- map<path, DoraPasteOperation>
+        bookmarks = bookmarks.new(),
     }
     keymaps.setup(buf, config)
     store.set(buf, state)
