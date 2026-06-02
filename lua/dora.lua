@@ -89,9 +89,12 @@ M.config = {
     },
 }
 
+---@param dst table<string, any>
+---@param src table<string, any>
 local function merge_config(dst, src)
-    for key, value in pairs(src or {}) do
+    for key, value in pairs(src) do
         if key == 'keymaps' and type(value) == 'table' and type(dst.keymaps) == 'table' then
+            -- Don't merge keymaps since that can result in stale `desc` fields.
             for lhs, rhs in pairs(value) do
                 dst.keymaps[lhs] = rhs
             end
@@ -103,9 +106,9 @@ local function merge_config(dst, src)
     end
 end
 
----@param opts? table
+---@param opts table
 function M.setup(opts)
-    assert(opts == nil or type(opts) == 'table', 'dora.setup() expects a table')
+    assert(type(opts) == 'table', 'dora.setup() expects a table')
     merge_config(M.config, opts)
 end
 
