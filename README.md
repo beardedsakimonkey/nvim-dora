@@ -158,30 +158,30 @@ time, creation time, size, or extension. Use uppercase variants such as `,N`,
 
 Customize Dora with these highlight groups:
 
+<!-- dora-highlights:start -->
 ```
+DoraFile
 DoraDirectory
 DoraSymlink
 DoraExecutable
 DoraTree
 DoraTreeActive
 DoraVirtText
+DoraCut
+DoraCopy
 DoraPromptBorder
 DoraPromptBorderValid
 DoraPromptBorderInvalid
+DoraInfoLabel
+DoraInfoValue
 DoraDeleteMore
-DoraDeleteCursor
-DoraCut
-DoraCopy
-DoraInfoLabel
-DoraInfoValue
 DoraKeymapHintArrow
-DoraInfoLabel
-DoraInfoValue
 ```
+<!-- dora-highlights:end -->
 
 ## Development
 
-Regenerate the default configuration docs with:
+Regenerate the generated README docs with:
 
 ```sh
 sh scripts/docs.sh
