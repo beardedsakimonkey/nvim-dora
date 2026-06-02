@@ -39,6 +39,9 @@ local TREE_SPACER = '    '
 ---@field tree_prefix_len integer
 ---@field tree_continuation_segments DoraTreeSegment[]
 ---@field tree_connector_start_col? integer
+---@field icon_start_col? integer
+---@field icon_end_col? integer
+---@field icon_hl? string
 ---@field name_start_col? integer
 ---@field name_end_col? integer
 ---@field directory_suffix_col? integer
@@ -108,6 +111,57 @@ local function copy_tree_segments(segments)
     return ret
 end
 
+local devicons
+local devicons_loaded = false
+
+---@return table?
+local function get_devicons()
+    if not devicons_loaded then
+        local ok, mod = pcall(require, 'nvim-web-devicons')
+        devicons = ok and mod or nil
+        devicons_loaded = true
+    end
+    return devicons
+end
+
+---@param file DoraFile
+---@param path string
+---@return string? icon
+---@return string? hl
+local function devicon(file, path)
+    if file.type == 'directory' then
+        return '', 'DoraDirectory'
+    elseif file.type == 'link' then
+        return '', 'DoraSymlink'
+    end
+
+    local provider = get_devicons()
+    if provider and type(provider.get_icon) == 'function' then
+        local icon, hl = provider.get_icon(file.name, vim.fn.fnamemodify(path, ':e'), {default = true})
+        if icon then
+            return icon, hl
+        end
+    end
+
+    return '', 'DoraIcon'
+end
+
+---@param file DoraFile
+---@param path string
+---@return string? icon
+---@return string? hl
+local function file_icon(file, path)
+    local provider = config.icons
+    if provider == false or provider == nil then
+        return nil, nil
+    elseif provider == true or provider == 'nvim-web-devicons' then
+        return devicon(file, path)
+    elseif type(provider) == 'function' then
+        return provider(file, path)
+    end
+    return nil, nil
+end
+
 ---@param state DoraState
 ---@return DoraTreeRow[]
 local function build_tree_rows(state)
@@ -152,7 +206,15 @@ local function build_tree_rows(state)
             end
             local path = util.join_path(dir, file.name)
             local tree_prefix = prefix .. connector
-            local display_name = tree_prefix .. file.name
+            local icon, icon_hl = file_icon(file, path)
+            if type(icon) ~= 'string' or icon == '' then
+                icon = nil
+            end
+            if type(icon_hl) ~= 'string' then
+                icon_hl = nil
+            end
+            local icon_prefix = icon and icon .. ' ' or ''
+            local display_name = tree_prefix .. icon_prefix .. file.name
             local directory_suffix_col
             if file.type == 'directory' then
                 directory_suffix_col = #display_name
@@ -168,8 +230,11 @@ local function build_tree_rows(state)
                 tree_prefix_len = #tree_prefix,
                 tree_continuation_segments = copy_tree_segments(continuation_segments),
                 tree_connector_start_col = depth > 0 and #prefix or nil,
-                name_start_col = #tree_prefix,
-                name_end_col = #tree_prefix + #file.name,
+                icon_start_col = icon and #tree_prefix or nil,
+                icon_end_col = icon and #tree_prefix + #icon or nil,
+                icon_hl = icon_hl or 'DoraIcon',
+                name_start_col = #tree_prefix + #icon_prefix,
+                name_end_col = #tree_prefix + #icon_prefix + #file.name,
                 directory_suffix_col = directory_suffix_col,
             }
             if file.type == 'directory' and state.expanded_dirs[path] then
@@ -236,6 +301,13 @@ local function render(state)
             api.nvim_buf_set_extmark(0, ns, i-1, 0, {
                 end_col = file.tree_prefix_len,
                 hl_group = 'DoraTree',
+                priority = 10000,
+            })
+        end
+        if file.icon_start_col then
+            api.nvim_buf_set_extmark(0, ns, i-1, file.icon_start_col, {
+                end_col = file.icon_end_col,
+                hl_group = file.icon_hl,
                 priority = 10000,
             })
         end
@@ -326,7 +398,20 @@ end
 ---@param pattern string?
 ---@param or_top? boolean
 local function set_cursor_pos(state, pattern, or_top)
-    util.set_cursor_pos(pattern, or_top)
+    local line = or_top and 1 or nil
+    if pattern then
+        for i, row in ipairs(state.rows or {}) do
+            if row.display_name == pattern
+                    or row.name == pattern
+                    or row.name .. util.sep == pattern then
+                line = i
+                break
+            end
+        end
+    end
+    if line then
+        api.nvim_win_set_cursor(0, {line, 0})
+    end
     update_tree_cursor_highlight(state)
 end
 

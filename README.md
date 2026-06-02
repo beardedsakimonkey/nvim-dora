@@ -55,6 +55,9 @@ config = {
     show_hidden_files = true,
     -- Function used to determine what files should be hidden
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
+    -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
+    -- nvim-web-devicons, or set a function that returns icon and highlight.
+    icons = false,
     -- Default file sorting order
     sort_order = 'name',
     -- Whether to sync the window's current directory with dora's current path
@@ -167,6 +170,7 @@ DoraExecutable
 DoraTree
 DoraTreeActive
 DoraVirtText
+DoraIcon
 DoraCut
 DoraCopy
 DoraPromptBorder
