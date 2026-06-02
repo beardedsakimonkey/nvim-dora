@@ -64,6 +64,7 @@ config = {
         U = {"collapse_recursive",              desc="Collapse directory recursively"},
         l = {"open",                            desc="Open"},
         ['<CR>'] = {"open",                     desc="Open"},
+        ['<2-LeftMouse>'] = {"open",            desc="Open"},
         s = {"open_split",                      desc="Open in split"},
         v = {"open_vsplit",                     desc="Open in vertical split"},
         t = {"open_tab",                        desc="Open in tab"},
