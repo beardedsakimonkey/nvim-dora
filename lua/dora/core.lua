@@ -428,6 +428,11 @@ local function sibling_line(state, line, step)
             return i
         end
     end
+    for i = step > 0 and 1 or #state.rows, line - step, step do
+        if state.rows[i].parent_path == row.parent_path then
+            return i
+        end
+    end
 end
 
 ---@param state DoraState
