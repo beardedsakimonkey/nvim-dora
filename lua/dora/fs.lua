@@ -38,9 +38,18 @@ end
 ---@param path string
 ---@return string
 local function parent_dir(path)
-    local parts = vim.split(path, util.sep)
-    table.remove(parts)
-    return table.concat(parts, util.sep)
+    while #path > 1 and vim.endswith(path, util.sep) do
+        path = path:sub(1, -2)
+    end
+    if path == util.sep then
+        return util.sep
+    end
+    for i = #path, 1, -1 do
+        if path:sub(i, i) == util.sep then
+            return i == 1 and util.sep or path:sub(1, i - 1)
+        end
+    end
+    return ''
 end
 
 ---@param path string
