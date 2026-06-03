@@ -709,6 +709,31 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    assert_eq(vim.fn.maparg('A', 'n', false, true).desc, 'Add file under directory')
+    util.set_cursor_pos('root')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.initial_prompt, 'root/', 'create_under should prefill the hovered directory path')
+        local input = opts.initial_prompt .. 'child.txt'
+        cb(input, opts.validate(input))
+    end
+    core.create_under()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/root/child.txt'), 'create_under should create inside the hovered directory')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/anchor.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
