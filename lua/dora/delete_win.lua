@@ -164,6 +164,17 @@ local function get_width(confirm_title, rendered_lines)
     return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
 end
 
+---@param win integer
+---@return {win: integer, line: integer, col: integer}
+local function cursor_anchor(win)
+    local cursor = api.nvim_win_get_cursor(win)
+    return {
+        win = win,
+        line = cursor[1],
+        col = cursor[2],
+    }
+end
+
 ---@param paths string[]
 ---@param cwd string
 ---@param cb fun(confirmed: boolean)
@@ -179,6 +190,7 @@ function M.delete(paths, cwd, cb, opts)
     local rendered_lines = lines(confirm_items, overflow)
     local confirm_title = get_title(#paths, opts.action)
     local origin_win = api.nvim_get_current_win()
+    local anchor = opts.anchor or cursor_anchor(origin_win)
     local guicursor = vim.o.guicursor
     local autocmds = {}
     local closed = false
@@ -206,10 +218,7 @@ function M.delete(paths, cwd, cb, opts)
             height = #rendered_lines,
             border_hl = 'DoraPromptBorderInvalid',
         }
-        if opts.anchor then
-            return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
-        end
-        return window.centered_layout(layout_opts)
+        return window.anchored_layout(vim.tbl_extend('force', layout_opts, anchor))
     end
 
     local win = api.nvim_open_win(buf, true, layout())
