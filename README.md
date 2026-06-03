@@ -2,7 +2,7 @@
 
 Dora is a small directory viewer for Neovim 0.12+. It opens in the current
 window, works well with normal buffer navigation, and stays out of the way when
-you only need to browse, create, move, copy, delete, or inspect files.
+you only need to browse, create, rename, copy, delete, or inspect files.
 
 It is closer to [vim-dirvish](https://github.com/justinmk/vim-dirvish) than to
 a project drawer. Dora is meant to be opened when you need it, then closed or
@@ -90,7 +90,6 @@ config = {
         D = {"delete",                          desc="Delete file permanently"},
         a = {"create",                          desc="Add file"},
         r = {"rename",                          desc="Rename file"},
-        M = {"move",                            desc="Move file"},
         m = {"set_bookmark",                    desc="Set bookmark"},
         ["'"] = {"jump_bookmark",               desc="Jump to bookmark"},
         x = {"cut",                             desc="Toggle cut mark"},
