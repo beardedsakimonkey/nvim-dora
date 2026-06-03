@@ -1091,7 +1091,8 @@ do
     set_cursor_line('a$')
     local origin_win = api.nvim_get_current_win()
     local target_line = find_line_index(lines(), 'b$')
-    local pos = vim.fn.screenpos(origin_win, target_line, 1)
+    local target_row = state.rows[target_line]
+    local pos = vim.fn.screenpos(origin_win, target_line, target_row.name_start_col + 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()
@@ -1121,10 +1122,12 @@ do
     touch(tmp .. '/gamma')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
     set_cursor_line('alpha$')
     local origin_win = api.nvim_get_current_win()
     local target_line = find_line_index(lines(), 'beta$')
-    local pos = vim.fn.screenpos(origin_win, target_line, 1)
+    local target_row = state.rows[target_line]
+    local pos = vim.fn.screenpos(origin_win, target_line, target_row.name_start_col + 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('VjD', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()

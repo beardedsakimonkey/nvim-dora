@@ -1316,7 +1316,7 @@ local function remove_paths(state, paths, operation, action, anchor)
             render(state)
         end
     end, {
-        anchor = #paths == 1 and anchor or nil,
+        anchor = anchor,
         action = action,
     })
 end
@@ -1338,12 +1338,13 @@ end
 ---@param action string
 local function remove_visual_paths(operation, action)
     local state = store.get()
+    local row = current_row(state)
     local paths, msg = visual_paths(state)
     if not paths then
         util.err(msg)
         return
     end
-    remove_paths(state, paths, operation, action, nil)
+    remove_paths(state, paths, operation, action, current_name_anchor(row))
 end
 
 function M.trash()
