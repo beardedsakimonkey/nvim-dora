@@ -216,6 +216,8 @@ do
     for i = 4, 12 do
         paths[#paths+1] = tmp .. '/dir/file-' .. i .. '.txt'
     end
+    local origin_cursor = api.nvim_win_get_cursor(origin_win)
+    local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], origin_cursor[2] + 1)
 
     delete_win.delete(paths, tmp, function(confirmed)
         vim.g.dora_smoke_confirm_delete = confirmed
@@ -226,6 +228,8 @@ do
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
 
     assert_eq(confirm_cfg.border[1][2], 'DoraPromptBorderInvalid')
+    assert_eq(confirm_cfg.row, origin_pos.row, 'delete confirmation should anchor to the cursor by default')
+    assert_eq(confirm_cfg.col, origin_pos.col - 1, 'delete confirmation should anchor to the cursor by default')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], ' foo.js')
@@ -1060,11 +1064,16 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_line('a$')
+    local origin_win = api.nvim_get_current_win()
+    local target_line = find_line_index(lines(), 'b$')
+    local pos = vim.fn.screenpos(origin_win, target_line, 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Trash 2 files%?')
-    assert_centered_float(confirm_win, 'visual trash confirmation should be centered')
+    assert_eq(confirm_cfg.row, pos.row, 'visual trash confirmation should anchor to the visual cursor')
+    assert_eq(confirm_cfg.col, pos.col - 1, 'visual trash confirmation should anchor to the visual cursor')
     api.nvim_feedkeys('y', 'xt', false)
 
     assert_eq(#trashed_paths, 2, 'visual trash should trash each selected file')
@@ -1088,11 +1097,16 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_line('alpha$')
+    local origin_win = api.nvim_get_current_win()
+    local target_line = find_line_index(lines(), 'beta$')
+    local pos = vim.fn.screenpos(origin_win, target_line, 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('VjD', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Delete 2 files%?')
-    assert_centered_float(confirm_win, 'visual delete confirmation should be centered')
+    assert_eq(confirm_cfg.row, pos.row, 'visual delete confirmation should anchor to the visual cursor')
+    assert_eq(confirm_cfg.col, pos.col - 1, 'visual delete confirmation should anchor to the visual cursor')
     api.nvim_feedkeys('y', 'xt', false)
 
     assert(not fs.exists(tmp .. '/alpha'), 'visual delete should remove selected file alpha')
