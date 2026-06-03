@@ -536,6 +536,9 @@ assert(not pcall(fs.validate_rename, '', cwd .. '/old.txt'), 'empty rename filen
 assert(not pcall(fs.validate_rename, 'nested/renamed.txt', cwd .. '/old.txt'), 'rename should reject directory separators')
 assert(not pcall(fs.validate_rename, 'old.txt', cwd .. '/old.txt'), 'rename should reject unchanged filenames')
 assert_match(fs.resolve_copy_or_move_dest(cwd, '/tmp', cwd), '/tmp/[^/]+$')
+assert_eq(fs.parent_dir(util.sep), util.sep, 'parent_dir should not go above root')
+assert_eq(fs.parent_dir(util.sep .. 'tmp'), util.sep, 'parent_dir should keep root for top-level paths')
+assert_eq(fs.get_parent_dir(util.sep .. 'tmp'), util.sep, 'get_parent_dir should allow top-level paths')
 
 do
     local tmp = vim.fn.tempname()
@@ -652,6 +655,19 @@ do
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    vim.cmd('Dora ' .. vim.fn.fnameescape(util.sep))
+    local state = store.get()
+    local name = api.nvim_buf_get_name(state.buf)
+
+    core.up_dir()
+    assert_eq(state.cwd, util.sep, 'up directory should no-op at root')
+    assert_eq(api.nvim_buf_get_name(state.buf), name, 'up directory should not rename the root buffer')
+    assert_eq(state.bookmarks.previous_directory, nil, 'up directory at root should not update the previous-directory bookmark')
+
+    core.quit()
 end
 
 do
