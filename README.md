@@ -89,6 +89,7 @@ config = {
         d = {"trash",                           desc="Move file to trash"},
         D = {"delete",                          desc="Delete file permanently"},
         a = {"create",                          desc="Add file"},
+        A = {"create_under",                    desc="Add file under directory"},
         r = {"rename",                          desc="Rename file"},
         m = {"set_bookmark",                    desc="Set bookmark"},
         ["'"] = {"jump_bookmark",               desc="Jump to bookmark"},

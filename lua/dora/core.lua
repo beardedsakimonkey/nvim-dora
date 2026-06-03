@@ -362,17 +362,31 @@ local function set_cursor_pos(state, pattern, or_top)
 end
 
 ---@param state DoraState
+---@param path string
+---@return string
+local function relative_child_path(state, path)
+    if state.cwd == util.sep then
+        return path:sub(2)
+    end
+    return path:sub(#state.cwd + 2)
+end
+
+---@param state DoraState
 ---@param row DoraTreeRow?
+---@param under_directory? boolean
 ---@return string?
-local function create_parent_default(state, row)
+local function create_parent_default(state, row, under_directory)
     if not row or not row.path then
         return nil
+    end
+    if under_directory and row.type == 'directory' then
+        return relative_child_path(state, row.path) .. util.sep
     end
     local parent = fs.get_parent_dir(row.path)
     if parent == state.cwd then
         return nil
     end
-    return parent:sub(#state.cwd + 2) .. util.sep
+    return relative_child_path(state, parent) .. util.sep
 end
 
 ---@param state DoraState
@@ -1381,14 +1395,15 @@ function M.rename()
     end)
 end
 
-function M.create()
+---@param under_directory? boolean
+local function create(under_directory)
     local state = store.get()
     local row = current_row(state)
     prompt.input({
         prompt = 'Add file or folder',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
-        initial_prompt = create_parent_default(state, row),
+        initial_prompt = create_parent_default(state, row, under_directory),
         anchor = current_name_anchor(row),
         validate = function(input)
             return fs.validate_create(input, state.cwd)
@@ -1409,6 +1424,14 @@ function M.create()
             end
         end
     end)
+end
+
+function M.create()
+    create(false)
+end
+
+function M.create_under()
+    create(true)
 end
 
 function M.toggle_hidden_files()
