@@ -364,23 +364,6 @@ end
 ---@param state DoraState
 ---@param row DoraTreeRow?
 ---@return string?
-local function get_initial_prompt_for_move(state, row)
-    if not row or not row.path then
-        return nil
-    end
-    local relative = row.path:sub(#state.cwd + 2)
-    if row.type ~= 'directory' then
-        relative = relative:sub(1, -(#row.name + 2))
-    end
-    if relative == '' then
-        return nil
-    end
-    return relative .. util.sep
-end
-
----@param state DoraState
----@param row DoraTreeRow?
----@return string?
 local function create_parent_default(state, row)
     if not row or not row.path then
         return nil
@@ -1361,41 +1344,6 @@ end
 function M.delete_visual()
     remove_visual_paths(fs.delete, 'Delete')
 end
-
-local function move()
-    local state = store.get()
-    local row = current_row(state)
-    local path, msg = current_path(state)
-    if not path then
-        util.err(msg)
-        return
-    end
-    local prompt_label = 'Move to'
-    prompt.input({
-        prompt = prompt_label,
-        cwd = state.cwd,
-        initial_prompt = get_initial_prompt_for_move(state, row),
-        width = PROMPT_WIDTH,
-        anchor = current_name_anchor(row),
-        validate = function(input)
-            return fs.resolve_copy_or_move_dest(path, input, state.cwd)
-        end,
-    }, function(input, dest)
-        if not input then
-            return
-        end
-        local ok, msg = pcall(fs.copy_or_move, true, path, input, state.cwd)
-        if not ok then
-            util.err(msg)
-        else
-            rename_marked_paths_under(state, path, dest)
-            render(state)
-            set_cursor_pos(state, fs.basename(dest))
-        end
-    end)
-end
-
-function M.move() move() end
 
 function M.rename()
     local state = store.get()

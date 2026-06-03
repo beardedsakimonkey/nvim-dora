@@ -1234,38 +1234,6 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert(opts.anchor, 'single-file move should anchor the prompt to the current row')
-        assert_eq(opts.width, 32, 'single-file move prompt should match the default delete window width')
-        assert_eq(opts.anchor.win, api.nvim_get_current_win())
-        assert_eq(opts.anchor.line, cursor[1])
-        assert_eq(opts.anchor.col, row.name_start_col)
-        local dest = opts.validate('beta.txt')
-        cb('beta.txt', dest)
-    end
-    core.move()
-    prompt.input = old_input
-
-    assert(not fs.exists(tmp .. '/alpha.txt'), 'single-file move should rename the source file')
-    assert(fs.exists(tmp .. '/beta.txt'), 'single-file move should create the destination file')
-
-    core.quit()
-    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local tmp = vim.fn.tempname()
-    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    touch(tmp .. '/alpha.txt')
-
-    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
-    util.set_cursor_pos('alpha%.txt')
-    local cursor = api.nvim_win_get_cursor(0)
-    local row = state.rows[cursor[1]]
-
-    local old_input = prompt.input
-    ---@diagnostic disable-next-line: duplicate-set-field
-    prompt.input = function(opts, cb)
         assert_eq(opts.prompt, 'Rename to')
         assert_eq(opts.initial_prompt, 'alpha.txt')
         assert_eq(opts.cwd, state.cwd)
@@ -1413,7 +1381,7 @@ do
     assert_eq(type(set_map.callback), 'function')
     assert_eq(jump_map.desc, 'Jump to bookmark')
     assert_eq(type(jump_map.callback), 'function')
-    assert_eq(vim.fn.maparg('M', 'n', false, true).desc, 'Move file')
+    assert_eq(vim.fn.maparg('M', 'n'), '', 'move should not be mapped')
 
     api.nvim_feedkeys('a', 't', false)
     set_map.callback()

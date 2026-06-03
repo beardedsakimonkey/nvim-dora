@@ -66,7 +66,6 @@ M.config = {
         D = {"delete",                          desc="Delete file permanently"},
         a = {"create",                          desc="Add file"},
         r = {"rename",                          desc="Rename file"},
-        M = {"move",                            desc="Move file"},
         m = {"set_bookmark",                    desc="Set bookmark"},
         ["'"] = {"jump_bookmark",               desc="Jump to bookmark"},
         x = {"cut",                             desc="Toggle cut mark"},
