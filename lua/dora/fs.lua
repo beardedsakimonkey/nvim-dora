@@ -52,6 +52,23 @@ local function parent_dir(path)
     return ''
 end
 
+---@param dir string
+---@param basename string
+---@return string
+local function unused_child_path(dir, basename)
+    local path = util.join_path(dir, basename)
+    if not exists(path) then
+        return path
+    end
+    for i = 1, 1000 do
+        path = util.join_path(dir, basename .. ' ' .. i)
+        if not exists(path) then
+            return path
+        end
+    end
+    error('Could not find an unused trash destination for ' .. basename)
+end
+
 ---@param path string
 ---@return boolean
 function M.exists(path)
@@ -156,7 +173,7 @@ function M.trash(path)
         trash_dir = util.join_path(data_home, 'Trash/files')
     end
     assert(vim.fn.mkdir(trash_dir, 'p') == 1)
-    move(path, util.join_path(trash_dir, M.basename(path)))
+    move(path, unused_child_path(trash_dir, M.basename(path)))
 end
 
 ---@param path string
