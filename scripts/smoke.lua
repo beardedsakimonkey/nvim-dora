@@ -763,6 +763,23 @@ do
 end
 
 do
+    local parts = vim.tbl_filter(function(part) return part ~= '' end, vim.split(fs.realpath(cwd), util.sep, {plain=true}))
+    assert(#parts >= 2, 'smoke cwd should have a top-level parent')
+    local top_path = util.sep .. parts[1]
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(top_path))
+    local state = store.get()
+    core.up_dir()
+
+    assert_eq(state.cwd, util.sep, 'up directory should navigate from a top-level directory to root')
+    assert(state.expanded_dirs[top_path], 'up directory should preserve the top-level previous cwd expansion')
+    assert_match(current_line(), vim.pesc(parts[1]) .. '/$', 'up directory should move cursor to the previous top-level cwd row')
+    assert(find_line_index(lines(), vim.pesc(parts[2]) .. '/$'), 'up directory should keep top-level previous cwd children visible at root')
+
+    core.quit()
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
