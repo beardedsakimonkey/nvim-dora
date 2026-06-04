@@ -1649,6 +1649,25 @@ do
 end
 
 do
+    local buf, win = keymaps.open_hint_window('y', {
+        {lhs='yF', desc='Yank filename to clipboard'},
+        {lhs='yf', desc='Yank filename'},
+        {lhs='yB', desc='Yank basename to clipboard'},
+        {lhs='yb', desc='Yank basename'},
+        {lhs='yY', desc='Yank full path to clipboard'},
+        {lhs='yy', desc='Yank full path'},
+        {lhs='yD', desc='Yank directory path to clipboard'},
+        {lhs='yd', desc='Yank directory path'},
+    })
+    local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+    assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
+    assert_match(hint_lines[2], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
+    assert_match(hint_lines[3], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
+    assert_match(hint_lines[4], '^  yb%s+→%s+Yank basename%s+yB%s+→%s+Yank basename to clipboard$')
+    window.close(buf, win)
+end
+
+do
     local old_keymaps = config.keymaps
     local old_show_keymap_hints = config.show_keymap_hints
     local old_open = keymaps.open_hint_window
@@ -1682,6 +1701,43 @@ do
     assert_eq(captured_rows[1].desc, 'Alpha')
     assert_eq(captured_rows[2].lhs, 'zx')
     assert_eq(captured_rows[2].desc, 'Xray')
+    core.quit()
+
+    keymaps.open_hint_window = old_open
+    config.keymaps = old_keymaps
+    config.show_keymap_hints = old_show_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_show_keymap_hints = config.show_keymap_hints
+    local old_open = keymaps.open_hint_window
+    local captured_rows
+
+    config.keymaps = {
+        ['g?'] = {function() end, desc='Show help'},
+        ['g.'] = {function() end, desc='Toggle hidden files'},
+        gx = {function() end, desc='Open externally'},
+        gh = {function() end, desc='Go to Home directory'},
+        gf = {function() vim.g.dora_smoke_g_hint_keymap = 'gf' end, desc='Follow symlink'},
+    }
+    config.show_keymap_hints = true
+    keymaps.open_hint_window = function(prefix, rows)
+        captured_rows = rows
+        return old_open(prefix, rows)
+    end
+    vim.g.dora_smoke_g_hint_keymap = nil
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
+    local prefix_map = vim.fn.maparg('g', 'n', false, true)
+    api.nvim_feedkeys('f', 't', false)
+    prefix_map.callback()
+    assert_eq(vim.g.dora_smoke_g_hint_keymap, 'gf', 'g keymap hints should dispatch selected mappings')
+    assert_eq(captured_rows[1].lhs, 'gf')
+    assert_eq(captured_rows[2].lhs, 'gh')
+    assert_eq(captured_rows[3].lhs, 'gx')
+    assert_eq(captured_rows[4].lhs, 'g.')
+    assert_eq(captured_rows[5].lhs, 'g?')
     core.quit()
 
     keymaps.open_hint_window = old_open
