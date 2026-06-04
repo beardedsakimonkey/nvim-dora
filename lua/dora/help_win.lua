@@ -29,7 +29,6 @@ local function layout(width, height)
         title = 'Help',
         width = width,
         height = height,
-        border_hl = 'DoraPromptBorder',
     })
 end
 

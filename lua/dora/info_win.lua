@@ -181,7 +181,6 @@ function M.open(path)
         title = 'Info',
         width = width(rendered_lines),
         height = #rendered_lines,
-        border_hl = 'DoraPromptBorder',
     }))
     vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].wrap = false

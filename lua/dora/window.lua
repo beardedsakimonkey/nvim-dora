@@ -14,13 +14,9 @@ function M.valid_buf(buf)
     return buf ~= nil and api.nvim_buf_is_valid(buf)
 end
 
----@param hl string
----@return table
-function M.border(hl)
-    return {
-        {'╭', hl}, {'─', hl}, {'╮', hl}, {'│', hl},
-        {'╯', hl}, {'─', hl}, {'╰', hl}, {'│', hl},
-    }
+---@return string?
+function M.border()
+    return vim.o.winborder == '' and 'rounded' or nil
 end
 
 ---@class DoraFloatLayoutOptions
@@ -28,7 +24,6 @@ end
 ---@field title_pos? 'left'|'center'|'right'
 ---@field width integer
 ---@field height integer
----@field border_hl? string
 ---@field min_width? integer
 
 ---@class DoraAnchoredFloatLayoutOptions: DoraFloatLayoutOptions
@@ -50,7 +45,7 @@ function M.centered_layout(opts)
         col = math.floor((vim.o.columns - width) / 2),
         width = width,
         height = height,
-        border = M.border(opts.border_hl or 'DoraPromptBorder'),
+        border = M.border(),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,
         style = 'minimal',
@@ -81,7 +76,7 @@ function M.anchored_layout(opts)
         col = col,
         width = width,
         height = height,
-        border = M.border(opts.border_hl or 'DoraPromptBorder'),
+        border = M.border(),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,
         style = 'minimal',

@@ -216,7 +216,6 @@ function M.delete(paths, cwd, cb, opts)
             title = confirm_title,
             width = get_width(confirm_title, rendered_lines),
             height = #rendered_lines,
-            border_hl = 'DoraPromptBorderInvalid',
         }
         return window.anchored_layout(vim.tbl_extend('force', layout_opts, anchor))
     end
