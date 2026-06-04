@@ -46,7 +46,7 @@ local function extract_config_block(contents)
     for _, line in ipairs(lines) do
         if not depth then
             if line:match('^M%.config%s*=%s*{') then
-                block[#block+1] = line:gsub('^M%.config', 'config', 1)
+                block[#block+1] = line:gsub('^M%.config%s*=%s*{', "require'dora'.setup {", 1)
                 depth = brace_delta(line)
             end
         else
