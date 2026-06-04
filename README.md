@@ -48,7 +48,7 @@ The default config is generated from `lua/dora.lua`:
 
 <!-- dora-config:start -->
 ```lua
-config = {
+require'dora'.setup {
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
     -- Whether hidden files should be shown when dora opens
