@@ -1420,8 +1420,15 @@ local function create(under_directory)
             if not ok then
                 util.err(msg)
             else
+                local cursor_path = fs.strip_trailing_sep(path)
                 render(state)
-                set_cursor_path(state, path)
+                while cursor_path ~= state.cwd and not set_cursor_path(state, cursor_path) do
+                    cursor_path = fs.parent_dir(cursor_path)
+                end
+                if cursor_path ~= state.cwd and fs.is_dir(cursor_path) and expand_all_dirs(state, cursor_path) then
+                    render(state)
+                    set_cursor_path(state, cursor_path)
+                end
             end
         end
     end)
