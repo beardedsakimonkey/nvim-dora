@@ -92,6 +92,15 @@ function M.realpath(path)
     return assert(uv.fs_realpath(path))
 end
 
+---@param path string
+---@return string
+function M.strip_trailing_sep(path)
+    while #path > 1 and vim.endswith(path, util.sep) do
+        path = path:sub(1, -2)
+    end
+    return path
+end
+
 -- NOTE: Symlink dirs are considered directories
 ---@param path string
 ---@return boolean
