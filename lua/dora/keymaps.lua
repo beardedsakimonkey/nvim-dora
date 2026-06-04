@@ -7,7 +7,11 @@ local M = {}
 
 local HINT_ARROW = '→'
 local HINT_COLUMN_GAP = '    '
-local SORT_HINT_KEY_ORDER = {n=1, m=2, c=3, s=4, e=5}
+local HINT_KEY_ORDERS = {
+    [','] = {n=1, m=2, c=3, s=4, e=5},
+    g = {f=1, h=2, x=3, ['.']=4, ['?']=5},
+    y = {y=1, d=2, f=3, b=4},
+}
 
 local VISUAL_KEYMAP_ACTIONS = {
     delete = 'delete_visual',
@@ -163,9 +167,10 @@ local function case_pair_rows(prefix, rows)
     end
 
     table.sort(pair_rows, function(a, b)
-        if prefix == ',' then
-            local a_order = SORT_HINT_KEY_ORDER[a.key] or 100
-            local b_order = SORT_HINT_KEY_ORDER[b.key] or 100
+        local key_order = HINT_KEY_ORDERS[prefix]
+        if key_order then
+            local a_order = key_order[a.key] or 100
+            local b_order = key_order[b.key] or 100
             if a_order ~= b_order then
                 return a_order < b_order
             end
@@ -292,8 +297,18 @@ local function keymap_hint_groups(keymaps)
             }
         end
     end
-    for _, group in pairs(groups) do
-        table.sort(group, function(a, b) return a.lhs < b.lhs end)
+    for prefix, group in pairs(groups) do
+        table.sort(group, function(a, b)
+            local key_order = HINT_KEY_ORDERS[prefix]
+            if key_order then
+                local a_order = key_order[a.key] or 100
+                local b_order = key_order[b.key] or 100
+                if a_order ~= b_order then
+                    return a_order < b_order
+                end
+            end
+            return a.lhs < b.lhs
+        end)
     end
     return groups
 end
