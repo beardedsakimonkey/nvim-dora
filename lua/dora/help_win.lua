@@ -67,12 +67,14 @@ end
 ---@param bookmark_rows? DoraHelpRow[]
 ---@return DoraHelpRow[]
 local function rows(config, bookmark_rows)
-    local ret = keymap_rows(config.keymaps, KEYMAP_ORDER)
+    local ret = {}
     if bookmark_rows and #bookmark_rows > 0 then
-        ret[#ret+1] = {}
         ret[#ret+1] = {section='Bookmarks'}
         vim.list_extend(ret, bookmark_rows)
+        ret[#ret+1] = {}
     end
+    ret[#ret+1] = {section='Keymaps'}
+    vim.list_extend(ret, keymap_rows(config.keymaps, KEYMAP_ORDER))
     return ret
 end
 
