@@ -162,6 +162,9 @@ time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set
 `dora.config.sort_order` to choose the initial order.
 
+Dora float windows use rounded borders by default. On Neovim 0.12+, set
+`vim.o.winborder` to customize the border style globally.
+
 ## Highlights
 
 Customize Dora with these highlight groups:

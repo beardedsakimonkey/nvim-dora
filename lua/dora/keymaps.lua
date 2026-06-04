@@ -265,12 +265,12 @@ function M.open_hint_window(prefix, rows)
         col = api.nvim_win_get_width(origin_win) - 2,
         width = width,
         height = height,
-        border = window.border('DoraPromptBorder'),
+        border = window.border(),
         style = 'minimal',
         noautocmd = true,
         focusable = false,
     })
-    vim.wo[win].winhighlight = 'NormalFloat:Normal'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].cursorline = false
     return buf, win
 end

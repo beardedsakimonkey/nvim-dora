@@ -19,7 +19,6 @@ local function win_layout(opts, width)
         title = opts.prompt,
         width = width,
         height = 1,
-        border_hl = 'DoraPromptBorder',
     }
     if opts.anchor then
         return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
@@ -79,9 +78,7 @@ function Prompt:validate()
         hl = ok and 'DoraPromptBorderValid' or 'DoraPromptBorderInvalid'
     end
     if window.valid_win(self.input_win) then
-        local cfg = api.nvim_win_get_config(self.input_win)
-        cfg.border = window.border(hl)
-        api.nvim_win_set_config(self.input_win, cfg)
+        vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:' .. hl
     end
 end
 

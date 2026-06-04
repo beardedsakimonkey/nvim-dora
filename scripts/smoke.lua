@@ -47,6 +47,8 @@ end
 
 local cwd = assert(vim.loop.cwd())
 
+assert_eq(vim.fn.synIDtrans(vim.fn.hlID('DoraPromptBorder')), vim.fn.synIDtrans(vim.fn.hlID('FloatBorder')), 'prompt border should default to FloatBorder')
+
 local function touch(path)
     local fd = assert(vim.loop.fs_open(path, 'w', tonumber('644', 8)))
     assert(vim.loop.fs_close(fd))
@@ -227,7 +229,7 @@ do
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
 
-    assert_eq(confirm_cfg.border[1][2], 'DoraPromptBorderInvalid')
+    assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderInvalid')
     assert_eq(confirm_cfg.row, origin_pos.row, 'delete confirmation should anchor to the cursor by default')
     assert_eq(confirm_cfg.col, origin_pos.col - 1, 'delete confirmation should anchor to the cursor by default')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
@@ -362,6 +364,27 @@ do
 end
 
 do
+    local old_winborder = vim.o.winborder
+    vim.o.winborder = ''
+    assert_eq(window.border(), 'rounded', 'window borders should keep Dora rounded fallback without winborder')
+    vim.o.winborder = 'single'
+    local buf = api.nvim_create_buf(false, true)
+    local win = api.nvim_open_win(buf, false, {
+        relative = 'editor',
+        row = 0,
+        col = 0,
+        width = 1,
+        height = 1,
+        border = window.border(),
+    })
+    assert_eq(api.nvim_win_get_config(win).border[1], '┌', 'window borders should defer to winborder when set')
+    window.close(buf, win)
+    vim.o.winborder = 'none'
+    assert_eq(window.border(), nil, 'window borders should respect no-border winborder')
+    vim.o.winborder = old_winborder
+end
+
+do
     local p = prompt.input({
         prompt = 'Smoke',
         cwd = cwd,
@@ -378,7 +401,7 @@ do
     local cfg = api.nvim_win_get_config(p.input_win)
     assert_eq(cfg.relative, 'editor')
     assert_eq(cfg.anchor, 'NW')
-    assert_eq(cfg.border[1][1], '╭')
+    assert_eq(cfg.border[1], '╭')
     assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<Esc>', 'i', false, true).expr, 1)
     assert_eq(type(vim.fn.maparg('<Esc>', 'n', false, true).callback), 'function')
@@ -1603,8 +1626,8 @@ do
     assert_eq(cfg.anchor, 'SE', 'keymap hints should anchor to the bottom right')
     assert_eq(cfg.row, api.nvim_win_get_height(origin_win) - 1, 'keymap hints should sit near the bottom')
     assert_eq(cfg.col, api.nvim_win_get_width(origin_win) - 2, 'keymap hints should sit near the right edge')
-    assert_eq(cfg.border[1][1], '╭', 'keymap hints should have a border')
-    assert_eq(cfg.border[1][2], 'DoraPromptBorder', 'keymap hint border should use the prompt border highlight')
+    assert_eq(cfg.border[1], '╭', 'keymap hints should have a border')
+    assert_match(vim.wo[win].winhighlight, 'FloatBorder:DoraPromptBorder')
     assert_eq(cfg.title, nil, 'keymap hints should not have a title')
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     local hint_text = table.concat(hint_lines, '\n')
@@ -2027,7 +2050,7 @@ do
     local info_text = table.concat(info_lines, '\n')
 
     assert(info_win ~= origin_win, 'info should open in a floating window')
-    assert_eq(info_cfg.border[1][2], 'DoraPromptBorder')
+    assert_match(vim.wo[info_win].winhighlight, 'FloatBorder:DoraPromptBorder')
     assert_match(win_title(info_win), 'Info')
     assert_match(info_text, 'Name%s+alpha%.txt')
     assert_match(info_text, 'Type%s+File')
