@@ -178,6 +178,9 @@ end
 ---@param snd string
 ---@return string
 function M.join_path(fst, snd)
+    if fst == M.sep then
+        return fst .. snd
+    end
     return fst .. M.sep .. snd
 end
 
