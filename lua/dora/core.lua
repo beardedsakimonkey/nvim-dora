@@ -1217,7 +1217,7 @@ local function copy_value(value, reg, message)
         util.err(err)
         return
     end
-    util.info(message)
+    util.info(('%s: %s'):format(message, value))
 end
 
 ---@param reg? string

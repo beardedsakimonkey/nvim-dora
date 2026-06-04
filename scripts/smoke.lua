@@ -1897,7 +1897,7 @@ do
 
     core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '')
@@ -1908,7 +1908,7 @@ do
     vim.g.dora_smoke_yankpost_text = nil
     core.yank_file_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path to clipboard: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '+')
@@ -1916,27 +1916,27 @@ do
 
     core.yank_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_dir_path_clipboard()
     assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path to clipboard: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
 
     core.yank_filename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename to clipboard: archive.tar.gz')
 
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename: archive.tar')
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename to clipboard')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename to clipboard: archive.tar')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
