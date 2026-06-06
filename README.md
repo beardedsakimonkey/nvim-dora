@@ -172,26 +172,26 @@ Dora float windows use rounded borders by default. On Neovim 0.12+, set
 Customize Dora with these highlight groups:
 
 <!-- dora-highlights:start -->
-```
-DoraFile
-DoraDirectory
-DoraSymlink
-DoraExecutable
-DoraTree
-DoraTreeActive
-DoraVirtText
-DoraIcon
-DoraCut
-DoraCopy
-DoraFilterMatch
-DoraFilterPath
-DoraPromptBorder
-DoraPromptBorderValid
-DoraPromptBorderInvalid
-DoraInfoLabel
-DoraInfoValue
-DoraDeleteMore
-DoraKeymapHintArrow
+```vim
+hi default link DoraFile                Normal
+hi default link DoraDirectory           Directory
+hi default link DoraSymlink             Constant
+hi default link DoraExecutable          Function
+hi default link DoraTree                NonText
+hi default link DoraTreeActive          Directory
+hi default link DoraVirtText            NonText
+hi default link DoraIcon                Special
+hi default link DoraCut                 DiagnosticError
+hi default link DoraCopy                DiagnosticOk
+hi default link DoraFilterMatch         Special
+hi default link DoraFilterPath          Comment
+hi default link DoraPromptBorder        FloatBorder
+hi default link DoraPromptBorderValid   DiagnosticOk
+hi default link DoraPromptBorderInvalid DiagnosticError
+hi default link DoraInfoLabel           Label
+hi default link DoraInfoValue           Special
+hi default link DoraDeleteMore          NonText
+hi default link DoraKeymapHintArrow     NonText
 ```
 <!-- dora-highlights:end -->
 
