@@ -2098,6 +2098,10 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local origin_win = api.nvim_get_current_win()
+    local origin_line = api.nvim_win_get_cursor(origin_win)[1]
+    local origin_text = api.nvim_get_current_line()
+    local name_col = assert(origin_text:find('alpha.txt', 1, true)) - 1
+    local anchor_pos = vim.fn.screenpos(origin_win, origin_line, name_col + 1)
     core.info()
     local info_win = api.nvim_get_current_win()
     local info_buf = api.nvim_get_current_buf()
@@ -2106,12 +2110,15 @@ do
     local info_text = table.concat(info_lines, '\n')
 
     assert(info_win ~= origin_win, 'info should open in a floating window')
+    assert_eq(info_cfg.row, anchor_pos.row, 'info should open below the selected name')
+    assert_eq(info_cfg.col, anchor_pos.col - 1, 'info should align with the selected name')
     assert_match(vim.wo[info_win].winhighlight, 'FloatBorder:DoraPromptBorder')
     assert_match(win_title(info_win), 'Info')
     assert_match(info_text, 'Name%s+alpha%.txt')
     assert_match(info_text, 'Type%s+File')
     assert_match(info_text, 'Size%s+5 B')
     assert_match(info_text, 'Permissions%s+rw%-r%-%-r%-%-')
+    assert_match(info_text, 'Modified%s+%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d')
     assert(info_text:find(tmp .. '/alpha.txt', 1, true), 'info should show the selected path')
 
     local marks = api.nvim_buf_get_extmarks(info_buf, -1, 0, -1, {details=true})
