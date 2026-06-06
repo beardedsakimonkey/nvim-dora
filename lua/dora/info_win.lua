@@ -33,7 +33,7 @@ local function format_time(timestamp)
     if not timestamp or not timestamp.sec then
         return 'unknown'
     end
-    local formatted = os.date('%x %X', timestamp.sec)
+    local formatted = os.date('%Y-%m-%d %H:%M:%S', timestamp.sec)
     return type(formatted) == 'string' and formatted or 'unknown'
 end
 
@@ -157,7 +157,8 @@ local function render(buf, ns, info_rows, label_len)
 end
 
 ---@param path string
-function M.open(path)
+---@param anchor {win: integer, line: integer, col: integer}
+function M.open(path, anchor)
     local stat, msg = uv.fs_lstat(path)
     if not stat then
         util.err(msg or ('Could not stat ' .. path))
@@ -177,11 +178,12 @@ function M.open(path)
     render(buf, ns, info_rows, label_len)
     vim.bo[buf].modifiable = false
 
-    local win = api.nvim_open_win(buf, true, window.centered_layout({
+    local layout_opts = vim.tbl_extend('force', {
         title = 'Info',
         width = width(rendered_lines),
         height = #rendered_lines,
-    }))
+    }, anchor)
+    local win = api.nvim_open_win(buf, true, window.anchored_layout(layout_opts))
     vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].wrap = false
 

@@ -202,7 +202,38 @@ local function prune_deleted_marked_paths(state)
     end
 end
 
-local update_tree_cursor_highlight
+---@param state DoraState
+local function update_tree_cursor_highlight(state)
+    local buf, ns = state.buf, state.cursor_ns
+    api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+    if api.nvim_get_current_buf() ~= buf then
+        return
+    end
+    local row_nr = api.nvim_win_get_cursor(0)[1]
+    local row = state.rows and state.rows[row_nr] or nil
+    if not row or not row.parent_path then
+        return
+    end
+    for i, sibling in ipairs(state.rows) do
+        for _, segment in ipairs(sibling.tree_continuation_segments) do
+            if segment.parent_path == row.parent_path then
+                api.nvim_buf_set_extmark(buf, ns, i - 1, segment.start_col, {
+                    end_col = segment.end_col,
+                    hl_group = 'DoraTreeActive',
+                    priority = 10001,
+                })
+            end
+        end
+        if sibling.parent_path == row.parent_path and sibling.tree_connector_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i - 1, sibling.tree_connector_start_col, {
+                end_col = sibling.tree_prefix_len,
+                hl_group = 'DoraTreeActive',
+                priority = 10001,
+            })
+        end
+    end
+end
+
 
 ---@param state DoraState
 local function render(state)
@@ -282,38 +313,6 @@ local function render(state)
         end
     end
     update_tree_cursor_highlight(state)
-end
-
----@param state DoraState
-function update_tree_cursor_highlight(state)
-    local buf, ns = state.buf, state.cursor_ns
-    api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-    if api.nvim_get_current_buf() ~= buf then
-        return
-    end
-    local row_nr = api.nvim_win_get_cursor(0)[1]
-    local row = state.rows and state.rows[row_nr] or nil
-    if not row or not row.parent_path then
-        return
-    end
-    for i, sibling in ipairs(state.rows) do
-        for _, segment in ipairs(sibling.tree_continuation_segments) do
-            if segment.parent_path == row.parent_path then
-                api.nvim_buf_set_extmark(buf, ns, i - 1, segment.start_col, {
-                    end_col = segment.end_col,
-                    hl_group = 'DoraTreeActive',
-                    priority = 10001,
-                })
-            end
-        end
-        if sibling.parent_path == row.parent_path and sibling.tree_connector_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i - 1, sibling.tree_connector_start_col, {
-                end_col = sibling.tree_prefix_len,
-                hl_group = 'DoraTreeActive',
-                priority = 10001,
-            })
-        end
-    end
 end
 
 ---@param state DoraState
@@ -975,12 +974,13 @@ end
 
 function M.info()
     local state = store.get()
+    local row = current_row(state)
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    info_win.open(path)
+    info_win.open(path, current_name_anchor(row))
 end
 
 ---@param cmd? DoraOpenCommand
