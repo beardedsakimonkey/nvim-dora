@@ -174,16 +174,6 @@ function M.display_path(path)
     return path
 end
 
----@param fst string
----@param snd string
----@return string
-function M.join_path(fst, snd)
-    if fst == M.sep then
-        return fst .. snd
-    end
-    return fst .. M.sep .. snd
-end
-
 ---@param filename? string
 ---@param or_top? boolean
 function M.set_cursor_pos(filename, or_top)

@@ -177,7 +177,7 @@ local function build_tree_rows(state)
                     }
                 end
             end
-            local path = util.join_path(dir, file.name)
+            local path = vim.fs.joinpath(dir, file.name)
             local tree_prefix = prefix .. connector
             local icon, icon_hl = icons.get(config.icons, file, path)
             local icon_prefix = icon and icon .. ' ' or ''
@@ -774,7 +774,7 @@ local function expand_next_level(state, path)
     local function visit(dir, depth)
         for _, file in ipairs(visible_files(state, dir)) do
             if file.type == 'directory' then
-                local child_path = util.join_path(dir, file.name)
+                local child_path = vim.fs.joinpath(dir, file.name)
                 if state.expanded_dirs[child_path] then
                     visit(child_path, depth + 1)
                 elseif not frontier_depth or depth < frontier_depth then
@@ -802,7 +802,7 @@ local function expand_all_dirs(state, path)
     state.expanded_dirs[path] = true
     for _, file in ipairs(visible_files(state, path)) do
         if file.type == 'directory' then
-            local child_path = util.join_path(path, file.name)
+            local child_path = vim.fs.joinpath(path, file.name)
             if expand_all_dirs(state, child_path) then
                 changed = true
             end
@@ -1415,7 +1415,7 @@ function M.paste()
         util.err('No paste destination')
         return
     end
-    local dest_path = util.join_path(dest_dir, fs.basename(entries[1].path))
+    local dest_path = vim.fs.joinpath(dest_dir, fs.basename(entries[1].path))
     local ok, msg = pcall(function()
         assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
         for _, entry in ipairs(entries) do

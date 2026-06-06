@@ -567,9 +567,13 @@ assert(not pcall(fs.validate_rename, '', cwd .. '/old.txt'), 'empty rename filen
 assert(not pcall(fs.validate_rename, 'nested/renamed.txt', cwd .. '/old.txt'), 'rename should reject directory separators')
 assert(not pcall(fs.validate_rename, 'old.txt', cwd .. '/old.txt'), 'rename should reject unchanged filenames')
 assert_match(fs.resolve_copy_or_move_dest(cwd, '/tmp', cwd), '/tmp/[^/]+$')
+assert_eq(fs.normalize_path('./foo/../bar', cwd), vim.fs.joinpath(cwd, 'bar'),
+    'normalize_path should resolve relative dot components')
 assert_eq(fs.parent_dir(util.sep), util.sep, 'parent_dir should not go above root')
 assert_eq(fs.parent_dir(util.sep .. 'tmp'), util.sep, 'parent_dir should keep root for top-level paths')
 assert_eq(fs.get_parent_dir(util.sep .. 'tmp'), util.sep, 'get_parent_dir should allow top-level paths')
+assert_eq(fs.parent_dir('/tmp/foo/'), '/tmp', 'parent_dir should ignore a trailing separator')
+assert_eq(fs.basename('/tmp/foo/'), 'foo', 'basename should ignore a trailing separator')
 assert_eq(fs.strip_trailing_sep('/tmp/foo/'), '/tmp/foo', 'strip_trailing_sep should trim one or more trailing separators')
 
 do
@@ -586,6 +590,22 @@ do
     touch(tmp .. '/blocked')
     assert(not pcall(fs.validate_create, 'blocked/child.txt', tmp), 'create should reject paths below files')
 
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/target', tonumber('755', 8)))
+    touch(tmp .. '/target/file.txt')
+    assert(vim.loop.fs_symlink(tmp .. '/target', tmp .. '/link'))
+
+    fs.delete(tmp .. '/link')
+    assert(fs.is_dir(tmp .. '/target'), 'delete should not follow directory symlinks')
+    assert(not fs.exists(tmp .. '/link'), 'delete should remove directory symlinks')
+
+    fs.delete(tmp .. '/target')
+    assert(not fs.exists(tmp .. '/target'), 'delete should recursively remove directories')
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 

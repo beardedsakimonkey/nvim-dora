@@ -1,7 +1,13 @@
 local util = require'dora.util'
-local uv = vim.loop
+local uv = vim.uv
 
 local M = {}
+
+---@param path string
+---@return boolean
+local function is_absolute(path)
+    return vim.startswith(path, '/') or path:match('^%a:/') ~= nil
+end
 
 ---@param src string
 ---@param dest string
@@ -25,43 +31,33 @@ local function copy_dir(src, dest)
     assert(uv.fs_mkdir(dest, stat.mode))
     for name, type in vim.fs.dir(src) do
         local copy = type == 'directory' and copy_dir or copy_file
-        copy(util.join_path(src, name), util.join_path(dest, name))
+        copy(vim.fs.joinpath(src, name), vim.fs.joinpath(dest, name))
     end
 end
 
 ---@param path string
 ---@return boolean
 local function exists(path)
-    return uv.fs_access(path, '') == true
+    return uv.fs_stat(path) ~= nil
 end
 
 ---@param path string
 ---@return string
 local function parent_dir(path)
-    while #path > 1 and vim.endswith(path, util.sep) do
-        path = path:sub(1, -2)
-    end
-    if path == util.sep then
-        return util.sep
-    end
-    for i = #path, 1, -1 do
-        if path:sub(i, i) == util.sep then
-            return i == 1 and util.sep or path:sub(1, i - 1)
-        end
-    end
-    return ''
+    local parent = assert(vim.fs.dirname(M.strip_trailing_sep(path)))
+    return parent == '.' and '' or parent
 end
 
 ---@param dir string
 ---@param basename string
 ---@return string
 local function unused_child_path(dir, basename)
-    local path = util.join_path(dir, basename)
+    local path = vim.fs.joinpath(dir, basename)
     if not exists(path) then
         return path
     end
     for i = 1, 1000 do
-        path = util.join_path(dir, basename .. ' ' .. i)
+        path = vim.fs.joinpath(dir, basename .. ' ' .. i)
         if not exists(path) then
             return path
         end
@@ -79,11 +75,13 @@ end
 ---@param cwd string
 ---@return string
 function M.normalize_path(path, cwd)
-    assert(path, 'Empty path')
     path = util.trim_start(path)
     assert(path ~= '', 'Empty path')
-    path = path:gsub('^~', os.getenv'HOME' or '')
-    return path:sub(1, 1) == '/' and path or util.join_path(cwd, path)
+    path = vim.fs.normalize(path)
+    if is_absolute(path) then
+        return path
+    end
+    return vim.fs.normalize(vim.fs.joinpath(cwd, path), {expand_env = false})
 end
 
 ---@param path string
@@ -128,7 +126,7 @@ end
 function M.list(path)
     local ret = {}
     for basename, file_type in vim.fs.dir(path) do
-        local full_path = util.join_path(path, basename)
+        local full_path = vim.fs.joinpath(path, basename)
         table.insert(ret, M.file_from_path(full_path, file_type))
     end
     return ret
@@ -151,19 +149,12 @@ end
 ---@param path string
 ---@return string
 function M.basename(path)
-    if vim.endswith(path, util.sep) then  -- strip trailing slash
-        path = path:sub(1, -2)
-    end
-    local parts = vim.split(path, util.sep)
-    return parts[#parts]
+    return assert(vim.fs.basename(M.strip_trailing_sep(path)))
 end
 
 ---@param path string
 function M.delete(path)
-    local is_symlink = uv.fs_readlink(path) ~= nil
-    local flags = (M.is_dir(path) and not is_symlink) and 'rf' or ''
-    local ret = vim.fn.delete(path, flags)
-    assert(ret == 0)
+    vim.fs.rm(path, {recursive = M.is_dir(path)})
 end
 
 ---@param path string
@@ -176,10 +167,10 @@ function M.trash(path)
         util.err('Trash is not currently supported on Windows')
         return
     elseif sysname == 'Darwin' then
-        trash_dir = util.join_path(assert(os.getenv'HOME'), '.Trash')
+        trash_dir = vim.fs.joinpath(assert(os.getenv'HOME'), '.Trash')
     else
-        local data_home = os.getenv'XDG_DATA_HOME' or util.join_path(assert(os.getenv'HOME'), '.local/share')
-        trash_dir = util.join_path(data_home, 'Trash/files')
+        local data_home = os.getenv'XDG_DATA_HOME' or vim.fs.joinpath(assert(os.getenv'HOME'), '.local/share')
+        trash_dir = vim.fs.joinpath(data_home, 'Trash/files')
     end
     assert(vim.fn.mkdir(trash_dir, 'p') == 1)
     move(path, unused_child_path(trash_dir, M.basename(path)))
@@ -210,7 +201,7 @@ function M.validate_create(input, cwd)
     input = util.trim_start(input)
     assert(input ~= '', 'Empty path')
     assert(input:sub(1, 1) ~= util.sep, 'Create paths must be relative')
-    local path = util.join_path(cwd, input)
+    local path = vim.fs.joinpath(cwd, input)
     assert(not exists(path), ('%q already exists'):format(path))
     local path_for_parent = vim.endswith(path, util.sep) and path:sub(1, -2) or path
     local parent = parent_dir(path_for_parent)
@@ -230,7 +221,7 @@ function M.validate_rename(input, src)
     assert(input ~= '', 'Empty filename')
     assert(not input:find(util.sep, 1, true), 'Rename cannot move files between directories')
     local parent = parent_dir(src)
-    local path = util.join_path(parent, input)
+    local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')
     assert(not exists(path), ('%q already exists'):format(path))
     return path
@@ -257,7 +248,7 @@ function M.resolve_copy_or_move_dest(src, dest, cwd)
     dest = M.normalize_path(dest, cwd)
     assert(src ~= dest, '`src` equals `dest`')
     if M.is_dir(dest) then
-        dest = util.join_path(dest, M.basename(src))
+        dest = vim.fs.joinpath(dest, M.basename(src))
     end
     return dest
 end
