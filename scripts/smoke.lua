@@ -414,8 +414,8 @@ do
     assert_eq(cfg.relative, 'editor')
     assert_eq(cfg.anchor, 'NW')
     assert_eq(cfg.border[1], '╭')
-    assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('<Esc>', 'i', false, true).expr, 1)
+    assert(next(vim.fn.maparg('<Esc>', 'i', false, true)) == nil,
+        'prompt should use the default insert-mode escape behavior')
     assert_eq(type(vim.fn.maparg('<Esc>', 'n', false, true).callback), 'function')
     for _, map in ipairs(api.nvim_buf_get_keymap(p.input_buf, 'i')) do
         assert(map.lhs ~= '<Tab>', 'prompt should not map tab for completion')
@@ -473,45 +473,6 @@ end
 
 do
     local p = prompt.input({
-        prompt = 'Escape non-empty',
-        cwd = cwd,
-        validate = function(input)
-            return input
-        end,
-    }, function(input)
-        vim.g.dora_smoke_escape_non_empty = input == nil
-    end)
-    ---@cast p DoraPrompt
-
-    p:set_input('abc', 3)
-    p:escape_insert()
-    assert(not p.closed, 'escape with input should leave prompt open')
-    p:cancel()
-    assert_eq(vim.g.dora_smoke_escape_non_empty, true)
-end
-
-do
-    local p = prompt.input({
-        prompt = 'Escape empty',
-        cwd = cwd,
-        validate = function(input)
-            return input
-        end,
-    }, function(input)
-        vim.g.dora_smoke_escape_empty = input == nil
-    end)
-    ---@cast p DoraPrompt
-
-    p:set_input('', 0)
-    p:escape_insert()
-    assert(vim.wait(1000, function()
-        return p.closed
-    end), 'escape with empty input should close prompt')
-    assert_eq(vim.g.dora_smoke_escape_empty, true)
-end
-
-do
-    local p = prompt.input({
         prompt = 'Escape typed input',
         cwd = cwd,
         validate = function(input)
@@ -545,8 +506,9 @@ do
 
     api.nvim_feedkeys(api.nvim_replace_termcodes('i<Esc>', true, false, true), 'xt', false)
     assert(vim.wait(1000, function()
-        return p.closed and vim.api.nvim_get_mode().mode == 'n'
-    end), 'escape with empty input should close prompt via keypress')
+        return not p.closed and vim.api.nvim_get_mode().mode == 'n'
+    end), 'escape with empty input should leave insert mode and keep the prompt open')
+    p:cancel()
     assert_eq(vim.g.dora_smoke_escape_key_empty, true)
 end
 
