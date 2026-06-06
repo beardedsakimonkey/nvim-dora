@@ -76,6 +76,7 @@ local TREE_SPACER = '    '
 ---@field filter_text? string
 ---@field filter_preview? string
 ---@field filter_window? DoraFilterWindow
+---@field filter_editing boolean
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field bookmarks DoraBookmarks
 
@@ -328,6 +329,12 @@ local function render(state)
     end, rows))
     -- Add virttext and highlights
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+    if state.filter_editing or state.filter_window then
+        api.nvim_buf_set_extmark(buf, ns, 0, 0, {
+            virt_lines = {{{'', 'Normal'}}},
+            virt_lines_above = true,
+        })
+    end
     for i, file in ipairs(rows) do
         local path = file.path
         local virttext, hl
@@ -892,6 +899,7 @@ end
 local function close_filter(state)
     state.filter_text = nil
     state.filter_preview = nil
+    state.filter_editing = false
     local filter_window = state.filter_window
     state.filter_window = nil
     if filter_window then
@@ -1067,20 +1075,35 @@ local function scroll_filter_results_to_top(win)
     api.nvim_win_set_cursor(win, {1, 0})
     api.nvim_win_call(win, function()
         vim.cmd'normal! zt'
+        local view = vim.fn.winsaveview()
+        view.topfill = 1
+        vim.fn.winrestview(view)
+    end)
+end
+
+---@param win integer
+local function reveal_filter_spacer(win)
+    if not api.nvim_win_is_valid(win) then
+        return
+    end
+    api.nvim_win_call(win, function()
+        local view = vim.fn.winsaveview()
+        view.topline = 1
+        view.topfill = 1
+        vim.fn.winrestview(view)
     end)
 end
 
 function M.filter()
     local state = store.get()
-    if state.filter_window then
-        state.filter_window:focus()
-        return
-    end
     local row = current_row(state)
     local cursor_path = row and row.path or nil
     local initial_text = state.filter_text or ''
     local origin_win = api.nvim_get_current_win()
     state.filter_preview = initial_text
+    state.filter_editing = true
+    render(state)
+    scroll_filter_results_to_top(origin_win)
 
     local opts = {
         origin_win = origin_win,
@@ -1093,21 +1116,36 @@ function M.filter()
         on_confirm = function(text)
             state.filter_preview = nil
             state.filter_text = text ~= '' and text or nil
-            state.filter_window = nil
+            state.filter_editing = false
+            if not state.filter_text then
+                state.filter_window = nil
+            end
             render(state)
             set_cursor_pos(state, nil, --[[or_top]]true)
+            if state.filter_text then
+                scroll_filter_results_to_top(origin_win)
+            end
+            return state.filter_text ~= nil
         end,
         on_cancel = function()
             state.filter_preview = nil
-            state.filter_window = nil
+            state.filter_editing = false
+            if not state.filter_text then
+                state.filter_window = nil
+            end
             render(state)
             if not cursor_path or not set_cursor_path(state, cursor_path) then
                 set_cursor_pos(state, nil, --[[or_top]]true)
             end
+            if state.filter_text then
+                reveal_filter_spacer(origin_win)
+            end
+            return state.filter_text
         end,
         on_close = function()
             state.filter_window = nil
             state.filter_preview = nil
+            state.filter_editing = false
             if api.nvim_buf_is_valid(state.buf) then
                 render(state)
                 if not cursor_path or not set_cursor_path(state, cursor_path) then
@@ -1117,7 +1155,11 @@ function M.filter()
         end,
     }
 
-    state.filter_window = filter_win.open(opts)
+    if state.filter_window then
+        state.filter_window:edit(opts)
+    else
+        state.filter_window = filter_win.open(opts)
+    end
 end
 
 function M.clear_filter()
@@ -1774,6 +1816,7 @@ function M.initialize(dir, from_au)
         filter_text = nil,
         filter_preview = nil,
         filter_window = nil,
+        filter_editing = false,
         marked_paths = {},  -- map<path, DoraPasteOperation>
         bookmarks = bookmarks.new(),
     }
