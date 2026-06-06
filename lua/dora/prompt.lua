@@ -101,15 +101,6 @@ function Prompt:cancel()
     self.cb(nil)
 end
 
-function Prompt:escape_insert()
-    vim.schedule(function()
-        if not self.closed and window.valid_buf(self.input_buf) and self:get_input() == '' then
-            self:cancel()
-        end
-    end)
-    return '<C-\\><C-n>'
-end
-
 function Prompt:relayout()
     if window.valid_win(self.input_win) then
         api.nvim_win_set_config(self.input_win, win_layout(self.opts, self.width))
@@ -153,7 +144,6 @@ function M.input(opts, cb)
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.initial_prompt})
     api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
 
-    keymap(self.input_buf, 'i', '<Esc>', function() return self:escape_insert() end, {expr = true, replace_keycodes = true})
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
     keymap(self.input_buf, 'n', 'q',     function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
