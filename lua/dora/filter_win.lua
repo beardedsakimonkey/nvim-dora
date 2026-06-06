@@ -5,19 +5,21 @@ local api = vim.api
 local M = {}
 
 local FILTER_WIDTH = 32
+local FILTER_PREFIX = 'Filter›'
 
 ---@class DoraFilterWindowOptions
 ---@field origin_win integer
 ---@field initial_text string
 ---@field on_change fun(text: string)
----@field on_confirm fun(text: string)
----@field on_cancel fun()
+---@field on_confirm fun(text: string): boolean
+---@field on_cancel fun(): string?
 ---@field on_close fun()
 
 ---@class DoraFilterWindow
 ---@field opts DoraFilterWindowOptions
 ---@field buf integer
 ---@field win integer
+---@field ns integer
 ---@field autocmds integer[]
 ---@field closed boolean
 local FilterWindow = {}
@@ -31,11 +33,33 @@ end
 
 ---@return table
 function FilterWindow:layout()
-    return window.top_center_layout({
+    local width = FILTER_WIDTH
+    if window.valid_win(self.opts.origin_win) then
+        width = math.min(width, api.nvim_win_get_width(self.opts.origin_win))
+    end
+    return {
+        relative = 'win',
         win = self.opts.origin_win,
-        title = 'Filter',
-        width = FILTER_WIDTH,
+        anchor = 'NW',
+        row = 0,
+        col = 0,
+        width = math.max(1, width),
         height = 1,
+        border = 'none',
+        style = 'minimal',
+        noautocmd = true,
+    }
+end
+
+function FilterWindow:render_prefix()
+    if not window.valid_buf(self.buf) then
+        return
+    end
+    api.nvim_buf_clear_namespace(self.buf, self.ns, 0, -1)
+    api.nvim_buf_set_extmark(self.buf, self.ns, 0, 0, {
+        virt_text = {{FILTER_PREFIX, 'DoraInfoLabel'}},
+        virt_text_pos = 'inline',
+        right_gravity = false,
     })
 end
 
@@ -55,10 +79,21 @@ function FilterWindow:set_input(text, col)
     end
     vim.bo[self.buf].modifiable = true
     api.nvim_buf_set_lines(self.buf, 0, -1, false, {text})
+    self:render_prefix()
     if window.valid_win(self.win) then
         api.nvim_win_set_cursor(self.win, {1, col or #text})
     end
     self.opts.on_change(text)
+end
+
+---@param text string
+function FilterWindow:set_display(text)
+    if not window.valid_buf(self.buf) then
+        return
+    end
+    vim.bo[self.buf].modifiable = true
+    api.nvim_buf_set_lines(self.buf, 0, -1, false, {text})
+    self:render_prefix()
 end
 
 function FilterWindow:relayout()
@@ -77,15 +112,42 @@ function FilterWindow:focus()
     vim.cmd'startinsert!'
 end
 
+function FilterWindow:lock()
+    vim.cmd'stopinsert'
+    vim.bo[self.buf].modifiable = false
+    if window.valid_win(self.opts.origin_win) then
+        pcall(api.nvim_set_current_win, self.opts.origin_win)
+    end
+end
+
+---@param opts DoraFilterWindowOptions
+function FilterWindow:edit(opts)
+    self.opts = opts
+    self:set_display(opts.initial_text)
+    self:relayout()
+    self:focus()
+end
+
 function FilterWindow:confirm()
     local input = self:get_input()
-    self:close()
-    self.opts.on_confirm(input)
+    self:lock()
+    if self.opts.on_confirm(input) then
+        self:set_display(input)
+        vim.bo[self.buf].modifiable = false
+    else
+        self:close()
+    end
 end
 
 function FilterWindow:cancel()
-    self:close()
-    self.opts.on_cancel()
+    self:lock()
+    local locked_text = self.opts.on_cancel()
+    if locked_text then
+        self:set_display(locked_text)
+        vim.bo[self.buf].modifiable = false
+    else
+        self:close()
+    end
 end
 
 function FilterWindow:close()
@@ -119,10 +181,11 @@ function M.open(opts)
     }, {__index = FilterWindow})
 
     self.buf = api.nvim_create_buf(false, true)
+    self.ns = api.nvim_create_namespace('dora/filter.' .. self.buf)
     vim.bo[self.buf].buftype = 'nofile'
     vim.bo[self.buf].bufhidden = 'wipe'
     self.win = api.nvim_open_win(self.buf, true, self:layout())
-    vim.wo[self.win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
+    vim.wo[self.win].winhighlight = 'NormalFloat:Normal'
     vim.wo[self.win].cursorline = false
 
     keymap(self.buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
@@ -154,8 +217,7 @@ function M.open(opts)
         end,
     })
 
-    self:set_input(opts.initial_text)
-    self:focus()
+    self:edit(opts)
     return self
 end
 
