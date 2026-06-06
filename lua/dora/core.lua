@@ -3,6 +3,7 @@ local icons = require'dora.icons'
 local bookmarks = require'dora.bookmarks'
 local help_win = require'dora.help_win'
 local delete_win = require'dora.delete_win'
+local filter_win = require'dora.filter_win'
 local info_win = require'dora.info_win'
 local keymaps = require'dora.keymaps'
 local prompt = require'dora.prompt'
@@ -41,12 +42,17 @@ local TREE_SPACER = '    '
 ---@field tree_prefix_len integer
 ---@field tree_continuation_segments DoraTreeSegment[]
 ---@field tree_connector_start_col? integer
+---@field icon? string
 ---@field icon_start_col? integer
 ---@field icon_end_col? integer
 ---@field icon_hl? string
 ---@field name_start_col? integer
 ---@field name_end_col? integer
 ---@field directory_suffix_col? integer
+---@field filter_directory_start_col? integer
+---@field filter_directory_end_col? integer
+---@field filter_match_start_col? integer
+---@field filter_match_end_col? integer
 
 ---@class DoraCwdRestore
 ---@field cwd string
@@ -65,7 +71,11 @@ local TREE_SPACER = '    '
 ---@field sort_order DoraSortOrder
 ---@field hovered_files table<string, string>
 ---@field expanded_dirs table<string, true>
+---@field tree_rows DoraTreeRow[]
 ---@field rows DoraTreeRow[]
+---@field filter_text? string
+---@field filter_preview? string
+---@field filter_window? DoraFilterWindow
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field bookmarks DoraBookmarks
 
@@ -112,6 +122,16 @@ local function copy_tree_segments(segments)
         ret[#ret+1] = segment
     end
     return ret
+end
+
+---@param state DoraState
+---@param path string
+---@return string
+local function relative_child_path(state, path)
+    if state.cwd == util.sep then
+        return path:sub(2)
+    end
+    return path:sub(#state.cwd + 2)
 end
 
 ---@param state DoraState
@@ -176,6 +196,7 @@ local function build_tree_rows(state)
                 tree_prefix_len = #tree_prefix,
                 tree_continuation_segments = copy_tree_segments(continuation_segments),
                 tree_connector_start_col = depth > 0 and #prefix or nil,
+                icon = icon,
                 icon_start_col = icon and #tree_prefix or nil,
                 icon_end_col = icon and #tree_prefix + #icon or nil,
                 icon_hl = icon_hl or 'DoraIcon',
@@ -194,6 +215,65 @@ local function build_tree_rows(state)
 end
 
 ---@param state DoraState
+---@return string?
+local function active_filter(state)
+    local filter = state.filter_preview
+    if filter == nil then
+        filter = state.filter_text
+    end
+    return filter ~= '' and filter or nil
+end
+
+---@param state DoraState
+---@param tree_rows DoraTreeRow[]
+---@return DoraTreeRow[]
+local function build_filtered_rows(state, tree_rows)
+    local filter = active_filter(state)
+    if not filter then
+        return tree_rows
+    end
+
+    local rows = {}
+    local needle = vim.fn.tolower(filter)
+    for _, row in ipairs(tree_rows) do
+        local match_index = vim.fn.stridx(vim.fn.tolower(row.name), needle)
+        if row.path and match_index >= 0 then
+            local relative_path = relative_child_path(state, row.path)
+            local icon_prefix = row.icon and row.icon .. ' ' or ''
+            local display_name = icon_prefix .. relative_path
+            local basename_start_col = #icon_prefix + #relative_path - #row.name
+            local directory_suffix_col
+            if row.type == 'directory' then
+                directory_suffix_col = #display_name
+                display_name = display_name .. util.sep
+            end
+            rows[#rows+1] = {
+                name = row.name,
+                display_name = display_name,
+                path = row.path,
+                parent_path = row.parent_path,
+                type = row.type,
+                depth = row.depth,
+                tree_prefix_len = 0,
+                tree_continuation_segments = {},
+                icon = row.icon,
+                icon_start_col = row.icon and 0 or nil,
+                icon_end_col = row.icon and #row.icon or nil,
+                icon_hl = row.icon_hl,
+                name_start_col = #icon_prefix,
+                name_end_col = #icon_prefix + #relative_path,
+                directory_suffix_col = directory_suffix_col,
+                filter_directory_start_col = basename_start_col > #icon_prefix and #icon_prefix or nil,
+                filter_directory_end_col = basename_start_col > #icon_prefix and basename_start_col or nil,
+                filter_match_start_col = basename_start_col + match_index,
+                filter_match_end_col = basename_start_col + match_index + #filter,
+            }
+        end
+    end
+    return rows
+end
+
+---@param state DoraState
 local function prune_deleted_marked_paths(state)
     for marked_path in pairs(state.marked_paths) do
         if not fs.exists(marked_path) then
@@ -206,7 +286,7 @@ end
 local function update_tree_cursor_highlight(state)
     local buf, ns = state.buf, state.cursor_ns
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-    if api.nvim_get_current_buf() ~= buf then
+    if active_filter(state) or api.nvim_get_current_buf() ~= buf then
         return
     end
     local row_nr = api.nvim_win_get_cursor(0)[1]
@@ -239,7 +319,9 @@ end
 local function render(state)
     local buf, ns = state.buf, state.ns
     prune_deleted_marked_paths(state)
-    local rows = build_tree_rows(state)
+    local tree_rows = build_tree_rows(state)
+    local rows = build_filtered_rows(state, tree_rows)
+    state.tree_rows = tree_rows
     state.rows = rows
     util.set_lines(buf, vim.tbl_map(function(f)
         return f.display_name
@@ -262,37 +344,51 @@ local function render(state)
         else
             virttext, hl = nil, 'DoraFile'
         end
-        api.nvim_buf_set_extmark(0, ns, i-1, 0, {
+        api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
             end_col = #file.display_name,
             hl_group = hl,
             priority = 100,  -- Below vim.highlight.on_yank's default priority.
         })
         if virttext then
-            api.nvim_buf_set_extmark(0, ns, i-1, #file.display_name, {
+            api.nvim_buf_set_extmark(buf, ns, i-1, #file.display_name, {
                 virt_text = {{virttext, 'DoraVirtText'}},
                 virt_text_pos = 'overlay',
                 hl_mode = 'combine',
             })
         end
         if file.tree_prefix_len > 0 then
-            api.nvim_buf_set_extmark(0, ns, i-1, 0, {
+            api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
                 end_col = file.tree_prefix_len,
                 hl_group = 'DoraTree',
                 priority = 10000,
             })
         end
         if file.icon_start_col then
-            api.nvim_buf_set_extmark(0, ns, i-1, file.icon_start_col, {
+            api.nvim_buf_set_extmark(buf, ns, i-1, file.icon_start_col, {
                 end_col = file.icon_end_col,
                 hl_group = file.icon_hl,
                 priority = 10000,
             })
         end
         if file.directory_suffix_col then
-            api.nvim_buf_set_extmark(0, ns, i-1, file.directory_suffix_col, {
+            api.nvim_buf_set_extmark(buf, ns, i-1, file.directory_suffix_col, {
                 end_col = #file.display_name,
                 hl_group = 'DoraVirtText',
                 priority = 10000,
+            })
+        end
+        if file.filter_directory_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i-1, file.filter_directory_start_col, {
+                end_col = file.filter_directory_end_col,
+                hl_group = 'DoraFilterPath',
+                priority = 10000,
+            })
+        end
+        if file.filter_match_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i-1, file.filter_match_start_col, {
+                end_col = file.filter_match_end_col,
+                hl_group = 'DoraFilterMatch',
+                priority = 10001,
             })
         end
         local mark_operation = path and state.marked_paths[path] or nil
@@ -361,16 +457,6 @@ local function set_cursor_pos(state, pattern, or_top)
 end
 
 ---@param state DoraState
----@param path string
----@return string
-local function relative_child_path(state, path)
-    if state.cwd == util.sep then
-        return path:sub(2)
-    end
-    return path:sub(#state.cwd + 2)
-end
-
----@param state DoraState
 ---@param row DoraTreeRow?
 ---@param under_directory? boolean
 ---@return string?
@@ -403,7 +489,7 @@ local function collapse_target(state, row)
     if parent == state.cwd then
         return nil
     end
-    for _, candidate in ipairs(state.rows or {}) do
+    for _, candidate in ipairs(state.tree_rows or {}) do
         if candidate.path == parent then
             return parent, candidate.depth
         end
@@ -447,8 +533,17 @@ end
 ---@return integer?
 local function sibling_line(state, line, step)
     local row = state.rows[line]
-    if not row then
+    if not row or not row.path then
         return nil
+    end
+    if active_filter(state) then
+        local next_line = line + step
+        if next_line < 1 then
+            return #state.rows
+        elseif next_line > #state.rows then
+            return 1
+        end
+        return state.rows[next_line].path and next_line or nil
     end
     for i = line + step, step > 0 and #state.rows or 1, step do
         if state.rows[i].parent_path == row.parent_path then
@@ -468,8 +563,11 @@ end
 ---@return integer?
 local function sibling_edge_line(state, line, step)
     local row = state.rows[line]
-    if not row then
+    if not row or not row.path then
         return nil
+    end
+    if active_filter(state) then
+        return step > 0 and #state.rows or 1
     end
     for i = step > 0 and #state.rows or 1, line, -step do
         if state.rows[i].parent_path == row.parent_path then
@@ -727,7 +825,7 @@ end
 ---@return boolean changed
 local function collapse_deepest_visible_dirs(state, path, target_depth)
     local max_depth = 0
-    for _, row in ipairs(state.rows or {}) do
+    for _, row in ipairs(state.tree_rows or {}) do
         if row_under_path(row, path) then
             max_depth = math.max(max_depth, row.depth - target_depth)
         end
@@ -791,7 +889,19 @@ local function setup_autocmds(buf)
 end
 
 ---@param state DoraState
+local function close_filter(state)
+    state.filter_text = nil
+    state.filter_preview = nil
+    local filter_window = state.filter_window
+    state.filter_window = nil
+    if filter_window then
+        filter_window:close()
+    end
+end
+
+---@param state DoraState
 local function cleanup(state)
+    close_filter(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
@@ -868,6 +978,7 @@ end
 local function change_cwd(state, path, cursor_pattern, or_top)
     if state.cwd ~= path then
         bookmarks.record_previous_directory(state.bookmarks, state.cwd)
+        close_filter(state)
     end
     state.cwd = path
     render(state)
@@ -946,6 +1057,78 @@ end
 function M.help()
     local ok, state = pcall(store.get)
     help_win.open(config, ok and bookmarks.help_rows(state.bookmarks) or nil)
+end
+
+---@param win integer
+local function scroll_filter_results_to_top(win)
+    if not api.nvim_win_is_valid(win) then
+        return
+    end
+    api.nvim_win_set_cursor(win, {1, 0})
+    api.nvim_win_call(win, function()
+        vim.cmd'normal! zt'
+    end)
+end
+
+function M.filter()
+    local state = store.get()
+    if state.filter_window then
+        state.filter_window:focus()
+        return
+    end
+    local row = current_row(state)
+    local cursor_path = row and row.path or nil
+    local initial_text = state.filter_text or ''
+    local origin_win = api.nvim_get_current_win()
+    state.filter_preview = initial_text
+
+    local opts = {
+        origin_win = origin_win,
+        initial_text = initial_text,
+        on_change = function(text)
+            state.filter_preview = text
+            render(state)
+            scroll_filter_results_to_top(origin_win)
+        end,
+        on_confirm = function(text)
+            state.filter_preview = nil
+            state.filter_text = text ~= '' and text or nil
+            state.filter_window = nil
+            render(state)
+            set_cursor_pos(state, nil, --[[or_top]]true)
+        end,
+        on_cancel = function()
+            state.filter_preview = nil
+            state.filter_window = nil
+            render(state)
+            if not cursor_path or not set_cursor_path(state, cursor_path) then
+                set_cursor_pos(state, nil, --[[or_top]]true)
+            end
+        end,
+        on_close = function()
+            state.filter_window = nil
+            state.filter_preview = nil
+            if api.nvim_buf_is_valid(state.buf) then
+                render(state)
+                if not cursor_path or not set_cursor_path(state, cursor_path) then
+                    set_cursor_pos(state, nil, --[[or_top]]true)
+                end
+            end
+        end,
+    }
+
+    state.filter_window = filter_win.open(opts)
+end
+
+function M.clear_filter()
+    local state = store.get()
+    local row = current_row(state)
+    local cursor_path = row and row.path or nil
+    close_filter(state)
+    render(state)
+    if not cursor_path or not set_cursor_path(state, cursor_path) then
+        set_cursor_pos(state, nil, --[[or_top]]true)
+    end
 end
 
 function M.set_bookmark()
@@ -1586,7 +1769,11 @@ function M.initialize(dir, from_au)
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, filename>
         expanded_dirs = {},  -- map<realpath, true>
+        tree_rows = {},
         rows = {},
+        filter_text = nil,
+        filter_preview = nil,
+        filter_window = nil,
         marked_paths = {},  -- map<path, DoraPasteOperation>
         bookmarks = bookmarks.new(),
     }

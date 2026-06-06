@@ -131,9 +131,9 @@ end
 ---@param buf integer
 ---@param lines string[]
 function M.set_lines(buf, lines)
-    vim.opt_local.modifiable = true
+    vim.bo[buf].modifiable = true
     api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-    vim.opt_local.modifiable = false
+    vim.bo[buf].modifiable = false
 end
 
 ---@return string
