@@ -75,9 +75,8 @@ local function extract_highlight_groups(contents)
     for _, line in ipairs(split_lines(contents)) do
         local cmd = line:match("^vim%.cmd%s*'(.*)'%s*$")
             or line:match('^vim%.cmd%s*"(.*)"%s*$')
-        local group = cmd and cmd:match('^hi%s+default%s+link%s+(Dora%S+)%s+%S+$')
-        if group then
-            groups[#groups+1] = group
+        if cmd and cmd:match('^hi%s+default%s+link%s+(Dora%S+)%s+%S+$') then
+            groups[#groups+1] = cmd
         end
     end
 
@@ -90,7 +89,7 @@ end
 
 local function generate_highlights_section()
     return table.concat({
-        '```',
+        '```vim',
         table.concat(extract_highlight_groups(read_file(highlights_path)), '\n'),
         '```',
     }, '\n')
