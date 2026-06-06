@@ -140,6 +140,9 @@ function M.input(opts, cb)
     }, {__index = Prompt})
 
     self.initial_prompt = opts.initial_prompt or ''
+    if #self.initial_prompt > 0 then
+        self.width = math.max(self.width, #self.initial_prompt + 4)
+    end
     self.input_buf = api.nvim_create_buf(false, true)
     vim.bo[self.input_buf].buftype = 'nofile'
     vim.bo[self.input_buf].bufhidden = 'wipe'
