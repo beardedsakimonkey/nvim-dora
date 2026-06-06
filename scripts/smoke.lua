@@ -1,5 +1,13 @@
 local api = vim.api
 
+local orig_notify = vim.notify
+vim.notify = function(msg, log_level, ...)
+    if log_level == vim.log.levels.INFO then
+        return
+    end
+    return orig_notify(msg, log_level, ...)
+end
+
 local function assert_eq(actual, expected, msg)
     assert(actual == expected, msg or ('expected ' .. vim.inspect(expected) .. ', got ' .. vim.inspect(actual)))
 end
