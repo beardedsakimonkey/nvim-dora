@@ -75,6 +75,8 @@ require'dora'.setup {
         O = {"expand_recursive",                desc="Expand directory recursively"},
         u = {"collapse",                        desc="Collapse directory"},
         U = {"collapse_recursive",              desc="Collapse directory recursively"},
+        f = {"filter",                          desc="Filter visible files"},
+        F = {"clear_filter",                    desc="Clear filter"},
         l = {"open",                            desc="Open"},
         ['<CR>'] = {"open",                     desc="Open"},
         ['<2-LeftMouse>'] = {"open",            desc="Open"},
@@ -181,6 +183,8 @@ DoraVirtText
 DoraIcon
 DoraCut
 DoraCopy
+DoraFilterMatch
+DoraFilterPath
 DoraPromptBorder
 DoraPromptBorderValid
 DoraPromptBorderInvalid

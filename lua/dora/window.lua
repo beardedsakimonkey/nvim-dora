@@ -31,6 +31,9 @@ end
 ---@field line integer
 ---@field col integer
 
+---@class DoraTopFloatLayoutOptions: DoraFloatLayoutOptions
+---@field win integer
+
 ---@param opts DoraFloatLayoutOptions
 ---@return table
 ---Returns a config for vim.api.nvim_win_set_config()
@@ -76,6 +79,33 @@ function M.anchored_layout(opts)
         col = col,
         width = width,
         height = height,
+        border = M.border(),
+        title = title,
+        title_pos = title and (opts.title_pos or 'left') or nil,
+        style = 'minimal',
+        noautocmd = true,
+    }
+end
+
+---@param opts DoraTopFloatLayoutOptions
+---@return table
+---Centered at the top of a window.
+function M.top_center_layout(opts)
+    local win = opts.win
+    if not M.valid_win(win) then
+        return M.centered_layout(opts)
+    end
+    local max_width = math.max(1, api.nvim_win_get_width(win) - 4)
+    local width = math.min(opts.width, max_width)
+    local title = opts.title and (' ' .. opts.title .. ' ') or nil
+    return {
+        relative = 'win',
+        win = win,
+        anchor = 'NW',
+        row = 0,
+        col = math.max(0, math.floor((api.nvim_win_get_width(win) - width - 2) / 2)),
+        width = width,
+        height = opts.height,
         border = M.border(),
         title = title,
         title_pos = title and (opts.title_pos or 'left') or nil,

@@ -72,6 +72,10 @@ local function lines()
     return api.nvim_buf_get_lines(0, 0, -1, false)
 end
 
+local function buf_lines(buf)
+    return api.nvim_buf_get_lines(buf, 0, -1, false)
+end
+
 local function set_cursor_line(pattern)
     for i, line in ipairs(lines()) do
         if line:match(pattern) then
@@ -2449,6 +2453,186 @@ do
     assert(vim.tbl_contains(lines(), '└── (not permitted)'), 'unreadable directories should render a placeholder')
 
     core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/beta', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/gamma', tonumber('755', 8)))
+    touch(tmp .. '/alpha/match.txt')
+    touch(tmp .. '/alpha/other.lua')
+    touch(tmp .. '/beta/match.txt')
+    touch(tmp .. '/gamma/match.txt')
+    touch(tmp .. '/root-MATCH.txt')
+    for i = 1, 40 do
+        touch(('%s/filler-%02d.txt'):format(tmp, i))
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local origin_win = api.nvim_get_current_win()
+    assert_eq(vim.fn.maparg('f', 'n', false, true).desc, 'Filter visible files')
+    assert_eq(vim.fn.maparg('F', 'n', false, true).desc, 'Clear filter')
+
+    util.set_cursor_pos('alpha')
+    core.expand()
+    util.set_cursor_pos('gamma')
+    core.expand()
+
+    api.nvim_win_set_cursor(origin_win, {#state.rows, 0})
+    api.nvim_win_call(origin_win, function()
+        vim.cmd'normal! zt'
+    end)
+    local scrolled_view = api.nvim_win_call(origin_win, function()
+        return vim.fn.winsaveview()
+    end)
+    assert(scrolled_view.topline > 1, 'filter test should begin with Dora scrolled down')
+
+    core.filter()
+    local filter = assert(state.filter_window)
+    local filter_cfg = api.nvim_win_get_config(filter.win)
+    assert_eq(api.nvim_get_current_win(), filter.win, 'filter should receive focus while editing')
+    assert_eq(filter_cfg.relative, 'win', 'filter should be positioned relative to the Dora window')
+    assert_eq(filter_cfg.win, origin_win, 'filter should be attached to the Dora window')
+    assert_eq(filter_cfg.anchor, 'NW', 'filter should be anchored from its top-left corner')
+    assert_eq(filter_cfg.col, math.floor((api.nvim_win_get_width(origin_win) - filter_cfg.width - 2) / 2),
+        'filter should be centered horizontally')
+    assert_eq(filter_cfg.border[1], '╭', 'filter should use a rounded border by default')
+    assert_match(win_title(filter.win), 'Filter', 'filter should have a title')
+
+    filter:set_input('MATCH')
+    local filtered_view = api.nvim_win_call(origin_win, function()
+        return vim.fn.winsaveview()
+    end)
+    assert_eq(api.nvim_get_current_win(), filter.win, 'live filtering should keep focus in the filter window')
+    assert_eq(api.nvim_win_get_cursor(origin_win)[1], 1, 'live filtering should move Dora to the first result')
+    assert_eq(filtered_view.topline, 1, 'live filtering should scroll the Dora window to the top')
+    local filtered_lines = buf_lines(state.buf)
+    assert(vim.tbl_contains(filtered_lines, 'alpha/match.txt'), 'filter should show nested matches as relative paths')
+    assert(vim.tbl_contains(filtered_lines, 'gamma/match.txt'), 'filter should distinguish duplicate basenames by parent path')
+    assert(vim.tbl_contains(filtered_lines, 'root-MATCH.txt'), 'filter matching should be case-insensitive')
+    assert(not vim.tbl_contains(filtered_lines, 'beta/match.txt'), 'filter should exclude rows under collapsed directories')
+    assert(not table.concat(filtered_lines, '\n'):find('├──', 1, true), 'filter results should not include tree connectors')
+    local match_marks = {}
+    local directory_marks = {}
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})) do
+        if mark[4].hl_group == 'DoraFilterMatch' then
+            match_marks[#match_marks+1] = mark
+        elseif mark[4].hl_group == 'DoraFilterPath' then
+            directory_marks[#directory_marks+1] = mark
+        end
+    end
+    assert_eq(#match_marks, 3, 'filter should highlight each visible basename match')
+    for _, mark in ipairs(match_marks) do
+        local line = filtered_lines[mark[2] + 1]
+        assert_eq(line:sub(mark[3] + 1, mark[4].end_col):lower(), 'match',
+            'filter match highlight should cover the matching basename letters')
+        assert_eq(mark[4].priority, 10001)
+    end
+    assert_eq(#directory_marks, 2, 'filter should highlight nested directory prefixes')
+    for _, mark in ipairs(directory_marks) do
+        local line = filtered_lines[mark[2] + 1]
+        local directory = line:sub(mark[3] + 1, mark[4].end_col)
+        assert(directory == 'alpha/' or directory == 'gamma/',
+            'directory highlight should include the separator before the basename')
+        assert_eq(mark[4].priority, 10000)
+    end
+    assert_eq(state.filter_preview, 'MATCH')
+
+    filter:confirm()
+    assert_eq(api.nvim_get_current_win(), origin_win, 'confirming should return focus to Dora')
+    assert_eq(state.filter_text, 'MATCH')
+    assert_eq(state.filter_preview, nil)
+    assert_eq(state.filter_window, nil, 'confirming should clear the filter window handle')
+    assert(not window.valid_win(filter.win), 'confirming should close the filter window')
+    assert_eq(current_line(), 'alpha/match.txt', 'confirming should select the first result')
+
+    core.copy()
+    assert_eq(state.marked_paths[fs.realpath(tmp) .. '/alpha/match.txt'], 'copy',
+        'actions on filtered rows should use their real paths')
+    core.next_sibling()
+    assert_eq(current_line(), 'gamma/match.txt', 'filtered navigation should treat results as peers')
+    core.last_sibling()
+    assert_eq(current_line(), 'root-MATCH.txt', 'filtered last-sibling navigation should reach the final result')
+    core.first_sibling()
+    assert_eq(current_line(), 'alpha/match.txt', 'filtered first-sibling navigation should reach the first result')
+
+    set_cursor_line('root%-MATCH%.txt$')
+    core.filter()
+    local reopened_filter = assert(state.filter_window)
+    assert(reopened_filter ~= filter, 'reopening should create a new filter window')
+    assert_eq(reopened_filter:get_input(), 'MATCH', 'reopening should preload the committed filter')
+    assert_eq(api.nvim_win_get_cursor(reopened_filter.win)[2], #'MATCH',
+        'reopening should place the cursor at the end')
+    reopened_filter:set_input('other')
+    assert_eq(buf_lines(state.buf)[1], 'alpha/other.lua', 'typing should update results live')
+    reopened_filter:cancel()
+    assert_eq(state.filter_text, 'MATCH', 'cancel should restore the committed filter')
+    assert_eq(current_line(), 'root-MATCH.txt', 'cancel should restore the previous result cursor')
+    assert_eq(state.filter_window, nil, 'cancel should clear the filter window handle')
+    assert(not window.valid_win(reopened_filter.win), 'cancel should close the filter window')
+
+    core.filter()
+    local dismissed_filter = assert(state.filter_window)
+    dismissed_filter:set_input('other')
+    api.nvim_win_close(dismissed_filter.win, true)
+    assert(vim.wait(1000, function()
+        return state.filter_window == nil
+    end), 'externally closing the filter window should clear its handle')
+    assert_eq(state.filter_text, 'MATCH', 'externally closing should preserve the committed filter')
+    assert_eq(current_line(), 'root-MATCH.txt', 'externally closing should restore the previous result cursor')
+
+    core.filter()
+    local amended_filter = assert(state.filter_window)
+    amended_filter:set_input('missing')
+    assert_eq(#state.rows, 0, 'a filter with no matches should have no result rows')
+    assert_eq(buf_lines(state.buf)[1], '', 'a filter with no matches should render a blank buffer')
+    amended_filter:confirm()
+    assert_eq(current_line(), '')
+    assert(not window.valid_win(amended_filter.win), 'confirming an amended filter should close its window')
+    core.clear_filter()
+    assert_eq(state.filter_text, nil)
+    assert_eq(state.filter_window, nil)
+    assert(not window.valid_win(filter.win), 'clearing should close the filter window')
+    assert(vim.tbl_contains(lines(), 'alpha/'), 'clearing should restore the tree listing')
+
+    core.filter()
+    local cancelled_filter = assert(state.filter_window)
+    cancelled_filter:set_input('other')
+    cancelled_filter:cancel()
+    assert_eq(state.filter_text, nil, 'cancelling a new filter should leave filtering disabled')
+    assert_eq(state.filter_window, nil)
+    assert(not window.valid_win(cancelled_filter.win), 'cancelling a new filter should close its window')
+
+    core.filter()
+    local empty_filter = assert(state.filter_window)
+    empty_filter:set_input('match')
+    empty_filter:set_input('')
+    empty_filter:confirm()
+    assert_eq(state.filter_text, nil, 'confirming an empty filter should clear filtering')
+    assert_eq(state.filter_window, nil)
+    assert(not window.valid_win(empty_filter.win), 'confirming an empty filter should close its window')
+
+    core.filter()
+    local directory_filter = assert(state.filter_window)
+    directory_filter:set_input('alpha')
+    directory_filter:confirm()
+    assert_eq(current_line(), 'alpha/')
+    core.open()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/alpha'), 'opening a filtered directory should navigate normally')
+    assert_eq(state.filter_text, nil, 'directory navigation should clear the filter')
+    assert_eq(state.filter_window, nil)
+    assert(not window.valid_win(directory_filter.win), 'directory navigation should close the filter window')
+
+    core.filter()
+    local quit_filter = assert(state.filter_window)
+    quit_filter:set_input('match')
+    quit_filter:confirm()
+    core.quit()
+    assert(not window.valid_win(quit_filter.win), 'quitting Dora should close the filter window')
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
