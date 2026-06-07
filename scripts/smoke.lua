@@ -76,6 +76,11 @@ local function marked_path_count(state)
     return count
 end
 
+local function clear_persisted_view_state(win)
+    pcall(api.nvim_win_del_var, win or 0, 'dora_previous_directory')
+    pcall(api.nvim_win_del_var, win or 0, 'dora_expanded_directories')
+end
+
 local function lines()
     return api.nvim_buf_get_lines(0, 0, -1, false)
 end
@@ -767,6 +772,7 @@ do
 end
 
 do
+    clear_persisted_view_state()
     vim.cmd('Dora ' .. vim.fn.fnameescape(util.sep))
     local state = store.get()
     local name = api.nvim_buf_get_name(state.buf)
@@ -1549,7 +1555,12 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/project', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/other', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/other/nested', tonumber('755', 8)))
 
+    local other_win = api.nvim_get_current_win()
+    clear_persisted_view_state(other_win)
+    vim.cmd('new')
+    local bookmark_win = api.nvim_get_current_win()
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = fs.realpath(tmp)
@@ -1566,6 +1577,10 @@ do
     api.nvim_feedkeys('a', 't', false)
     set_map.callback()
     assert_eq(state.bookmarks.paths.a, root, 'ma should bookmark the current directory')
+
+    set_cursor_line('^other/$')
+    core.expand()
+    assert(state.expanded_dirs[root .. '/other'], 'setup should expand a directory before quitting')
 
     set_cursor_line('^project/$')
     core.open()
@@ -1603,6 +1618,41 @@ do
 
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(project))
+    local reopened_state = store.get()
+    assert_eq(reopened_state.bookmarks.previous_directory, root,
+        "reopening Dora in the same window should preserve the '' bookmark")
+    api.nvim_feedkeys("'", 't', false)
+    jump_map = vim.fn.maparg("'", 'n', false, true)
+    jump_map.callback()
+    assert_eq(reopened_state.cwd, root, "'' should jump to the previous view after reopening Dora")
+    assert_eq(reopened_state.bookmarks.previous_directory, project,
+        "'' should keep toggling after reopening Dora")
+    assert(reopened_state.expanded_dirs[root .. '/other'],
+        'reopening Dora in the same window should preserve expanded directories')
+    assert(find_line_index(lines(), '^└── nested/$'),
+        'restored expanded directories should be visible after returning to their parent')
+    set_cursor_line('^other/$')
+    core.collapse_recursive()
+    assert_eq(reopened_state.expanded_dirs[root .. '/other'], nil)
+    core.quit()
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(root))
+    assert_eq(store.get().expanded_dirs[root .. '/other'], nil,
+        'collapsed directories should remain collapsed after reopening Dora')
+    core.quit()
+
+    api.nvim_set_current_win(other_win)
+    vim.cmd('Dora ' .. vim.fn.fnameescape(project))
+    assert_eq(store.get().bookmarks.previous_directory, nil,
+        "the '' bookmark should not be shared with another window")
+    assert_eq(store.get().expanded_dirs[root .. '/other'], nil,
+        'expanded directories should not be shared with another window')
+    core.quit()
+
+    api.nvim_set_current_win(bookmark_win)
+    vim.cmd('close!')
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
