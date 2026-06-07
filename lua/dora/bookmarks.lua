@@ -6,11 +6,12 @@ local M = {}
 ---@field paths table<string, string>
 ---@field previous_directory? string
 
+---@param previous_directory? string
 ---@return DoraBookmarks
-function M.new()
+function M.new(previous_directory)
     return {
         paths = {},
-        previous_directory = nil,
+        previous_directory = previous_directory,
     }
 end
 
