@@ -1294,7 +1294,11 @@ local function open_keep(cmd)
         util.err(msg)
         return
     end
+    local dora_win = api.nvim_get_current_win()
     vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
+    if api.nvim_win_is_valid(dora_win) then
+        api.nvim_set_current_win(dora_win)
+    end
 end
 
 function M.open_split()
