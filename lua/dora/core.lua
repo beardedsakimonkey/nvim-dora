@@ -1119,20 +1119,6 @@ function M.help()
 end
 
 ---@param win integer
-local function scroll_filter_results_to_top(win)
-    if not api.nvim_win_is_valid(win) then
-        return
-    end
-    api.nvim_win_set_cursor(win, {1, 0})
-    api.nvim_win_call(win, function()
-        vim.cmd'normal! zt'
-        local view = vim.fn.winsaveview()
-        view.topfill = 1
-        vim.fn.winrestview(view)
-    end)
-end
-
----@param win integer
 local function reveal_filter_spacer(win)
     if not api.nvim_win_is_valid(win) then
         return
@@ -1143,6 +1129,15 @@ local function reveal_filter_spacer(win)
         view.topfill = 1
         vim.fn.winrestview(view)
     end)
+end
+
+---@param win integer
+local function scroll_filter_results_to_top(win)
+    if not api.nvim_win_is_valid(win) then
+        return
+    end
+    api.nvim_win_set_cursor(win, {1, 0})
+    reveal_filter_spacer(win)
 end
 
 function M.filter()
@@ -1455,6 +1450,9 @@ function M.clear_paste_operation()
     local state = store.get()
     clear_marked_paths(state)
     render(state)
+    if state.filter_window then
+        reveal_filter_spacer(state.win)
+    end
 end
 
 ---@param state DoraState

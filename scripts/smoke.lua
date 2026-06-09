@@ -2712,6 +2712,12 @@ do
     assert_eq(locked_view.topfill, 1, 'confirming should keep the virtual spacer visible')
     assert_eq(current_line(), 'alpha/match.txt', 'confirming should select the first result')
 
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
+    local escaped_view = api.nvim_win_call(origin_win, function()
+        return vim.fn.winsaveview()
+    end)
+    assert_eq(escaped_view.topfill, 1, 'escape should keep the virtual spacer visible')
+
     core.copy()
     assert_eq(state.marked_paths[fs.realpath(tmp) .. '/alpha/match.txt'], 'copy',
         'actions on filtered rows should use their real paths')
