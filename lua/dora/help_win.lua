@@ -5,21 +5,7 @@ local api = vim.api
 
 local M = {}
 
-local KEY_ORDER = {
-    'q', '-', 'h', 'l', '<CR>', '<2-LeftMouse>',
-    's', 'v', 't', '<C-s>', '<C-v>', '<C-t>', 'gx',
-    'J', 'K', '>', '<', '<BS>', 'o', 'O', 'u', 'U',
-    'f', 'F', 'R', '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
-    'd', 'D', 'a', 'A', 'r', 'm', "'", 'x', 'c', 'p', 'P',
-    'Y', 'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
-    ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
-}
-
 local SECTIONS = {
-    {
-        name = 'General',
-        actions = {'help', 'quit'},
-    },
     {
         name = 'Navigation',
         actions = {
@@ -41,6 +27,10 @@ local SECTIONS = {
             'create', 'create_under', 'rename', 'trash', 'delete',
             'cut', 'copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
         },
+    },
+    {
+        name = 'View',
+        actions = {'filter', 'clear_filter', 'reload', 'info', 'toggle_hidden_files'},
     },
     {
         name = 'Bookmarks',
@@ -65,8 +55,8 @@ local SECTIONS = {
         },
     },
     {
-        name = 'View',
-        actions = {'filter', 'clear_filter', 'reload', 'info', 'toggle_hidden_files'},
+        name = 'General',
+        actions = {'help', 'quit'},
     },
 }
 
@@ -92,10 +82,6 @@ local function keymap_sections(keymaps)
     local sections = {}
     local action_sections = {}
     local action_order = {}
-    local key_order = {}
-    for i, lhs in ipairs(KEY_ORDER) do
-        key_order[lhs] = i
-    end
     for _, section in ipairs(SECTIONS) do
         sections[section.name] = {}
         for i, action in ipairs(section.actions) do
@@ -114,7 +100,6 @@ local function keymap_sections(keymaps)
             lhs = lhs,
             desc = desc or tostring(action),
             order = action_order[action],
-            key_order = key_order[lhs],
         }
     end
 
@@ -125,16 +110,10 @@ local function keymap_sections(keymaps)
                 if b.order == nil then return true end
                 return a.order < b.order
             end
-            if a.key_order ~= b.key_order then
-                if a.key_order == nil then return false end
-                if b.key_order == nil then return true end
-                return a.key_order < b.key_order
-            end
             return a.lhs < b.lhs
         end)
         for _, row in ipairs(rows) do
             row.order = nil
-            row.key_order = nil
         end
     end
     return sections

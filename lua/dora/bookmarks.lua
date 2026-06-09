@@ -97,13 +97,9 @@ end
 ---@param bookmarks DoraBookmarks
 ---@return DoraHelpRow[]
 function M.help_rows(bookmarks)
-    local previous_desc = 'Previous directory'
-    if bookmarks.previous_directory then
-        previous_desc = previous_desc .. ': ' .. util.display_path(bookmarks.previous_directory)
-    end
     local rows = {{
         lhs = "''",
-        desc = previous_desc,
+        desc = 'Jump to previous directory',
     }}
 
     local keys = {}
