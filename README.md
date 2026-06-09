@@ -1,24 +1,7 @@
 # nvim-dora
 
-Dora is a small directory viewer for Neovim 0.12+. It opens in the current
-window, works well with normal buffer navigation, and stays out of the way when
-you only need to browse, create, rename, copy, delete, or inspect files.
-
-It is closer to [vim-dirvish](https://github.com/justinmk/vim-dirvish) than to
-a project drawer. Dora is meant to be opened when you need it, then closed or
-replaced by the file you choose.
-
-## Why Dora?
-
-- **Normal buffers, not editable directory listings.** Dora does not make the
-  directory buffer modifiable, which leaves more keys available for actions.
-- **Quiet navigation history.** Dora buffers avoid populating the jumplist, so
-  `<C-o>` usually takes you back through files rather than directory views.
-- **Isolated instances.** Opening the same directory in two windows creates two
-  independent Dora buffers. Navigation, paste marks, and expanded directories in one
-  window do not affect the other.
-- **Inline tree expansion.** You can stay in one directory while expanding
-  selected subdirectories into a tree.
+Dora is a directory explorer for Neovim 0.12+ focused on usability.
+It is currently under development so expect breaking changes.
 
 <!-- panvimdoc-ignore-start -->
 
@@ -45,10 +28,11 @@ vim.keymap.set('n', '-', '<Cmd>Dora<CR>')
 
 ## Configuration
 
-Dora works without setup. To customize it, mutate `require'dora'.config` from
-your Neovim config.
+Dora works without setup, but you can change the default config using `setup()`.
+The arguments are deeply merged with the defaults, so you only need to specify
+the options you want to add or change.
 
-The default config is generated from `lua/dora.lua`:
+Here are the defaults:
 
 <!-- dora-config:start -->
 ```lua
@@ -256,14 +240,3 @@ Benchmark Lua module load time with:
 ```sh
 sh scripts/bench-require.sh
 ```
-
-## Acknowledgements
-
-Some minor bits of code were adapted from vim-dirvish and nvim-tree.
-
-## Similar plugins
-
-- [vim-vinegar](https://github.com/tpope/vim-vinegar)
-- [vim-filebeagle](https://github.com/jeetsukumaran/vim-filebeagle)
-- [vim-dirvish](https://github.com/justinmk/vim-dirvish)
-- [lir.nvim](https://github.com/tamago324/lir.nvim)
