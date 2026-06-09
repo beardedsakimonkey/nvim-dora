@@ -1296,6 +1296,11 @@ do
 end
 
 do
+    local old_notify = vim.notify
+    local notifications = {}
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
@@ -1327,8 +1332,11 @@ do
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
     assert_eq(marked_path_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
+    assert_eq(notifications[#notifications].msg, '[dora] Pasted 1 item to ' .. state.cwd .. '/dest')
+    assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
     core.quit()
+    vim.notify = old_notify
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
