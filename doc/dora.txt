@@ -80,69 +80,77 @@ The default config is generated from `lua/dora.lua`:
         sync_local_cwd = false,
         -- Key mappings
         keymaps = {
-            q = {"quit",                        desc="Quit"},
-            h = {"up_dir",                      desc="Up directory"},
-            ['-'] = {"up_dir",                  desc="Up directory"},
-            J = {"last_sibling",                desc="Last sibling"},
-            K = {"first_sibling",               desc="First sibling"},
-            ['>'] = {"next_sibling",            desc="Next sibling"},
-            ['<'] = {"prev_sibling",            desc="Previous sibling"},
-            ['<BS>'] = {"parent_dir",           desc="Go to and collapse parent directory"},
-            o = {"expand",                      desc="Expand directory"},
-            O = {"expand_recursive",            desc="Expand directory recursively"},
-            u = {"collapse",                    desc="Collapse directory"},
-            U = {"collapse_recursive",          desc="Collapse directory recursively"},
-            f = {"filter",                      desc="Filter visible files"},
-            F = {"clear_filter",                desc="Clear filter"},
-            ['<C-r>'] = {"reload",              desc="Reload listing"},
-            l = {"open",                        desc="Open"},
-            ['<CR>'] = {"open",                 desc="Open"},
-            ['<2-LeftMouse>'] = {"open",        desc="Open"},
-            s = {"open_split",                  desc="Open in split"},
-            v = {"open_vsplit",                 desc="Open in vertical split"},
-            t = {"open_tab",                    desc="Open in tab"},
-            ['<C-s>'] = {"open_split_keep",     desc="Open in split without closing Dora"},
-            ['<C-v>'] = {"open_vsplit_keep",    desc="Open in vertical split without closing Dora"},
-            ['<C-t>'] = {"open_tab_keep",       desc="Open in tab without closing Dora"},
-            i = {"info",                        desc="Show file info"},
-            d = {"trash",                       desc="Move file to trash"},
-            D = {"delete",                      desc="Delete file permanently"},
-            a = {"create",                      desc="Add file"},
-            A = {"create_under",                desc="Add file under directory"},
-            r = {"rename",                      desc="Rename file"},
-            R = {"rename_empty",                desc="Rename file with empty prompt"},
-            m = {"set_bookmark",                desc="Set bookmark"},
-            ["'"] = {"jump_bookmark",           desc="Jump to bookmark"},
-            x = {"cut",                         desc="Toggle cut mark"},
-            c = {"copy",                        desc="Toggle copy mark"},
-            p = {"paste",                       desc="Paste under directory"},
-            P = {"paste_parent",                desc="Paste under parent directory"},
-            ['<Esc>'] = {"clear_marks",         desc="Clear paste marks"},
-            gf = {"follow_symlink",             desc="Follow symlink"},
-            gh = {"home_dir",                   desc="Go to Home directory"},
-            gx = {"open_external",              desc="Open externally"},
-            ['.'] = {"shell_cmd",               desc="Shell command on file"},
-            ['g.'] = {"toggle_hidden_files",    desc="Toggle hidden files"},
-            ['g?'] = {"help",                   desc="Show help"},
-            Y = {"yank_filename",               desc="Yank filename"},
-            yy = {"yank_file_path",             desc="Yank full path"},
-            yY = {"yank_file_path_clipboard",   desc="Yank full path to clipboard"},
-            yd = {"yank_dir_path",              desc="Yank directory path"},
-            yD = {"yank_dir_path_clipboard",    desc="Yank directory path to clipboard"},
-            yf = {"yank_filename",              desc="Yank filename"},
-            yF = {"yank_filename_clipboard",    desc="Yank filename to clipboard"},
-            yb = {"yank_basename",              desc="Yank basename"},
-            yB = {"yank_basename_clipboard",    desc="Yank basename to clipboard"},
-            [',n'] = {"sort_by_name",           desc="Sort by name"},
-            [',N'] = {"sort_by_name_desc",      desc="Sort by name (descending)"},
-            [',m'] = {"sort_by_modified",       desc="Sort by modified time"},
-            [',M'] = {"sort_by_modified_desc",  desc="Sort by modified time (descending)"},
-            [',c'] = {"sort_by_created",        desc="Sort by creation time"},
-            [',C'] = {"sort_by_created_desc",   desc="Sort by creation time (descending)"},
-            [',s'] = {"sort_by_size",           desc="Sort by size"},
-            [',S'] = {"sort_by_size_desc",      desc="Sort by size (descending)"},
-            [',e'] = {"sort_by_extension",      desc="Sort by extension"},
-            [',E'] = {"sort_by_extension_desc", desc="Sort by extension (descending)"},
+            -- Navigation
+            ['-'] = 'up_dir',
+            h = 'up_dir',
+            J = 'last_sibling',
+            K = 'first_sibling',
+            ['>'] = 'next_sibling',
+            ['<'] = 'prev_sibling',
+            ['<BS>'] = 'parent_dir',
+            o = 'expand',
+            O = 'expand_recursive',
+            u = 'collapse',
+            U = 'collapse_recursive',
+            gh = 'home_dir',
+            gf = 'follow_symlink',
+            -- Open
+            ['<2-LeftMouse>'] = 'open',
+            ['<CR>'] = 'open',
+            l = 'open',
+            s = 'open_split',
+            v = 'open_vsplit',
+            t = 'open_tab',
+            ['<C-s>'] = 'open_split_keep',
+            ['<C-v>'] = 'open_vsplit_keep',
+            ['<C-t>'] = 'open_tab_keep',
+            gx = 'open_external',
+            -- File operations
+            a = 'create',
+            A = 'create_under',
+            r = 'rename',
+            R = 'rename_empty',
+            d = 'trash',
+            D = 'delete',
+            x = 'cut',
+            c = 'copy',
+            p = 'paste',
+            P = 'paste_parent',
+            ['<Esc>'] = 'clear_marks',
+            ['.'] = 'shell_cmd',
+            -- View
+            f = 'filter',
+            F = 'clear_filter',
+            ['<C-r>'] = 'reload',
+            i = 'info',
+            ['g.'] = 'toggle_hidden_files',
+            -- Bookmarks
+            m = 'set_bookmark',
+            ["'"] = 'jump_bookmark',
+            -- Yanking
+            yy = 'yank_file_path',
+            yY = 'yank_file_path_clipboard',
+            yd = 'yank_dir_path',
+            yD = 'yank_dir_path_clipboard',
+            yf = 'yank_filename',
+            yF = 'yank_filename_clipboard',
+            yb = 'yank_basename',
+            yB = 'yank_basename_clipboard',
+            Y = 'yank_filename',
+            -- Sorting
+            [',n'] = 'sort_by_name',
+            [',N'] = 'sort_by_name_desc',
+            [',m'] = 'sort_by_modified',
+            [',M'] = 'sort_by_modified_desc',
+            [',c'] = 'sort_by_created',
+            [',C'] = 'sort_by_created_desc',
+            [',s'] = 'sort_by_size',
+            [',S'] = 'sort_by_size_desc',
+            [',e'] = 'sort_by_extension',
+            [',E'] = 'sort_by_extension_desc',
+            -- General
+            ['g?'] = 'help',
+            q = 'quit',
         },
     }
 <
@@ -167,11 +175,18 @@ Example:
 <
 
 Keymaps may be core action names, Vim RHS strings, functions, or `{action,
-desc=...}` tables. Use the table form when you want the mapping to appear
-nicely in `g?` help:
+desc=...}` tables. Built-in action names automatically use Dora’s description
+in mappings, prefix hints, and `g?` help, even when remapped:
 
 >lua
-    dora.config.keymaps.q = {"quit", desc="Quit"}
+    dora.config.keymaps.x = "reload"
+<
+
+Use the table form to override the built-in wording or describe a custom
+mapping:
+
+>lua
+    dora.config.keymaps.q = {"quit", desc="Close Dora"}
 <
 
 Dora also shows a small hint window for two-character normal mode mappings. For

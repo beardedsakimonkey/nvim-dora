@@ -28,6 +28,11 @@ local store = require'dora.store'
 local util = require'dora.util'
 local window = require'dora.window'
 
+for lhs, rhs in pairs(config.keymaps) do
+    local _, desc = keymaps.resolve(rhs)
+    assert(desc, ('default keymap %s should have a description'):format(lhs))
+end
+
 do
     local old_config = dora.config
     local old_keymaps = dora.config.keymaps
@@ -51,6 +56,8 @@ do
     assert_eq(config.tree_indent, 2, 'setup should update tree indentation')
     assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
     assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
+    local _, q_desc = keymaps.resolve(config.keymaps.q)
+    assert_eq(q_desc, 'Quit', 'table overrides without desc should inherit the action description')
 
     dora.config.show_hidden_files = old_show_hidden_files
     dora.config.tree_indent = old_tree_indent
@@ -1130,9 +1137,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local dora_win = api.nvim_get_current_win()
     local dora_buf = api.nvim_get_current_buf()
-    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab without closing Dora')
+    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split in place')
+    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split in place')
+    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab in place')
 
     set_cursor_line('split%.txt$')
     local existing_wins = api.nvim_tabpage_list_wins(0)
@@ -1946,22 +1953,30 @@ do
     local old_reload = core.reload
 
     config.keymaps = {
-        za = {'reload', desc='Reload'},
+        za = 'reload',
     }
     config.show_keymap_hints = true
+    local captured_rows
     core.reload = function()
         vim.g.dora_smoke_named_keymap = 'reload'
     end
     keymaps.open_hint_window = function(prefix, rows)
+        captured_rows = rows
         return old_open(prefix, rows)
     end
     vim.g.dora_smoke_named_keymap = nil
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('z', 'n', false, true)
-    api.nvim_feedkeys('a', 't', false)
+    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Reload listing',
+        'named actions should inherit mapping descriptions')
+    vim.defer_fn(function()
+        api.nvim_feedkeys('a', 't', false)
+    end, 250)
     prefix_map.callback()
     assert_eq(vim.g.dora_smoke_named_keymap, 'reload', 'keymap hints should dispatch named core actions')
+    assert_eq(captured_rows[1].desc, 'Reload listing',
+        'named actions should inherit keymap hint descriptions')
     core.quit()
 
     keymaps.open_hint_window = old_open
@@ -1976,7 +1991,7 @@ do
     local old_reload = core.reload
 
     config.keymaps = {
-        x = {'reload', desc='Reload'},
+        x = {'reload', desc='Custom reload'},
     }
     config.show_keymap_hints = false
     core.reload = function()
@@ -1986,7 +2001,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local map = vim.fn.maparg('x', 'n', false, true)
-    assert_eq(map.desc, 'Reload')
+    assert_eq(map.desc, 'Custom reload', 'explicit descriptions should override action descriptions')
     assert_eq(type(map.callback), 'function')
     map.callback()
     assert_eq(vim.g.dora_smoke_named_direct_keymap, 'reload', 'direct keymaps should dispatch named core actions')
@@ -2418,7 +2433,7 @@ end
 do
     local old_keymaps = config.keymaps
     config.keymaps = {
-        n = {"yank_file_path", desc="Custom Yank"},
+        n = "yank_file_path",
         x = "<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal'<CR>",
         z = {"<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }
@@ -2429,7 +2444,7 @@ do
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
     assert(help_text:match("x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(find_line_index(help_lines, '^Yank$') < find_line_index(help_lines, '^  n%s+Custom Yank$'),
+    assert(find_line_index(help_lines, '^Yank$') < find_line_index(help_lines, '^  n%s+Yank full path$'),
         'help should categorize remapped built-in actions by action name')
     assert(find_line_index(help_lines, '^Other$'), 'help should group custom mappings under Other')
     assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
