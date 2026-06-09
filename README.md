@@ -52,7 +52,7 @@ The default config is generated from `lua/dora.lua`:
 
 <!-- dora-config:start -->
 ```lua
-require'dora'.setup {
+require('dora').setup {
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
     -- Whether hidden files should be shown when dora opens
@@ -67,7 +67,8 @@ require'dora'.setup {
     -- Number of columns used for each level of tree indentation (minimum 2)
     tree_indent = 4,
     -- Whether to sync the window's current directory with dora's current path
-    sync_local_cwd = true,
+    sync_local_cwd = false,
+    -- Key mappings
     keymaps = {
         q = {"quit",                            desc="Quit"},
         h = {"up_dir",                          desc="Up directory"},
@@ -140,13 +141,14 @@ require'dora'.setup {
 Example:
 
 ```lua
-local dora = require'dora'
+local dora = require('dora')
 
 -- The config table is deeply merged with the defaults, so you only need to
 -- specify the options you want to add/change.
 dora.setup({
     keymaps = {
-        d = "delete",
+        d = 'delete',
+        Y = 'yank_filename',
     },
     icons = true,
 })
