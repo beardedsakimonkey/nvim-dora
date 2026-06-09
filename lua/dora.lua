@@ -49,7 +49,7 @@ M.config = {
         K = {"first_sibling",                   desc="First sibling"},
         ['>'] = {"next_sibling",                desc="Next sibling"},
         ['<'] = {"prev_sibling",                desc="Previous sibling"},
-        gp = {"parent_dir",                     desc="Parent directory"},
+        ['<BS>'] = {"parent_dir",               desc="Parent directory"},
         o = {"expand",                          desc="Expand directory"},
         O = {"expand_recursive",                desc="Expand directory recursively"},
         u = {"collapse",                        desc="Collapse directory"},
