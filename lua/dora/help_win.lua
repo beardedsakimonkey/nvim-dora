@@ -24,7 +24,7 @@ local SECTIONS = {
     {
         name = 'File Operations',
         actions = {
-            'create', 'create_under', 'rename', 'trash', 'delete',
+            'create', 'create_under', 'rename', 'rename_empty', 'trash', 'delete',
             'cut', 'copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
         },
     },
