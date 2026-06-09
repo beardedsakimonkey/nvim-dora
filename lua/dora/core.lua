@@ -1475,6 +1475,8 @@ local function paste_entries(state, entries, dest_dir, dest_path)
     clear_marked_paths(state)
     render(state)
     set_cursor_path(state, dest_path)
+    local item_label = #entries == 1 and 'item' or 'items'
+    util.info(('Pasted %d %s to %s'):format(#entries, item_label, util.display_path(dest_dir)))
 end
 
 ---@param state DoraState
