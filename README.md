@@ -108,6 +108,7 @@ require'dora'.setup {
         ['.'] = {"shell_cmd",                   desc="Shell command on file"},
         ['g.'] = {"toggle_hidden_files",        desc="Toggle hidden files"},
         ['g?'] = {"help",                       desc="Show help"},
+        Y = {"yank_filename",                   desc="Yank filename"},
         yy = {"yank_file_path",                 desc="Yank full path"},
         yY = {"yank_file_path_clipboard",       desc="Yank full path to clipboard"},
         yd = {"yank_dir_path",                  desc="Yank directory path"},

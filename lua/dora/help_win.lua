@@ -12,7 +12,7 @@ local KEYMAP_ORDER = {
     'o', 'O', 'u', 'U', 'f', 'F', 'R',
     '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
     'd', 'D', 'a', 'A', 'r', 'm', "'", 'x', 'c', 'p', 'P', '.',
-    'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
+    'Y', 'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
     ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
 }
 

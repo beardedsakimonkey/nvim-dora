@@ -2119,6 +2119,13 @@ do
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
     local expected_yank_text = current_line()
 
+    local yank_filename_map = vim.fn.maparg('Y', 'n', false, true)
+    assert_eq(yank_filename_map.desc, 'Yank filename')
+    assert_eq(type(yank_filename_map.callback), 'function')
+    yank_filename_map.callback()
+    assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
+
     core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
     assert_eq(notifications[#notifications].msg, '[dora] Yanked file path: ' .. expected_path)
