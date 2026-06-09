@@ -1457,6 +1457,26 @@ function M.clear_paste_operation()
     render(state)
 end
 
+---@param state DoraState
+---@param entries DoraMarkedPathEntry[]
+---@param dest_dir string
+---@param dest_path string
+local function paste_entries(state, entries, dest_dir, dest_path)
+    local ok, msg = pcall(function()
+        assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
+        for _, entry in ipairs(entries) do
+            fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
+        end
+    end)
+    if not ok then
+        util.err(msg)
+        return
+    end
+    clear_marked_paths(state)
+    render(state)
+    set_cursor_path(state, dest_path)
+end
+
 function M.paste()
     local state = store.get()
     local entries = marked_path_entries(state)
@@ -1471,19 +1491,35 @@ function M.paste()
         return
     end
     local dest_path = vim.fs.joinpath(dest_dir, fs.basename(entries[1].path))
+    local overwrite_paths = {}
+    local seen_overwrite_paths = {}
     local ok, msg = pcall(function()
         assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
         for _, entry in ipairs(entries) do
-            fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
+            local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
+            local dest_stat = uv.fs_lstat(entry_dest)
+            if dest_stat and dest_stat.type ~= 'directory' and not seen_overwrite_paths[entry_dest] then
+                overwrite_paths[#overwrite_paths+1] = entry_dest
+                seen_overwrite_paths[entry_dest] = true
+            end
         end
     end)
     if not ok then
         util.err(msg)
         return
     end
-    clear_marked_paths(state)
-    render(state)
-    set_cursor_path(state, dest_path)
+    if #overwrite_paths == 0 then
+        paste_entries(state, entries, dest_dir, dest_path)
+        return
+    end
+    delete_win.delete(overwrite_paths, state.cwd, function(confirmed)
+        if confirmed then
+            paste_entries(state, entries, dest_dir, dest_path)
+        end
+    end, {
+        anchor = current_name_anchor(row),
+        action = 'Overwrite',
+    })
 end
 
 ---@param value string
