@@ -2177,22 +2177,40 @@ do
             vim.g.dora_smoke_yankpost_operator = vim.v.event.operator
             vim.g.dora_smoke_yankpost_regname = vim.v.event.regname
             vim.g.dora_smoke_yankpost_text = vim.v.event.regcontents[1]
+            vim.hl.on_yank({timeout=1000})
         end,
     })
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
     util.set_cursor_pos('dir')
     core.expand()
     set_cursor_line('archive%.tar%.gz$')
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
     local expected_yank_text = current_line()
 
+    local function yank_highlight_range()
+        local yank_ns = assert(api.nvim_get_namespaces()['nvim.hlyank'])
+        local marks = api.nvim_buf_get_extmarks(state.buf, yank_ns, 0, -1, {details=true})
+        assert_eq(#marks, 1, 'visible yank should highlight one range')
+        return marks[1][3], marks[1][4].end_col
+    end
+
     local yank_filename_map = vim.fn.maparg('Y', 'n', false, true)
     assert_eq(yank_filename_map.desc, 'Yank filename')
     assert_eq(type(yank_filename_map.callback), 'function')
+    local yank_cursor = api.nvim_win_get_cursor(0)
     yank_filename_map.callback()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
+    assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar.gz')
+    assert_eq(api.nvim_win_get_cursor(0)[1], yank_cursor[1])
+    assert_eq(api.nvim_win_get_cursor(0)[2], yank_cursor[2], 'filename yank should preserve the cursor')
+    local row = state.rows[api.nvim_win_get_cursor(0)[1]]
+    local filename_col = row.name_end_col - #row.name
+    local start_col, end_col = yank_highlight_range()
+    assert_eq(start_col, filename_col, 'filename yank should highlight only the filename')
+    assert_eq(end_col, filename_col + #'archive.tar.gz', 'filename yank should highlight the full filename')
 
     core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
@@ -2224,6 +2242,9 @@ do
     core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
+    start_col, end_col = yank_highlight_range()
+    assert_eq(start_col, filename_col)
+    assert_eq(end_col, filename_col + #'archive.tar.gz')
 
     core.yank_filename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
@@ -2232,6 +2253,10 @@ do
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
     assert_eq(notifications[#notifications].msg, '[dora] Yanked basename: archive.tar')
+    assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
+    start_col, end_col = yank_highlight_range()
+    assert_eq(start_col, filename_col, 'basename yank should start at the filename')
+    assert_eq(end_col, filename_col + #'archive.tar', 'basename yank should exclude the final extension')
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')

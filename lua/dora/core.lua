@@ -1557,20 +1557,6 @@ function M.paste_parent()
     paste_to_directory(state, row, row.parent_path, entries)
 end
 
----@param value string
----@param reg? string
----@param message string
-local function copy_value(value, reg, message)
-    -- Trigger a real yank so TextYankPost autocmds see vim.v.event.
-    pcall(vim.cmd, reg == '+' and [[normal! "+yy]] or [[normal! yy]])
-    local ok, err = pcall(vim.fn.setreg, reg or '"', value, 'c')
-    if not ok then
-        util.err(err)
-        return
-    end
-    util.info(('%s: %s'):format(message, value))
-end
-
 ---@param reg? string
 function M.yank_file_path(reg)
     local state = store.get()
@@ -1579,7 +1565,7 @@ function M.yank_file_path(reg)
         util.err(msg)
         return
     end
-    copy_value(path, reg, reg == '+' and 'Yanked file path to clipboard' or 'Yanked file path')
+    util.copy_value(path, reg, reg == '+' and 'Yanked file path to clipboard' or 'Yanked file path')
 end
 
 function M.yank_file_path_clipboard()
@@ -1594,7 +1580,7 @@ function M.yank_dir_path(reg)
         util.err(msg)
         return
     end
-    copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Yanked directory path to clipboard' or 'Yanked directory path')
+    util.copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Yanked directory path to clipboard' or 'Yanked directory path')
 end
 
 function M.yank_dir_path_clipboard()
@@ -1609,7 +1595,12 @@ function M.yank_filename(reg)
         util.err(msg)
         return
     end
-    copy_value(fs.basename(path), reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename')
+    local row = current_row(state)
+    local filename = fs.basename(path)
+    util.copy_value(filename, reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename', {
+        line = api.nvim_win_get_cursor(state.win)[1],
+        start_col = row.name_end_col - #row.name,
+    })
 end
 
 function M.yank_filename_clipboard()
@@ -1625,8 +1616,13 @@ function M.yank_basename(reg)
         return
     end
     local filename = fs.basename(path)
+    local basename = vim.fn.fnamemodify(filename, ':r')
     local message = reg == '+' and 'Yanked basename to clipboard' or 'Yanked basename'
-    copy_value(vim.fn.fnamemodify(filename, ':r'), reg, message)
+    local row = current_row(state)
+    util.copy_value(basename, reg, message, {
+        line = api.nvim_win_get_cursor(state.win)[1],
+        start_col = row.name_end_col - #row.name,
+    })
 end
 
 function M.yank_basename_clipboard()
