@@ -1693,6 +1693,16 @@ do
     assert_eq(captured_prefix, nil, "fast bookmark jumps should not open mark hints")
     keymaps.open_hint_window = old_open
 
+    local old_notify = vim.notify
+    local notification
+    vim.notify = function(msg)
+        notification = msg
+    end
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 't', false)
+    jump_map.callback()
+    vim.notify = old_notify
+    assert_eq(notification, nil, "escape should cancel a bookmark jump without notifying")
+
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
