@@ -930,7 +930,7 @@ do
     touch(tmp .. '/alpha/one/file.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Parent directory')
+    assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste under parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
