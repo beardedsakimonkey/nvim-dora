@@ -5,15 +5,69 @@ local api = vim.api
 
 local M = {}
 
--- Needed because Lua tables don't preserve order.
-local KEYMAP_ORDER = {
+local KEY_ORDER = {
     'q', '-', 'h', 'l', '<CR>', '<2-LeftMouse>',
-    's', 'v', 't', 'gx', 'J', 'K', '>', '<', '<BS>',
-    'o', 'O', 'u', 'U', 'f', 'F', 'R',
-    '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
-    'd', 'D', 'a', 'A', 'r', 'm', "'", 'x', 'c', 'p', 'P', '.',
+    's', 'v', 't', '<C-s>', '<C-v>', '<C-t>', 'gx',
+    'J', 'K', '>', '<', '<BS>', 'o', 'O', 'u', 'U',
+    'f', 'F', 'R', '<Esc>', 'gh', 'g?', 'g.', '.', 'i',
+    'd', 'D', 'a', 'A', 'r', 'm', "'", 'x', 'c', 'p', 'P',
     'Y', 'yy', 'yY', 'yd', 'yD', 'yf', 'yF', 'yb', 'yB',
     ',n', ',N', ',m', ',M', ',c', ',C', ',s', ',S', ',e', ',E',
+}
+
+local SECTIONS = {
+    {
+        name = 'General',
+        actions = {'help', 'quit'},
+    },
+    {
+        name = 'Navigation',
+        actions = {
+            'up_dir', 'last_sibling', 'first_sibling', 'next_sibling', 'prev_sibling',
+            'parent_dir', 'expand', 'expand_recursive', 'collapse', 'collapse_recursive',
+            'home_dir', 'follow_symlink',
+        },
+    },
+    {
+        name = 'Open',
+        actions = {
+            'open', 'open_split', 'open_vsplit', 'open_tab',
+            'open_split_keep', 'open_vsplit_keep', 'open_tab_keep', 'open_external',
+        },
+    },
+    {
+        name = 'File Operations',
+        actions = {
+            'create', 'create_under', 'rename', 'trash', 'delete',
+            'cut', 'copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
+        },
+    },
+    {
+        name = 'Bookmarks',
+        actions = {'set_bookmark', 'jump_bookmark'},
+    },
+    {
+        name = 'Yank',
+        actions = {
+            'yank_filename', 'yank_file_path', 'yank_file_path_clipboard',
+            'yank_dir_path', 'yank_dir_path_clipboard', 'yank_filename_clipboard',
+            'yank_basename', 'yank_basename_clipboard',
+        },
+    },
+    {
+        name = 'Sort',
+        actions = {
+            'sort_by_name', 'sort_by_name_reverse',
+            'sort_by_modified', 'sort_by_modified_reverse',
+            'sort_by_created', 'sort_by_created_reverse',
+            'sort_by_size', 'sort_by_size_reverse',
+            'sort_by_extension', 'sort_by_extension_reverse',
+        },
+    },
+    {
+        name = 'View',
+        actions = {'filter', 'clear_filter', 'reload', 'info', 'toggle_hidden_files'},
+    },
 }
 
 ---@class DoraHelpRow
@@ -33,33 +87,57 @@ local function layout(width, height)
 end
 
 ---@param keymaps? table<string, DoraKeymapSpec>
----@param order? string[]
----@return DoraHelpRow[]
-local function keymap_rows(keymaps, order)
-    local rows = {}
-    local handled = {}
-    local function add(lhs, rhs)
+---@return table<string, DoraHelpRow[]>
+local function keymap_sections(keymaps)
+    local sections = {}
+    local action_sections = {}
+    local action_order = {}
+    local key_order = {}
+    for i, lhs in ipairs(KEY_ORDER) do
+        key_order[lhs] = i
+    end
+    for _, section in ipairs(SECTIONS) do
+        sections[section.name] = {}
+        for i, action in ipairs(section.actions) do
+            action_sections[action] = section.name
+            action_order[action] = i
+        end
+    end
+    sections.Other = {}
+
+    for lhs, rhs in pairs(keymaps or {}) do
         local action = type(rhs) == 'table' and rhs[1] or rhs
         local desc = type(rhs) == 'table' and rhs.desc or nil
-        rows[#rows+1] = {lhs=lhs, desc=desc or tostring(action)}
+        local section = type(action) == 'string' and action_sections[action] or nil
+        local rows = sections[section or 'Other']
+        rows[#rows+1] = {
+            lhs = lhs,
+            desc = desc or tostring(action),
+            order = action_order[action],
+            key_order = key_order[lhs],
+        }
     end
-    for _, lhs in ipairs(order or {}) do
-        if keymaps and keymaps[lhs] then
-            add(lhs, keymaps[lhs])
-            handled[lhs] = true
+
+    for _, rows in pairs(sections) do
+        table.sort(rows, function(a, b)
+            if a.order ~= b.order then
+                if a.order == nil then return false end
+                if b.order == nil then return true end
+                return a.order < b.order
+            end
+            if a.key_order ~= b.key_order then
+                if a.key_order == nil then return false end
+                if b.key_order == nil then return true end
+                return a.key_order < b.key_order
+            end
+            return a.lhs < b.lhs
+        end)
+        for _, row in ipairs(rows) do
+            row.order = nil
+            row.key_order = nil
         end
     end
-    local unordered = {}
-    for lhs, rhs in pairs(keymaps or {}) do
-        if not handled[lhs] then
-            unordered[#unordered+1] = {lhs=lhs, rhs=rhs}
-        end
-    end
-    table.sort(unordered, function(a, b) return a.lhs < b.lhs end)
-    for _, entry in ipairs(unordered) do
-        add(entry.lhs, entry.rhs)
-    end
-    return rows
+    return sections
 end
 
 ---@param config DoraConfig
@@ -67,13 +145,27 @@ end
 ---@return DoraHelpRow[]
 local function rows(config, bookmark_rows)
     local ret = {}
-    if bookmark_rows and #bookmark_rows > 0 then
-        ret[#ret+1] = {section='Bookmarks'}
-        vim.list_extend(ret, bookmark_rows)
-        ret[#ret+1] = {}
+    local sections = keymap_sections(config.keymaps)
+    if bookmark_rows then
+        vim.list_extend(sections.Bookmarks, bookmark_rows)
     end
-    ret[#ret+1] = {section='Keymaps'}
-    vim.list_extend(ret, keymap_rows(config.keymaps, KEYMAP_ORDER))
+
+    local function add_section(name)
+        local section_rows = sections[name]
+        if #section_rows == 0 then
+            return
+        end
+        if #ret > 0 then
+            ret[#ret+1] = {}
+        end
+        ret[#ret+1] = {section=name}
+        vim.list_extend(ret, section_rows)
+    end
+
+    for _, section in ipairs(SECTIONS) do
+        add_section(section.name)
+    end
+    add_section('Other')
     return ret
 end
 
@@ -106,7 +198,7 @@ local function render(buf, ns, help_rows)
         if row.section then
             api.nvim_buf_set_extmark(buf, ns, lnum, 0, {
                 end_col = #row.section,
-                hl_group = 'DoraInfoLabel',
+                hl_group = 'DoraHelpSection',
             })
         elseif row.lhs then
             api.nvim_buf_set_extmark(buf, ns, lnum, 2, {

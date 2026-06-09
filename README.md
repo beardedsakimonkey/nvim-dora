@@ -194,6 +194,7 @@ hi default link DoraPromptBorderValid   DiagnosticOk
 hi default link DoraPromptBorderInvalid DiagnosticError
 hi default link DoraInfoLabel           Label
 hi default link DoraInfoValue           Special
+hi default link DoraHelpSection         Title
 hi default link DoraDeleteMore          NonText
 hi default link DoraKeymapHintArrow     NonText
 ```
