@@ -1,3 +1,4 @@
+local keymaps = require'dora.keymaps'
 local util = require'dora.util'
 local window = require'dora.window'
 
@@ -76,9 +77,9 @@ local function layout(width, height)
     })
 end
 
----@param keymaps? table<string, DoraKeymapSpec>
+---@param mappings? table<string, DoraKeymapSpec>
 ---@return table<string, DoraHelpRow[]>
-local function keymap_sections(keymaps)
+local function keymap_sections(mappings)
     local sections = {}
     local action_sections = {}
     local action_order = {}
@@ -91,9 +92,8 @@ local function keymap_sections(keymaps)
     end
     sections.Other = {}
 
-    for lhs, rhs in pairs(keymaps or {}) do
-        local action = type(rhs) == 'table' and rhs[1] or rhs
-        local desc = type(rhs) == 'table' and rhs.desc or nil
+    for lhs, rhs in pairs(mappings or {}) do
+        local action, desc = keymaps.resolve(rhs)
         local section = type(action) == 'string' and action_sections[action] or nil
         local rows = sections[section or 'Other']
         rows[#rows+1] = {

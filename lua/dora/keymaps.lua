@@ -14,6 +14,68 @@ local HINT_KEY_ORDERS = {
     y = {y=1, d=2, f=3, b=4},
 }
 
+local ACTION_DESCRIPTIONS = {
+    quit = 'Quit',
+    up_dir = 'Up directory',
+    last_sibling = 'Last sibling',
+    first_sibling = 'First sibling',
+    next_sibling = 'Next sibling',
+    prev_sibling = 'Previous sibling',
+    parent_dir = 'Go to and collapse parent directory',
+    expand = 'Expand directory',
+    expand_recursive = 'Expand directory recursively',
+    collapse = 'Collapse directory',
+    collapse_recursive = 'Collapse directory recursively',
+    filter = 'Filter visible files',
+    clear_filter = 'Clear filter',
+    reload = 'Reload listing',
+    open = 'Open',
+    open_split = 'Open in split',
+    open_vsplit = 'Open in vertical split',
+    open_tab = 'Open in tab',
+    open_split_keep = 'Open in split in place',
+    open_vsplit_keep = 'Open in vertical split in place',
+    open_tab_keep = 'Open in tab in place',
+    info = 'Show file info',
+    trash = 'Move file to trash',
+    delete = 'Delete file permanently',
+    create = 'Add file',
+    create_under = 'Add file under directory',
+    rename = 'Rename file',
+    rename_empty = 'Rename file with empty prompt',
+    set_bookmark = 'Set bookmark',
+    jump_bookmark = 'Jump to bookmark',
+    cut = 'Toggle cut mark',
+    copy = 'Toggle copy mark',
+    paste = 'Paste under directory',
+    paste_parent = 'Paste under parent directory',
+    clear_marks = 'Clear paste marks',
+    follow_symlink = 'Follow symlink',
+    home_dir = 'Go to Home directory',
+    open_external = 'Open externally',
+    shell_cmd = 'Shell command on file',
+    toggle_hidden_files = 'Toggle hidden files',
+    help = 'Show help',
+    yank_filename = 'Yank filename',
+    yank_file_path = 'Yank full path',
+    yank_file_path_clipboard = 'Yank full path to clipboard',
+    yank_dir_path = 'Yank directory path',
+    yank_dir_path_clipboard = 'Yank directory path to clipboard',
+    yank_filename_clipboard = 'Yank filename to clipboard',
+    yank_basename = 'Yank basename',
+    yank_basename_clipboard = 'Yank basename to clipboard',
+    sort_by_name = 'Sort by name',
+    sort_by_name_desc = 'Sort by name (descending)',
+    sort_by_modified = 'Sort by modified time',
+    sort_by_modified_desc = 'Sort by modified time (descending)',
+    sort_by_created = 'Sort by creation time',
+    sort_by_created_desc = 'Sort by creation time (descending)',
+    sort_by_size = 'Sort by size',
+    sort_by_size_desc = 'Sort by size (descending)',
+    sort_by_extension = 'Sort by extension',
+    sort_by_extension_desc = 'Sort by extension (descending)',
+}
+
 local VISUAL_KEYMAP_ACTIONS = {
     delete = 'delete_visual',
     first_sibling = 'first_sibling',
@@ -26,12 +88,15 @@ local VISUAL_KEYMAP_ACTIONS = {
 ---@param rhs DoraKeymapSpec
 ---@return DoraKeymapAction action
 ---@return string? desc
-local function normalize_keymap(rhs)
+function M.resolve(rhs)
     if type(rhs) == 'table' then
         assert(rhs[1], 'keymap table must include an action at index 1')
-        return rhs[1], rhs.desc
+        local action = rhs[1]
+        local desc = rhs.desc or (type(action) == 'string' and ACTION_DESCRIPTIONS[action] or nil)
+        return action, desc
     end
-    return rhs, nil
+    local desc = type(rhs) == 'string' and ACTION_DESCRIPTIONS[rhs] or nil
+    return rhs, desc
 end
 
 ---@param action DoraKeymapAction
@@ -308,7 +373,7 @@ local function keymap_hint_groups(keymaps)
     local groups = {}
     for lhs, rhs in pairs(keymaps) do
         if #lhs == 2 then
-            local action, desc = normalize_keymap(rhs)
+            local action, desc = M.resolve(rhs)
             local prefix = lhs:sub(1, 1)
             groups[prefix] = groups[prefix] or {}
             groups[prefix][#groups[prefix]+1] = {
@@ -373,7 +438,7 @@ end
 function M.derive_visual_keymaps(keymaps)
     local ret = {}
     for lhs, rhs in pairs(keymaps or {}) do
-        local action, desc = normalize_keymap(rhs)
+        local action, desc = M.resolve(rhs)
         local visual_action = type(action) == 'string' and VISUAL_KEYMAP_ACTIONS[action] or nil
         if visual_action then
             ret[lhs] = desc and {visual_action, desc=desc} or visual_action
@@ -387,7 +452,7 @@ end
 function M.setup(buf, config)
     local hint_groups = keymap_hint_groups(config.keymaps)
     for lhs, rhs in pairs(config.keymaps) do
-        local action, desc = normalize_keymap(rhs)
+        local action, desc = M.resolve(rhs)
         vim.keymap.set('n', lhs, map_keymap_action(action), {
             nowait = not is_keymap_hint_prefix(lhs, hint_groups),
             silent = true,
@@ -399,7 +464,7 @@ function M.setup(buf, config)
         for prefix, group in pairs(hint_groups) do
             local direct
             if config.keymaps[prefix] then
-                local action, desc = normalize_keymap(config.keymaps[prefix])
+                local action, desc = M.resolve(config.keymaps[prefix])
                 direct = {action=action, desc=desc}
             end
             vim.keymap.set('n', prefix, function()
@@ -408,7 +473,7 @@ function M.setup(buf, config)
         end
     end
     for lhs, rhs in pairs(M.derive_visual_keymaps(config.keymaps)) do
-        local action, desc = normalize_keymap(rhs)
+        local action, desc = M.resolve(rhs)
         vim.keymap.set('x', lhs, map_keymap_action(action), {nowait=true, silent=true, buffer=buf, desc=desc})
     end
 end
