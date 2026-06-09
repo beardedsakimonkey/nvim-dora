@@ -47,7 +47,7 @@ do
 
     assert_eq(dora.config, old_config, 'setup should preserve the config table')
     assert_eq(dora.config.keymaps, old_keymaps, 'setup should preserve the keymaps table')
-    assert_eq(config.show_hidden_files, false, 'setup should update config values in place')
+    assert_eq(config.show_hidden_files, false, 'setup should update config values in-place')
     assert_eq(config.tree_indent, 2, 'setup should update tree indentation')
     assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
     assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
@@ -334,7 +334,7 @@ end
 do
     local bookmark_rows = bookmarks.help_rows(bookmarks.new())
     assert_eq(bookmark_rows[1].lhs, "''", "a fresh bookmark state should include the previous-directory shortcut")
-    assert_eq(bookmark_rows[1].desc, 'Previous directory')
+    assert_eq(bookmark_rows[1].desc, 'Jump to previous directory')
 end
 
 do
@@ -1130,9 +1130,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local dora_win = api.nvim_get_current_win()
     local dora_buf = api.nvim_get_current_buf()
-    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab without closing Dora')
+    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'In-place open in split')
+    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'In-place open in vertical split')
+    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'In-place open in tab')
 
     set_cursor_line('split%.txt$')
     local existing_wins = api.nvim_tabpage_list_wins(0)
@@ -1720,7 +1720,7 @@ do
     assert(navigation_line < bookmarks_line, 'help should show navigation before bookmarks')
     assert(bookmarks_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
         'help should show bookmark mappings under the bookmarks title')
-    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Previous directory:"),
+    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Jump to previous directory$"),
         'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
     assert(help_text:find("'a", 1, true), 'help should include bookmark a')
@@ -2331,8 +2331,8 @@ do
     assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
     local expected_sections = {
-        'General', 'Navigation', 'Open', 'File Operations',
-        'Bookmarks', 'Yank', 'Sort', 'View',
+        'Navigation', 'Open', 'File Operations', 'View',
+        'Bookmarks', 'Yank', 'Sort', 'General',
     }
     local previous_line = 0
     for _, section in ipairs(expected_sections) do
@@ -2342,7 +2342,12 @@ do
         previous_line = line
     end
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
-    assert(find_line_index(help_lines, "^  ''%s+Previous directory"),
+    local mouse_line = find_line_index(help_lines, '^  <2%-LeftMouse>%s+Open$')
+    local enter_line = find_line_index(help_lines, '^  <CR>%s+Open$')
+    local open_line = find_line_index(help_lines, '^  l%s+Open$')
+    assert(mouse_line < enter_line and enter_line < open_line,
+        'help should sort mappings for the same action alphabetically')
+    assert(find_line_index(help_lines, "^  ''%s+Jump to previous directory$"),
         "help should always include the builtin previous-directory bookmark")
     local general_line = find_line_index(help_lines, '^General$') - 1
     local quit_line = find_line_index(help_lines, '^  q%s+Quit$') - 1
