@@ -1818,6 +1818,14 @@ do
     api.nvim_feedkeys('a', 't', false)
     prefix_map.callback()
     assert_eq(vim.g.dora_smoke_hint_keymap, 'za', 'keymap hints should dispatch legacy string actions')
+    assert_eq(captured_prefix, nil, 'fast keymap sequences should not open the hint window')
+
+    vim.g.dora_smoke_hint_keymap = nil
+    vim.defer_fn(function()
+        api.nvim_feedkeys('x', 't', false)
+    end, 250)
+    prefix_map.callback()
+    assert_eq(vim.g.dora_smoke_hint_keymap, 'zx', 'delayed keymap sequences should still dispatch')
     assert_eq(captured_prefix, 'z')
     assert_eq(#captured_rows, 2)
     assert_eq(captured_rows[1].lhs, 'za')
@@ -1853,7 +1861,9 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('g', 'n', false, true)
-    api.nvim_feedkeys('f', 't', false)
+    vim.defer_fn(function()
+        api.nvim_feedkeys('f', 't', false)
+    end, 250)
     prefix_map.callback()
     assert_eq(vim.g.dora_smoke_g_hint_keymap, 'gf', 'g keymap hints should dispatch selected mappings')
     assert_eq(captured_rows[1].lhs, 'gf')
