@@ -20,6 +20,7 @@ vim.cmd 'hi default link DoraPromptBorderValid   DiagnosticOk'
 vim.cmd 'hi default link DoraPromptBorderInvalid DiagnosticError'
 vim.cmd 'hi default link DoraInfoLabel           Label'
 vim.cmd 'hi default link DoraInfoValue           Special'
+vim.cmd 'hi default link DoraHelpSection         Title'
 vim.cmd 'hi default link DoraDeleteMore          NonText'
 vim.cmd 'hi default link DoraKeymapHintArrow     NonText'
 

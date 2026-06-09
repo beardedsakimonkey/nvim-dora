@@ -1707,11 +1707,14 @@ do
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
     local bookmarks_line = find_line_index(help_lines, '^Bookmarks$')
-    local keymaps_line = find_line_index(help_lines, '^Keymaps$')
+    local navigation_line = find_line_index(help_lines, '^Navigation$')
     assert(bookmarks_line, 'help should include a bookmarks section')
-    assert(keymaps_line, 'help should include a keymaps section')
-    assert(bookmarks_line < keymaps_line, 'help should show bookmarks before keymaps')
-    assert(keymaps_line < find_line_index(help_lines, '^  q%s+Quit$'), 'help should show keymap rows under the keymaps title')
+    assert(navigation_line, 'help should include a navigation section')
+    assert(navigation_line < bookmarks_line, 'help should show navigation before bookmarks')
+    assert(bookmarks_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
+        'help should show bookmark mappings under the bookmarks title')
+    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Last directory:"),
+        'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
     assert(help_text:find("'a", 1, true), 'help should include bookmark a')
     assert(help_text:find("'b", 1, true), 'help should include bookmark b')
@@ -2320,9 +2323,30 @@ do
     local help_cfg = api.nvim_win_get_config(help_win)
     assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
-    assert(find_line_index(help_lines, '^Keymaps$'), 'help should include a keymaps section')
-    assert(not find_line_index(help_lines, '^Normal$'), 'help should omit the normal section title')
-    assert(not find_line_index(help_lines, '^Visual$'), 'help should omit the visual section')
+    local expected_sections = {
+        'General', 'Navigation', 'Open', 'File Operations',
+        'Bookmarks', 'Yank', 'Sort', 'View',
+    }
+    local previous_line = 0
+    for _, section in ipairs(expected_sections) do
+        local line = find_line_index(help_lines, '^' .. section .. '$')
+        assert(line, 'help should include the ' .. section .. ' section')
+        assert(previous_line < line, 'help sections should use cheat-sheet order')
+        previous_line = line
+    end
+    assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
+    local general_line = find_line_index(help_lines, '^General$') - 1
+    local quit_line = find_line_index(help_lines, '^  q%s+Quit$') - 1
+    local section_highlight, key_highlight = false, false
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})) do
+        if mark[2] == general_line and mark[4].hl_group == 'DoraHelpSection' then
+            section_highlight = true
+        elseif mark[2] == quit_line and mark[4].hl_group == 'DoraInfoLabel' then
+            key_highlight = true
+        end
+    end
+    assert(section_highlight, 'help should use a dedicated highlight for section titles')
+    assert(key_highlight, 'help should keep key labels visually distinct from section titles')
 
     api.nvim_feedkeys('q', 'xt', false)
     assert_eq(api.nvim_get_current_win(), origin_win, 'closing help should restore origin window')
@@ -2332,6 +2356,7 @@ end
 do
     local old_keymaps = config.keymaps
     config.keymaps = {
+        n = {"yank_file_path", desc="Custom Yank"},
         x = "<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal'<CR>",
         z = {"<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }
@@ -2342,10 +2367,11 @@ do
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
     assert(help_text:match("x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(not find_line_index(help_lines, '^Normal$'), 'help should omit the normal section title')
-    assert(not find_line_index(help_lines, '^Visual$'), 'help should omit the visual section')
+    assert(find_line_index(help_lines, '^Yank$') < find_line_index(help_lines, '^  n%s+Custom Yank$'),
+        'help should categorize remapped built-in actions by action name')
+    assert(find_line_index(help_lines, '^Other$'), 'help should group custom mappings under Other')
     assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
-        'help should sort unordered custom mappings after local order')
+        'help should sort custom mappings by key')
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
 
