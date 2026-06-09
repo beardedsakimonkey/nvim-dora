@@ -1666,15 +1666,32 @@ do
     set_map.callback()
     assert_eq(state.bookmarks.paths.b, project, 'mb should bookmark the new current directory')
 
-    api.nvim_feedkeys('a', 't', false)
+    local old_open = keymaps.open_hint_window
+    local captured_prefix
+    local captured_rows
+    keymaps.open_hint_window = function(prefix, rows)
+        captured_prefix = prefix
+        captured_rows = rows
+        return old_open(prefix, rows)
+    end
+    vim.defer_fn(function()
+        api.nvim_feedkeys('a', 't', false)
+    end, 250)
     jump_map.callback()
     assert_eq(state.cwd, root, "'a should jump to bookmark a")
     assert_eq(state.bookmarks.previous_directory, project, 'jumping to a bookmark should update the previous directory')
+    assert_eq(captured_prefix, "'", 'delayed bookmark jumps should open mark hints')
+    assert_eq(captured_rows[1].lhs, "''")
+    assert_eq(captured_rows[2].lhs, "'a")
+    assert_eq(captured_rows[3].lhs, "'b")
 
+    captured_prefix = nil
     api.nvim_feedkeys("'", 't', false)
     jump_map.callback()
     assert_eq(state.cwd, project, "'' should jump to the previous directory")
     assert_eq(state.bookmarks.previous_directory, root, "'' should toggle the previous directory")
+    assert_eq(captured_prefix, nil, "fast bookmark jumps should not open mark hints")
+    keymaps.open_hint_window = old_open
 
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
