@@ -281,6 +281,27 @@ function M.open_hint_window(prefix, rows)
     return buf, win
 end
 
+---@param prefix string
+---@param rows DoraKeymapHintRow[]
+---@return string?
+function M.read_hint_key(prefix, rows)
+    local timeout = math.max(0, vim.o.timeoutlen)
+    local delay = math.min(timeout, HINT_DELAY)
+    local key = read_key(delay)
+    if not key and delay < timeout then
+        local buf, win
+        if #rows > 0 then
+            buf, win = M.open_hint_window(prefix, rows)
+            vim.cmd.redraw()
+        end
+        key = read_key(timeout - delay)
+        if buf and win then
+            window.close(buf, win)
+        end
+    end
+    return key
+end
+
 ---@param keymaps table<string, DoraKeymapSpec>
 ---@return table<string, {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]>
 local function keymap_hint_groups(keymaps)
@@ -318,17 +339,9 @@ end
 ---@param group {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]
 ---@param direct? {action: DoraKeymapAction, desc: string?}
 local function show_keymap_hints(prefix, group, direct)
-    local timeout = math.max(0, vim.o.timeoutlen)
-    local delay = math.min(timeout, HINT_DELAY)
-    local key = read_key(delay)
-    if not key and delay < timeout then
-        local buf, win = M.open_hint_window(prefix, vim.tbl_map(function(entry)
-            return {lhs=entry.lhs, desc=entry.desc}
-        end, group))
-        vim.cmd.redraw()
-        key = read_key(timeout - delay)
-        window.close(buf, win)
-    end
+    local key = M.read_hint_key(prefix, vim.tbl_map(function(entry)
+        return {lhs=entry.lhs, desc=entry.desc}
+    end, group))
     for _, entry in ipairs(group) do
         if key == entry.key then
             dispatch_keymap_action(entry.action)

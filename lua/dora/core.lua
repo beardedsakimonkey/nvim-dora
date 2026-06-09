@@ -1233,7 +1233,13 @@ end
 
 function M.jump_bookmark()
     local state = store.get()
-    local path = bookmarks.read_jump_directory(state.bookmarks)
+    local path
+    if config.show_keymap_hints then
+        local key = keymaps.read_hint_key("'", bookmarks.help_rows(state.bookmarks))
+        path = bookmarks.resolve_jump_directory(state.bookmarks, key)
+    else
+        path = bookmarks.read_jump_directory(state.bookmarks)
+    end
     if not path then
         return
     end

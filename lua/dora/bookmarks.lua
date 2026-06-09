@@ -63,9 +63,9 @@ function M.set_current_directory(bookmarks, directory)
 end
 
 ---@param bookmarks DoraBookmarks
+---@param key string?
 ---@return string?
-function M.read_jump_directory(bookmarks)
-    local key = read_key()
+function M.resolve_jump_directory(bookmarks, key)
     if not key then
         return nil
     end
@@ -86,6 +86,12 @@ function M.read_jump_directory(bookmarks)
         return nil
     end
     return directory
+end
+
+---@param bookmarks DoraBookmarks
+---@return string?
+function M.read_jump_directory(bookmarks)
+    return M.resolve_jump_directory(bookmarks, read_key())
 end
 
 ---@param bookmarks DoraBookmarks
