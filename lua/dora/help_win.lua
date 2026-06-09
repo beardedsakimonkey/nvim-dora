@@ -8,11 +8,15 @@ local M = {}
 
 local SECTIONS = {
     {
+        name = 'General',
+        actions = {'help', 'quit'},
+    },
+    {
         name = 'Navigation',
         actions = {
             'up_dir', 'last_sibling', 'first_sibling', 'next_sibling', 'prev_sibling',
             'parent_dir', 'expand', 'expand_recursive', 'collapse', 'collapse_recursive',
-            'home_dir', 'follow_symlink',
+            'home_dir', 'follow_symlink', 'set_bookmark', 'jump_bookmark',
         },
     },
     {
@@ -26,16 +30,12 @@ local SECTIONS = {
         name = 'File Operations',
         actions = {
             'create', 'create_under', 'rename', 'rename_empty', 'trash', 'delete',
-            'cut', 'copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
+            'toggle_cut', 'toggle_copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
         },
     },
     {
         name = 'View',
         actions = {'filter', 'clear_filter', 'reload', 'info', 'toggle_hidden_files'},
-    },
-    {
-        name = 'Bookmarks',
-        actions = {'set_bookmark', 'jump_bookmark'},
     },
     {
         name = 'Yank',
@@ -54,10 +54,6 @@ local SECTIONS = {
             'sort_by_size', 'sort_by_size_desc',
             'sort_by_extension', 'sort_by_extension_desc',
         },
-    },
-    {
-        name = 'General',
-        actions = {'help', 'quit'},
     },
 }
 
@@ -126,7 +122,7 @@ local function rows(config, bookmark_rows)
     local ret = {}
     local sections = keymap_sections(config.keymaps)
     if bookmark_rows then
-        vim.list_extend(sections.Bookmarks, bookmark_rows)
+        vim.list_extend(sections.Navigation, bookmark_rows)
     end
 
     local function add_section(name)

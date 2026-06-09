@@ -1328,19 +1328,19 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_line('alpha%.txt$')
-    core.copy()
+    core.toggle_copy()
     assert_eq(marked_path_count(state), 1)
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should mark the current file')
     assert(has_sign_highlight(state, 'DoraCopy'), 'copy should use a distinct sign highlight')
     assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy should highlight filenames like the copy sign')
 
-    core.copy()
+    core.toggle_copy()
     assert_eq(marked_path_count(state), 0, 'copy should toggle off an existing copy mark')
 
-    core.cut()
+    core.toggle_cut()
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'cut', 'cut should replace a missing mark')
     assert(has_sign_highlight(state, 'DoraCut'), 'cut should use a distinct sign highlight')
-    core.copy()
+    core.toggle_copy()
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
     util.set_cursor_pos('dest')
@@ -1375,7 +1375,7 @@ do
     assert_eq(reload_map.desc, 'Reload listing')
     assert_eq(type(reload_map.callback), 'function')
     set_cursor_line('alpha%.txt$')
-    core.copy()
+    core.toggle_copy()
     assert_eq(marked_path_count(state), 1)
 
     assert_eq(vim.fn.delete(tmp .. '/alpha.txt'), 0)
@@ -1400,7 +1400,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_line('^alpha%.txt$')
-    core.copy()
+    core.toggle_copy()
     util.set_cursor_pos('dest')
     core.expand()
     set_cursor_line('alpha%.txt$')
@@ -1444,10 +1444,10 @@ do
     local state = store.get()
 
     set_cursor_line('a$')
-    core.cut()
+    core.toggle_cut()
     assert_eq(state.marked_paths[state.cwd .. '/a'], 'cut', 'cut should mark a file')
     set_cursor_line('c$')
-    core.copy()
+    core.toggle_copy()
     assert_eq(state.marked_paths[state.cwd .. '/c'], 'copy', 'copy should mark another file independently')
     assert_eq(marked_path_count(state), 2)
     assert(has_sign_highlight(state, 'DoraCut'), 'cut marks should use the cut sign')
@@ -1459,7 +1459,7 @@ do
     assert_eq(marked_path_count(state), 0, 'escape action should clear paste marks')
 
     set_cursor_line('b$')
-    core.copy()
+    core.toggle_copy()
     assert_eq(state.marked_paths[state.cwd .. '/b'], 'copy', 'copy should set paste mark before escape')
     api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
     assert_eq(marked_path_count(state), 0, 'escape should clear paste marks')
@@ -1479,9 +1479,9 @@ do
     local state = store.get()
 
     util.set_cursor_pos('a')
-    core.cut()
+    core.toggle_cut()
     util.set_cursor_pos('b')
-    core.copy()
+    core.toggle_copy()
     assert_eq(marked_path_count(state), 2)
 
     util.set_cursor_pos('dest')
@@ -1739,13 +1739,11 @@ do
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
-    local bookmarks_line = find_line_index(help_lines, '^Bookmarks$')
     local navigation_line = find_line_index(help_lines, '^Navigation$')
-    assert(bookmarks_line, 'help should include a bookmarks section')
     assert(navigation_line, 'help should include a navigation section')
-    assert(navigation_line < bookmarks_line, 'help should show navigation before bookmarks')
-    assert(bookmarks_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
-        'help should show bookmark mappings under the bookmarks title')
+    assert(not find_line_index(help_lines, '^Bookmarks$'), 'help should not include a bookmarks section')
+    assert(navigation_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
+        'help should show bookmark mappings under the navigation title')
     assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Jump to previous directory$"),
         'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
@@ -2158,7 +2156,7 @@ do
     local state = store.get()
 
     util.set_cursor_pos('a')
-    core.cut()
+    core.toggle_cut()
     assert_eq(marked_path_count(state), 1)
     core.clear_marks()
     assert_eq(marked_path_count(state), 0, 'clear_marks should clear paste marks')
@@ -2394,8 +2392,8 @@ do
     assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
     local expected_sections = {
-        'Navigation', 'Open', 'File Operations', 'View',
-        'Bookmarks', 'Yank', 'Sort', 'General',
+        'General', 'Navigation', 'Open', 'File Operations',
+        'View', 'Yank', 'Sort',
     }
     local previous_line = 0
     for _, section in ipairs(expected_sections) do
@@ -2632,7 +2630,7 @@ do
     set_cursor_line('file%.txt$')
     assert_cursor_tree_highlights(state, 1)
     assert(state.rows[api.nvim_win_get_cursor(0)[1]].tree_connector_start_col > 0)
-    core.copy()
+    core.toggle_copy()
     assert_eq(state.marked_paths[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
     util.set_cursor_pos('alpha')
@@ -2853,7 +2851,7 @@ do
     end)
     assert_eq(escaped_view.topfill, 1, 'escape should keep the virtual spacer visible')
 
-    core.copy()
+    core.toggle_copy()
     assert_eq(state.marked_paths[fs.realpath(tmp) .. '/alpha/match.txt'], 'copy',
         'actions on filtered rows should use their real paths')
     core.next_sibling()

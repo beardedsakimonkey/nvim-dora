@@ -35,7 +35,7 @@ M.config = {
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
-    -- Default file sorting order
+    -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
     -- Number of columns used for each level of tree indentation (minimum 2)
     tree_indent = 4,
@@ -43,6 +43,10 @@ M.config = {
     sync_local_cwd = false,
     -- Key mappings
     keymaps = {
+        -- General
+        ['g?'] = 'help',
+        q = 'quit',
+
         -- Navigation
         ['-'] = 'up_dir',
         h = 'up_dir',
@@ -57,6 +61,9 @@ M.config = {
         U = 'collapse_recursive',
         gh = 'home_dir',
         gf = 'follow_symlink',
+        m = 'set_bookmark',
+        ["'"] = 'jump_bookmark',
+
         -- Open
         ['<2-LeftMouse>'] = 'open',
         ['<CR>'] = 'open',
@@ -68,6 +75,7 @@ M.config = {
         ['<C-v>'] = 'open_vsplit_keep',
         ['<C-t>'] = 'open_tab_keep',
         gx = 'open_external',
+
         -- File operations
         a = 'create',
         A = 'create_under',
@@ -75,22 +83,21 @@ M.config = {
         R = 'rename_empty',
         d = 'trash',
         D = 'delete',
-        x = 'cut',
-        c = 'copy',
+        x = 'toggle_cut',
+        c = 'toggle_copy',
         p = 'paste',
         P = 'paste_parent',
         ['<Esc>'] = 'clear_marks',
         ['.'] = 'shell_cmd',
+
         -- View
         f = 'filter',
         F = 'clear_filter',
         ['<C-r>'] = 'reload',
         i = 'info',
         ['g.'] = 'toggle_hidden_files',
-        -- Bookmarks
-        m = 'set_bookmark',
-        ["'"] = 'jump_bookmark',
-        -- Yanking
+
+        -- Yank
         yy = 'yank_file_path',
         yY = 'yank_file_path_clipboard',
         yd = 'yank_dir_path',
@@ -100,7 +107,8 @@ M.config = {
         yb = 'yank_basename',
         yB = 'yank_basename_clipboard',
         Y = 'yank_filename',
-        -- Sorting
+
+        -- Sort
         [',n'] = 'sort_by_name',
         [',N'] = 'sort_by_name_desc',
         [',m'] = 'sort_by_modified',
@@ -111,9 +119,6 @@ M.config = {
         [',S'] = 'sort_by_size_desc',
         [',e'] = 'sort_by_extension',
         [',E'] = 'sort_by_extension_desc',
-        -- General
-        ['g?'] = 'help',
-        q = 'quit',
     },
 }
 

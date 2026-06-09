@@ -1451,11 +1451,11 @@ local function toggle_marked_path(operation)
     render(state)
 end
 
-function M.cut()
+function M.toggle_cut()
     toggle_marked_path('cut')
 end
 
-function M.copy()
+function M.toggle_copy()
     toggle_marked_path('copy')
 end
 
