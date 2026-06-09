@@ -53,7 +53,7 @@ mkdir -p "$tmp/doc"
     --input-file "$root/README.md" \
     --vim-version "Neovim 0.12+" \
     --toc true \
-    --description "A small directory viewer for Neovim" \
+    --description "Directory explorer for Neovim" \
     --dedup-subheadings true \
     --treesitter true \
     --ignore-rawblocks true \
