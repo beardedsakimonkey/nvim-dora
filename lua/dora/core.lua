@@ -1855,40 +1855,40 @@ function M.sort_by_name()
     M.sort_by('name')
 end
 
-function M.sort_by_name_reverse()
-    M.sort_by('name_reverse')
+function M.sort_by_name_desc()
+    M.sort_by('name_desc')
 end
 
 function M.sort_by_modified()
     M.sort_by('modified')
 end
 
-function M.sort_by_modified_reverse()
-    M.sort_by('modified_reverse')
+function M.sort_by_modified_desc()
+    M.sort_by('modified_desc')
 end
 
 function M.sort_by_created()
     M.sort_by('created')
 end
 
-function M.sort_by_created_reverse()
-    M.sort_by('created_reverse')
+function M.sort_by_created_desc()
+    M.sort_by('created_desc')
 end
 
 function M.sort_by_size()
     M.sort_by('size')
 end
 
-function M.sort_by_size_reverse()
-    M.sort_by('size_reverse')
+function M.sort_by_size_desc()
+    M.sort_by('size_desc')
 end
 
 function M.sort_by_extension()
     M.sort_by('extension')
 end
 
-function M.sort_by_extension_reverse()
-    M.sort_by('extension_reverse')
+function M.sort_by_extension_desc()
+    M.sort_by('extension_desc')
 end
 
 function M.reload()

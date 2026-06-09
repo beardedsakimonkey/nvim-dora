@@ -1,5 +1,4 @@
 *dora.txt*                                 A small directory viewer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 June 09
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -16,7 +15,7 @@ Table of Contents                                     *dora-table-of-contents*
 ==============================================================================
 1. nvim-dora                                                  *dora-nvim-dora*
 
-Dora is a small directory viewer for Neovim 0.12+. It opens in the current
+Dora is a 3.5k LoC directory viewer for Neovim 0.12+. It opens in the current
 window, works well with normal buffer navigation, and stays out of the way when
 you only need to browse, create, rename, copy, delete, or inspect files.
 
@@ -134,15 +133,15 @@ The default config is generated from `lua/dora.lua`:
             yb = {"yank_basename",                  desc="Yank basename"},
             yB = {"yank_basename_clipboard",        desc="Yank basename to clipboard"},
             [',n'] = {"sort_by_name",               desc="Sort by name"},
-            [',N'] = {"sort_by_name_reverse",       desc="Sort by name (descending)"},
+            [',N'] = {"sort_by_name_desc",          desc="Sort by name (descending)"},
             [',m'] = {"sort_by_modified",           desc="Sort by modified time"},
-            [',M'] = {"sort_by_modified_reverse",   desc="Sort by modified time (descending)"},
+            [',M'] = {"sort_by_modified_desc",      desc="Sort by modified time (descending)"},
             [',c'] = {"sort_by_created",            desc="Sort by creation time"},
-            [',C'] = {"sort_by_created_reverse",    desc="Sort by creation time (descending)"},
+            [',C'] = {"sort_by_created_desc",       desc="Sort by creation time (descending)"},
             [',s'] = {"sort_by_size",               desc="Sort by size"},
-            [',S'] = {"sort_by_size_reverse",       desc="Sort by size (descending)"},
+            [',S'] = {"sort_by_size_desc",          desc="Sort by size (descending)"},
             [',e'] = {"sort_by_extension",          desc="Sort by extension"},
-            [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension (descending)"},
+            [',E'] = {"sort_by_extension_desc",     desc="Sort by extension (descending)"},
         },
     }
 <

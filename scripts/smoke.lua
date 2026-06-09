@@ -2059,8 +2059,8 @@ do
     assert_line_before('^dir10/$', '^alpha%.md$', 'directories should stay grouped before files')
     assert_line_before('^file2%.txt$', '^file10%.txt$', 'natural sort should order file names naturally')
 
-    core.sort_by('name_reverse')
-    assert_eq(state.sort_order, 'name_reverse')
+    core.sort_by('name_desc')
+    assert_eq(state.sort_order, 'name_desc')
     assert_line_before('^dir10/$', '^dir2/$', 'reversed natural sort should reverse directory names')
     assert_line_before('^dir2/$', '^tiny%.bin$', 'reversed natural sort should keep directories before files')
     assert_line_before('^file10%.txt$', '^file2%.txt$', 'reversed natural sort should reverse file names')
@@ -2071,8 +2071,8 @@ do
     assert_line_before('^tiny%.bin$', '^alpha%.md$', 'size sort should order files by size')
     assert_line_before('^file2%.txt$', '^file10%.txt$', 'size sort should order larger files later')
 
-    core.sort_by('size_reverse')
-    assert_eq(state.sort_order, 'size_reverse')
+    core.sort_by('size_desc')
+    assert_eq(state.sort_order, 'size_desc')
     assert_line_before('^dir10/$', '^big%.log$', 'reversed size sort should keep directories before files')
     assert_line_before('^big%.log$', '^file10%.txt$', 'reversed size sort should order larger files first')
     assert_line_before('^file10%.txt$', '^file2%.txt$', 'reversed size sort should order smaller files later')
@@ -2083,8 +2083,8 @@ do
     assert_line_before('^big%.log$', '^alpha%.md$', 'extension sort should order by extension')
     assert_line_before('^alpha%.md$', '^file2%.txt$', 'extension sort should order by extension')
 
-    core.sort_by('extension_reverse')
-    assert_eq(state.sort_order, 'extension_reverse')
+    core.sort_by('extension_desc')
+    assert_eq(state.sort_order, 'extension_desc')
     assert_line_before('^file2%.txt$', '^alpha%.md$', 'reversed extension sort should order by extension descending')
     assert_line_before('^alpha%.md$', '^big%.log$', 'reversed extension sort should order by extension descending')
     assert_line_before('^big%.log$', '^tiny%.bin$', 'reversed extension sort should order by extension descending')
@@ -2094,20 +2094,24 @@ do
     assert_line_before('^tiny%.bin$', '^file10%.txt$', 'modified sort should order older files first')
     assert_line_before('^file2%.txt$', '^big%.log$', 'modified sort should order newer files later')
 
-    core.sort_by('modified_reverse')
-    assert_eq(state.sort_order, 'modified_reverse')
+    core.sort_by('modified_desc')
+    assert_eq(state.sort_order, 'modified_desc')
     assert_line_before('^big%.log$', '^file2%.txt$', 'reversed modified sort should order newer files first')
     assert_line_before('^file10%.txt$', '^tiny%.bin$', 'reversed modified sort should order older files later')
 
     core.sort_by('created')
     assert_eq(state.sort_order, 'created')
-    core.sort_by('created_reverse')
-    assert_eq(state.sort_order, 'created_reverse')
+    core.sort_by('created_desc')
+    assert_eq(state.sort_order, 'created_desc')
 
     local prefix_map = vim.fn.maparg(',', 'n', false, true)
     api.nvim_feedkeys('s', 't', false)
     prefix_map.callback()
     assert_eq(state.sort_order, 'size', 'sort keymaps should work behind the comma prefix mapping')
+
+    api.nvim_feedkeys('S', 't', false)
+    prefix_map.callback()
+    assert_eq(state.sort_order, 'size_desc', 'descending sort keymaps should dispatch renamed actions')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

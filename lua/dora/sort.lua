@@ -2,15 +2,15 @@ local M = {}
 
 local VALID_SORT_ORDERS = {
     name = true,
-    name_reverse = true,
+    name_desc = true,
     modified = true,
-    modified_reverse = true,
+    modified_desc = true,
     created = true,
-    created_reverse = true,
+    created_desc = true,
     size = true,
-    size_reverse = true,
+    size_desc = true,
     extension = true,
-    extension_reverse = true,
+    extension_desc = true,
 }
 
 ---@param order any
@@ -118,9 +118,9 @@ local function file_less(a, b, order)
     if (a.type == 'directory') ~= (b.type == 'directory') then
         return a.type == 'directory'
     end
-    if order == 'name_reverse' then
+    if order == 'name_desc' then
         return natural_name_less(b.name, a.name) == true
-    elseif order == 'modified' or order == 'modified_reverse' then
+    elseif order == 'modified' or order == 'modified_desc' then
         local cmp = compare_time(a.mtime, b.mtime)
         if cmp ~= 0 then
             if order == 'modified' then
@@ -128,7 +128,7 @@ local function file_less(a, b, order)
             end
             return cmp > 0
         end
-    elseif order == 'created' or order == 'created_reverse' then
+    elseif order == 'created' or order == 'created_desc' then
         local cmp = compare_time(a.birthtime, b.birthtime)
         if cmp ~= 0 then
             if order == 'created' then
@@ -136,7 +136,7 @@ local function file_less(a, b, order)
             end
             return cmp > 0
         end
-    elseif order == 'size' or order == 'size_reverse' then
+    elseif order == 'size' or order == 'size_desc' then
         local a_size = a.size or 0
         local b_size = b.size or 0
         if a_size ~= b_size then
@@ -145,7 +145,7 @@ local function file_less(a, b, order)
             end
             return a_size > b_size
         end
-    elseif order == 'extension' or order == 'extension_reverse' then
+    elseif order == 'extension' or order == 'extension_desc' then
         local a_ext = extension(a.name)
         local b_ext = extension(b.name)
         if a_ext ~= b_ext then

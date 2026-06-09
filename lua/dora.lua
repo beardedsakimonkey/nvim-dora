@@ -5,7 +5,7 @@ local M = {}
 ---@alias DoraKeymapAction string|function
 ---@alias DoraKeymapSpec DoraKeymapAction|{[1]: DoraKeymapAction, desc?: string}
 ---@alias DoraIconConfig boolean|'nvim-web-devicons'|'mini.icons'
----@alias DoraSortOrder 'name'|'name_reverse'|'modified'|'modified_reverse'|'created'|'created_reverse'|'size'|'size_reverse'|'extension'|'extension_reverse'
+---@alias DoraSortOrder 'name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc'
 
 ---@class DoraFile
 ---@field name string
@@ -97,15 +97,15 @@ M.config = {
         yb = {"yank_basename",                  desc="Yank basename"},
         yB = {"yank_basename_clipboard",        desc="Yank basename to clipboard"},
         [',n'] = {"sort_by_name",               desc="Sort by name"},
-        [',N'] = {"sort_by_name_reverse",       desc="Sort by name (descending)"},
+        [',N'] = {"sort_by_name_desc",          desc="Sort by name (descending)"},
         [',m'] = {"sort_by_modified",           desc="Sort by modified time"},
-        [',M'] = {"sort_by_modified_reverse",   desc="Sort by modified time (descending)"},
+        [',M'] = {"sort_by_modified_desc",      desc="Sort by modified time (descending)"},
         [',c'] = {"sort_by_created",            desc="Sort by creation time"},
-        [',C'] = {"sort_by_created_reverse",    desc="Sort by creation time (descending)"},
+        [',C'] = {"sort_by_created_desc",       desc="Sort by creation time (descending)"},
         [',s'] = {"sort_by_size",               desc="Sort by size"},
-        [',S'] = {"sort_by_size_reverse",       desc="Sort by size (descending)"},
+        [',S'] = {"sort_by_size_desc",          desc="Sort by size (descending)"},
         [',e'] = {"sort_by_extension",          desc="Sort by extension"},
-        [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension (descending)"},
+        [',E'] = {"sort_by_extension_desc",     desc="Sort by extension (descending)"},
     },
 }
 

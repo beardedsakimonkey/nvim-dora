@@ -47,11 +47,11 @@ local SECTIONS = {
     {
         name = 'Sort',
         actions = {
-            'sort_by_name', 'sort_by_name_reverse',
-            'sort_by_modified', 'sort_by_modified_reverse',
-            'sort_by_created', 'sort_by_created_reverse',
-            'sort_by_size', 'sort_by_size_reverse',
-            'sort_by_extension', 'sort_by_extension_reverse',
+            'sort_by_name', 'sort_by_name_desc',
+            'sort_by_modified', 'sort_by_modified_desc',
+            'sort_by_created', 'sort_by_created_desc',
+            'sort_by_size', 'sort_by_size_desc',
+            'sort_by_extension', 'sort_by_extension_desc',
         },
     },
     {
