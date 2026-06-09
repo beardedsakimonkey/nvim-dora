@@ -60,6 +60,8 @@ require'dora'.setup {
     icons = false,
     -- Default file sorting order
     sort_order = 'name',
+    -- Number of columns used for each level of tree indentation (minimum 2)
+    tree_indent = 4,
     -- Whether to sync the window's current directory with dora's current path
     sync_local_cwd = true,
     keymaps = {

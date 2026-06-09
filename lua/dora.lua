@@ -21,6 +21,7 @@ local M = {}
 ---@field is_file_hidden fun(file: DoraFile, files: DoraFile[], dir: string): boolean
 ---@field icons DoraIconConfig
 ---@field sort_order DoraSortOrder
+---@field tree_indent integer
 ---@field sync_local_cwd boolean
 
 ---@type DoraConfig
@@ -36,6 +37,8 @@ M.config = {
     icons = false,
     -- Default file sorting order
     sort_order = 'name',
+    -- Number of columns used for each level of tree indentation (minimum 2)
+    tree_indent = 4,
     -- Whether to sync the window's current directory with dora's current path
     sync_local_cwd = true,
     keymaps = {
