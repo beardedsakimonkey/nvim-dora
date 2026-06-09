@@ -3,7 +3,9 @@ set -eu
 
 cd "$(dirname "$0")/.."
 
+check=false
 if [ "${1:-}" = "--check" ]; then
+  check=true
   export DORA_DOCS_CHECK=1
   shift
 fi
@@ -18,3 +20,9 @@ nvim --headless -u NONE -i NONE --noplugin \
   -c "set rtp^=$PWD" \
   -c "luafile scripts/docs.lua" \
   -c "qa"
+
+if $check; then
+  sh scripts/vimdoc.sh --check
+else
+  sh scripts/vimdoc.sh
+fi

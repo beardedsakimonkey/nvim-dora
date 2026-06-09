@@ -20,9 +20,13 @@ replaced by the file you choose.
 - **Inline tree expansion.** You can stay in one directory while expanding
   selected subdirectories into a tree.
 
+<!-- panvimdoc-ignore-start -->
+
 ## Screenshot
 
 <img width="888" height="767" alt="Screenshot 2026-05-08 at 1 13 52 PM" src="https://github.com/user-attachments/assets/5cc644cc-9c7f-4ac1-95e8-c15ed3c61cb7" />
+
+<!-- panvimdoc-ignore-end -->
 
 ## Usage
 
@@ -203,10 +207,20 @@ hi default link DoraKeymapHintArrow     NonText
 
 ## Development
 
-Regenerate the generated README docs with:
+Regenerate the generated README sections and `doc/dora.txt` with:
 
 ```sh
 sh scripts/docs.sh
+```
+
+This requires [panvimdoc](https://github.com/kdheepak/panvimdoc) and Pandoc
+3.0+. Set `PANVIMDOC` to the path of `panvimdoc.sh`, or `PANVIMDOC_DIR` to a
+panvimdoc checkout.
+
+Check that both generated files are current with:
+
+```sh
+sh scripts/docs.sh --check
 ```
 
 Run the headless smoke test with:

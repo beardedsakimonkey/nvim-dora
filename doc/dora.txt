@@ -1,0 +1,262 @@
+*dora.txt*                                 A small directory viewer for Neovim
+                                 For Neovim 0.12+    Last change: 2026 June 09
+
+==============================================================================
+Table of Contents                                     *dora-table-of-contents*
+
+1. nvim-dora                                                  |dora-nvim-dora|
+  - Why Dora?                                       |dora-nvim-dora-why-dora?|
+  - Usage                                               |dora-nvim-dora-usage|
+  - Configuration                               |dora-nvim-dora-configuration|
+  - Highlights                                     |dora-nvim-dora-highlights|
+  - Development                                   |dora-nvim-dora-development|
+  - Acknowledgements                         |dora-nvim-dora-acknowledgements|
+  - Similar plugins                           |dora-nvim-dora-similar-plugins|
+
+==============================================================================
+1. nvim-dora                                                  *dora-nvim-dora*
+
+Dora is a small directory viewer for Neovim 0.12+. It opens in the current
+window, works well with normal buffer navigation, and stays out of the way when
+you only need to browse, create, rename, copy, delete, or inspect files.
+
+It is closer to vim-dirvish <https://github.com/justinmk/vim-dirvish> than to a
+project drawer. Dora is meant to be opened when you need it, then closed or
+replaced by the file you choose.
+
+
+WHY DORA?                                           *dora-nvim-dora-why-dora?*
+
+- **Normal buffers, not editable directory listings.** Dora does not make the
+    directory buffer modifiable, which leaves more keys available for actions.
+- **Quiet navigation history.** Dora buffers avoid populating the jumplist, so
+    `<C-o>` usually takes you back through files rather than directory views.
+- **Isolated instances.** Opening the same directory in two windows creates two
+    independent Dora buffers. Navigation, paste marks, and expanded directories in one
+    window do not affect the other.
+- **Inline tree expansion.** You can stay in one directory while expanding
+    selected subdirectories into a tree.
+
+
+USAGE                                                   *dora-nvim-dora-usage*
+
+Open Dora with:
+
+>vim
+    :Dora
+    :Dora path/to/dir
+<
+
+Or add a mapping:
+
+>lua
+    vim.keymap.set('n', '-', '<Cmd>Dora<CR>')
+<
+
+
+CONFIGURATION                                   *dora-nvim-dora-configuration*
+
+Dora works without setup. To customize it, mutate `require'dora'.config` from
+your Neovim config.
+
+The default config is generated from `lua/dora.lua`:
+
+>lua
+    require'dora'.setup {
+        -- Whether to show keymap hints for two-key normal mode mappings
+        show_keymap_hints = true,
+        -- Whether hidden files should be shown when dora opens
+        show_hidden_files = true,
+        -- Function used to determine what files should be hidden
+        is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
+        -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
+        -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
+        icons = false,
+        -- Default file sorting order
+        sort_order = 'name',
+        -- Number of columns used for each level of tree indentation (minimum 2)
+        tree_indent = 4,
+        -- Whether to sync the window's current directory with dora's current path
+        sync_local_cwd = true,
+        keymaps = {
+            q = {"quit",                            desc="Quit"},
+            h = {"up_dir",                          desc="Up directory"},
+            ['-'] = {"up_dir",                      desc="Up directory"},
+            J = {"last_sibling",                    desc="Last sibling"},
+            K = {"first_sibling",                   desc="First sibling"},
+            ['>'] = {"next_sibling",                desc="Next sibling"},
+            ['<'] = {"prev_sibling",                desc="Previous sibling"},
+            ['<BS>'] = {"parent_dir",               desc="Go to and collapse parent directory"},
+            o = {"expand",                          desc="Expand directory"},
+            O = {"expand_recursive",                desc="Expand directory recursively"},
+            u = {"collapse",                        desc="Collapse directory"},
+            U = {"collapse_recursive",              desc="Collapse directory recursively"},
+            f = {"filter",                          desc="Filter visible files"},
+            F = {"clear_filter",                    desc="Clear filter"},
+            ['<C-r>'] = {"reload",                  desc="Reload listing"},
+            l = {"open",                            desc="Open"},
+            ['<CR>'] = {"open",                     desc="Open"},
+            ['<2-LeftMouse>'] = {"open",            desc="Open"},
+            s = {"open_split",                      desc="Open in split"},
+            v = {"open_vsplit",                     desc="Open in vertical split"},
+            t = {"open_tab",                        desc="Open in tab"},
+            ['<C-s>'] = {"open_split_keep",         desc="Open in split without closing Dora"},
+            ['<C-v>'] = {"open_vsplit_keep",        desc="Open in vertical split without closing Dora"},
+            ['<C-t>'] = {"open_tab_keep",           desc="Open in tab without closing Dora"},
+            i = {"info",                            desc="Show file info"},
+            d = {"trash",                           desc="Move file to trash"},
+            D = {"delete",                          desc="Delete file permanently"},
+            a = {"create",                          desc="Add file"},
+            A = {"create_under",                    desc="Add file under directory"},
+            r = {"rename",                          desc="Rename file"},
+            R = {"rename_empty",                    desc="Rename file with empty prompt"},
+            m = {"set_bookmark",                    desc="Set bookmark"},
+            ["'"] = {"jump_bookmark",               desc="Jump to bookmark"},
+            x = {"cut",                             desc="Toggle cut mark"},
+            c = {"copy",                            desc="Toggle copy mark"},
+            p = {"paste",                           desc="Paste under directory"},
+            P = {"paste_parent",                    desc="Paste under parent directory"},
+            ['<Esc>'] = {"clear_marks",             desc="Clear paste marks"},
+            gf = {"follow_symlink",                 desc="Follow symlink"},
+            gh = {"home_dir",                       desc="Go to Home directory"},
+            gx = {"open_external",                  desc="Open externally"},
+            ['.'] = {"shell_cmd",                   desc="Shell command on file"},
+            ['g.'] = {"toggle_hidden_files",        desc="Toggle hidden files"},
+            ['g?'] = {"help",                       desc="Show help"},
+            Y = {"yank_filename",                   desc="Yank filename"},
+            yy = {"yank_file_path",                 desc="Yank full path"},
+            yY = {"yank_file_path_clipboard",       desc="Yank full path to clipboard"},
+            yd = {"yank_dir_path",                  desc="Yank directory path"},
+            yD = {"yank_dir_path_clipboard",        desc="Yank directory path to clipboard"},
+            yf = {"yank_filename",                  desc="Yank filename"},
+            yF = {"yank_filename_clipboard",        desc="Yank filename to clipboard"},
+            yb = {"yank_basename",                  desc="Yank basename"},
+            yB = {"yank_basename_clipboard",        desc="Yank basename to clipboard"},
+            [',n'] = {"sort_by_name",               desc="Sort by name"},
+            [',N'] = {"sort_by_name_reverse",       desc="Sort by name (descending)"},
+            [',m'] = {"sort_by_modified",           desc="Sort by modified time"},
+            [',M'] = {"sort_by_modified_reverse",   desc="Sort by modified time (descending)"},
+            [',c'] = {"sort_by_created",            desc="Sort by creation time"},
+            [',C'] = {"sort_by_created_reverse",    desc="Sort by creation time (descending)"},
+            [',s'] = {"sort_by_size",               desc="Sort by size"},
+            [',S'] = {"sort_by_size_reverse",       desc="Sort by size (descending)"},
+            [',e'] = {"sort_by_extension",          desc="Sort by extension"},
+            [',E'] = {"sort_by_extension_reverse",  desc="Sort by extension (descending)"},
+        },
+    }
+<
+
+Example:
+
+>lua
+    local dora = require'dora'
+    
+    -- The config table is deeply merged with the defaults, so you only need to
+    -- specify the options you want to add/change.
+    dora.setup({
+        keymaps = {
+            d = "delete",
+        },
+        icons = true,
+    })
+    
+    -- To remove a default keymap, set it to `nil`
+    dora.config.keymaps.l = nil
+<
+
+Keymaps may be core action names, Vim RHS strings, functions, or `{action,
+desc=...}` tables. Use the table form when you want the mapping to appear
+nicely in `g?` help:
+
+>lua
+    dora.config.keymaps.q = {"quit", desc="Quit"}
+<
+
+Dora also shows a small hint window for two-character normal mode mappings. For
+example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`. Set
+`dora.config.show_keymap_hints = false` to disable these prefix hints.
+
+Files are sorted naturally by name by default, with directories always grouped
+before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
+time, creation time, size, or extension. Use uppercase variants such as `,N`,
+`,M`, `,C`, `,S`, and `,E` for the reversed order. Set `dora.config.sort_order`
+to choose the initial order.
+
+Dora float windows use rounded borders by default. On Neovim 0.12+, set
+`vim.o.winborder` to customize the border style globally.
+
+
+HIGHLIGHTS                                         *dora-nvim-dora-highlights*
+
+Customize Dora with these highlight groups:
+
+>vim
+    hi default link DoraFile                Normal
+    hi default link DoraDirectory           Directory
+    hi default link DoraSymlink             Constant
+    hi default link DoraExecutable          Function
+    hi default link DoraTree                NonText
+    hi default link DoraTreeActive          Directory
+    hi default link DoraVirtText            NonText
+    hi default link DoraIcon                Special
+    hi default link DoraCut                 DiagnosticError
+    hi default link DoraCopy                DiagnosticOk
+    hi default link DoraFilterMatch         Special
+    hi default link DoraFilterPath          Comment
+    hi default link DoraPromptBorder        FloatBorder
+    hi default link DoraPromptBorderValid   DiagnosticOk
+    hi default link DoraPromptBorderInvalid DiagnosticError
+    hi default link DoraInfoLabel           Label
+    hi default link DoraInfoValue           Special
+    hi default link DoraHelpSection         Title
+    hi default link DoraDeleteMore          NonText
+    hi default link DoraKeymapHintArrow     NonText
+<
+
+
+DEVELOPMENT                                       *dora-nvim-dora-development*
+
+Regenerate the generated README sections and `doc/dora.txt` with:
+
+>sh
+    sh scripts/docs.sh
+<
+
+This requires panvimdoc <https://github.com/kdheepak/panvimdoc> and Pandoc
+3.0+. Set `PANVIMDOC` to the path of `panvimdoc.sh`, or `PANVIMDOC_DIR` to a
+panvimdoc checkout.
+
+Check that both generated files are current with:
+
+>sh
+    sh scripts/docs.sh --check
+<
+
+Run the headless smoke test with:
+
+>sh
+    sh scripts/smoke.sh
+<
+
+Benchmark Lua module load time with:
+
+>sh
+    sh scripts/bench-require.sh
+<
+
+
+ACKNOWLEDGEMENTS                             *dora-nvim-dora-acknowledgements*
+
+Some minor bits of code were adapted from vim-dirvish and nvim-tree.
+
+
+SIMILAR PLUGINS                               *dora-nvim-dora-similar-plugins*
+
+- vim-vinegar <https://github.com/tpope/vim-vinegar>
+- vim-filebeagle <https://github.com/jeetsukumaran/vim-filebeagle>
+- vim-dirvish <https://github.com/justinmk/vim-dirvish>
+- lir.nvim <https://github.com/tamago324/lir.nvim>
+
+Generated by panvimdoc <https://github.com/kdheepak/panvimdoc>
+
+vim:tw=78:ts=8:noet:ft=help:norl:

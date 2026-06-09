@@ -1,0 +1,29 @@
+name: vimdoc
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - doc/dora.txt
+      - .github/workflows/vimdoc.yml
+      - scripts/vimdoc.sh
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: kdheepak/panvimdoc@v4.0.1
+        with:
+          vimdoc: dora
+          pandoc: README.md
+          version: Neovim 0.12+
+          toc: true
+          description: A small directory viewer for Neovim
+          dedupsubheadings: true
+          treesitter: true
+          ignorerawblocks: true
+      - name: Check generated vimdoc
+        run: git diff --exit-code -- doc/dora.txt
