@@ -1714,7 +1714,8 @@ function M.delete_visual()
     remove_visual_paths(fs.delete, 'Delete')
 end
 
-function M.rename()
+---@param prefill boolean
+local function rename(prefill)
     local state = store.get()
     local row = current_row(state)
     local path, msg = current_path(state)
@@ -1725,7 +1726,7 @@ function M.rename()
     prompt.input({
         prompt = 'Rename to',
         cwd = fs.get_parent_dir(path),
-        initial_prompt = fs.basename(path),
+        initial_prompt = prefill and fs.basename(path) or '',
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(row),
         validate = function(input)
@@ -1745,6 +1746,14 @@ function M.rename()
         render(state)
         set_cursor_path(state, dest)
     end)
+end
+
+function M.rename()
+    rename(true)
+end
+
+function M.rename_empty()
+    rename(false)
 end
 
 ---@param under_directory? boolean

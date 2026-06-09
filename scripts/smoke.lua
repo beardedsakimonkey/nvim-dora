@@ -1495,6 +1495,8 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
+    assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename file')
+    assert_eq(vim.fn.maparg('R', 'n', false, true).desc, 'Rename file with empty prompt')
     util.set_cursor_pos('alpha%.txt')
     local cursor = api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]
@@ -1519,6 +1521,20 @@ do
     assert(not fs.exists(tmp .. '/alpha.txt'), 'rename should remove the old file')
     assert(fs.exists(tmp .. '/beta.txt'), 'rename should create the renamed file')
     assert_match(current_line(), 'beta%.txt$', 'rename should move cursor to the renamed file')
+
+    local empty_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.prompt, 'Rename to')
+        assert_eq(opts.initial_prompt, '', 'empty rename should omit the current filename')
+        cb('gamma.txt', opts.validate('gamma.txt'))
+    end
+    core.rename_empty()
+    prompt.input = empty_input
+
+    assert(not fs.exists(tmp .. '/beta.txt'), 'empty rename should remove the old file')
+    assert(fs.exists(tmp .. '/gamma.txt'), 'empty rename should create the renamed file')
+    assert_match(current_line(), 'gamma%.txt$', 'empty rename should move cursor to the renamed file')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
