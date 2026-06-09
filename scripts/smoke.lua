@@ -930,7 +930,8 @@ do
     touch(tmp .. '/alpha/one/file.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Parent directory')
+    assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Parent directory')
+    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste under parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
     util.set_cursor_pos('one')
@@ -1320,11 +1321,10 @@ do
 
     util.set_cursor_pos('dest')
     core.expand()
-    set_cursor_line('%(empty%)$')
     core.paste()
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
-    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered parent directory')
+    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
     assert_eq(marked_path_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
 
@@ -1374,7 +1374,7 @@ do
     util.set_cursor_pos('dest')
     core.expand()
     set_cursor_line('alpha%.txt$')
-    core.paste()
+    core.paste_parent()
 
     local confirm_win = api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Overwrite%?')
@@ -1386,7 +1386,7 @@ do
     assert_eq(marked_path_count(state), 1,
         'declining overwrite should preserve paste marks')
 
-    core.paste()
+    core.paste_parent()
     assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
     api.nvim_feedkeys('y', 'xt', false)
 
@@ -1456,7 +1456,6 @@ do
 
     util.set_cursor_pos('dest')
     core.expand()
-    set_cursor_line('%(empty%)$')
     core.paste()
 
     assert(not fs.exists(tmp .. '/a'), 'mixed paste should remove cut source a')

@@ -1477,19 +1477,11 @@ local function paste_entries(state, entries, dest_dir, dest_path)
     set_cursor_path(state, dest_path)
 end
 
-function M.paste()
-    local state = store.get()
-    local entries = marked_path_entries(state)
-    if #entries == 0 then
-        util.err('Nothing to paste')
-        return
-    end
-    local row = current_row(state)
-    local dest_dir = row and row.parent_path or nil
-    if not dest_dir then
-        util.err('No paste destination')
-        return
-    end
+---@param state DoraState
+---@param row DoraTreeRow
+---@param dest_dir string
+---@param entries DoraMarkedPathEntry[]
+local function paste_to_directory(state, row, dest_dir, entries)
     local dest_path = vim.fs.joinpath(dest_dir, fs.basename(entries[1].path))
     local overwrite_paths = {}
     local seen_overwrite_paths = {}
@@ -1520,6 +1512,36 @@ function M.paste()
         anchor = current_name_anchor(row),
         action = 'Overwrite',
     })
+end
+
+function M.paste()
+    local state = store.get()
+    local entries = marked_path_entries(state)
+    if #entries == 0 then
+        util.err('Nothing to paste')
+        return
+    end
+    local row = current_row(state)
+    if not row or row.type ~= 'directory' or not row.path then
+        util.err('No directory selected')
+        return
+    end
+    paste_to_directory(state, row, row.path, entries)
+end
+
+function M.paste_parent()
+    local state = store.get()
+    local entries = marked_path_entries(state)
+    if #entries == 0 then
+        util.err('Nothing to paste')
+        return
+    end
+    local row = current_row(state)
+    if not row or not row.parent_path then
+        util.err('No paste destination')
+        return
+    end
+    paste_to_directory(state, row, row.parent_path, entries)
 end
 
 ---@param value string
