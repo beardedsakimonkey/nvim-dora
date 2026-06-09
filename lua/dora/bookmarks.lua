@@ -66,7 +66,7 @@ end
 ---@param key string?
 ---@return string?
 function M.resolve_jump_directory(bookmarks, key)
-    if not key then
+    if not key or key == '\027' then
         return nil
     end
     if vim.fn.strchars(key) ~= 1 then
