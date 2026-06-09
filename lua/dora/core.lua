@@ -23,8 +23,6 @@ local EXPANDED_DIRECTORIES_VAR = 'dora_expanded_directories'
 local EMPTY_LABEL = '(empty)'
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local TREE_VERTICAL = '│'
-local TREE_CONTINUATION = TREE_VERTICAL .. '   '
-local TREE_SPACER = '    '
 
 ---@alias DoraCwdScope 'window'|'tab'|'global'
 ---@alias DoraPasteOperation 'copy'|'cut'
@@ -142,6 +140,10 @@ end
 ---@return DoraTreeRow[]
 local function build_tree_rows(state)
     local rows = {}
+    local tree_indent = math.max(2, math.floor(config.tree_indent))
+    local connector_suffix = string.rep('─', tree_indent - 2) .. ' '
+    local tree_continuation = TREE_VERTICAL .. string.rep(' ', tree_indent - 1)
+    local tree_spacer = string.rep(' ', tree_indent)
 
     ---@param dir string
     ---@param prefix string
@@ -151,7 +153,7 @@ local function build_tree_rows(state)
         local files, placeholder_label = visible_files(state, dir)
         if depth > 0 and (#files == 0 or placeholder_label) then
             placeholder_label = placeholder_label or EMPTY_LABEL
-            local tree_prefix = prefix .. '└── '
+            local tree_prefix = prefix .. '└' .. connector_suffix
             rows[#rows+1] = {
                 name = placeholder_label,
                 display_name = tree_prefix .. placeholder_label,
@@ -167,8 +169,12 @@ local function build_tree_rows(state)
         end
         for i, file in ipairs(files) do
             local is_last = i == #files
-            local connector = depth == 0 and '' or (is_last and '└── ' or '├── ')
-            local child_prefix = depth == 0 and '' or prefix .. (is_last and TREE_SPACER or TREE_CONTINUATION)
+            local connector = depth == 0
+                and ''
+                or (is_last and '└' or '├') .. connector_suffix
+            local child_prefix = depth == 0
+                and ''
+                or prefix .. (is_last and tree_spacer or tree_continuation)
             local child_continuation_segments = continuation_segments
             if depth > 0 then
                 child_continuation_segments = copy_tree_segments(continuation_segments)

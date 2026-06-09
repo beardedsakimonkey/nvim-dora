@@ -31,11 +31,13 @@ do
     local old_config = dora.config
     local old_keymaps = dora.config.keymaps
     local old_show_hidden_files = dora.config.show_hidden_files
+    local old_tree_indent = dora.config.tree_indent
     local old_q = dora.config.keymaps.q
     local old_smoke_key = dora.config.keymaps.__dora_smoke_setup
 
     dora.setup({
         show_hidden_files = false,
+        tree_indent = 2,
         keymaps = {
             q = {'quit'},
             __dora_smoke_setup = 'help',
@@ -45,10 +47,12 @@ do
     assert_eq(dora.config, old_config, 'setup should preserve the config table')
     assert_eq(dora.config.keymaps, old_keymaps, 'setup should preserve the keymaps table')
     assert_eq(config.show_hidden_files, false, 'setup should update config values in place')
+    assert_eq(config.tree_indent, 2, 'setup should update tree indentation')
     assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
     assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
 
     dora.config.show_hidden_files = old_show_hidden_files
+    dora.config.tree_indent = old_tree_indent
     dora.config.keymaps.q = old_q
     dora.config.keymaps.__dora_smoke_setup = old_smoke_key
 end
@@ -2357,17 +2361,19 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root/empty', tonumber('755', 8)))
     touch(tmp .. '/root/a/b/file.txt')
 
+    local old_tree_indent = config.tree_indent
+    config.tree_indent = 2
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = state.cwd
 
     util.set_cursor_pos('root')
     core.expand_recursive()
-    assert(vim.tbl_contains(lines(), '├── a/'), 'recursive expand should show child directories')
-    assert(vim.tbl_contains(lines(), '│   └── b/'), 'recursive expand should show nested directories')
-    assert(vim.tbl_contains(lines(), '│       └── file.txt'), 'recursive expand should show nested files')
-    assert(vim.tbl_contains(lines(), '└── empty/'), 'recursive expand should show empty child directories')
-    assert(vim.tbl_contains(lines(), '    └── (empty)'), 'recursive expand should show empty placeholders')
+    assert(vim.tbl_contains(lines(), '├ a/'), 'custom tree indentation should apply to child directories')
+    assert(vim.tbl_contains(lines(), '│ └ b/'), 'custom tree indentation should apply to nested directories')
+    assert(vim.tbl_contains(lines(), '│   └ file.txt'), 'custom tree indentation should apply to nested files')
+    assert(vim.tbl_contains(lines(), '└ empty/'), 'custom tree indentation should apply to last children')
+    assert(vim.tbl_contains(lines(), '  └ (empty)'), 'custom tree indentation should apply to empty placeholders')
     assert(state.expanded_dirs[root .. '/root'], 'recursive expand should expand selected directory')
     assert(state.expanded_dirs[root .. '/root/a'], 'recursive expand should expand descendants')
     assert(state.expanded_dirs[root .. '/root/a/b'], 'recursive expand should expand nested descendants')
@@ -2379,13 +2385,14 @@ do
     assert(not state.expanded_dirs[root .. '/root/a'], 'recursive collapse should clear descendants')
     assert(not state.expanded_dirs[root .. '/root/a/b'], 'recursive collapse should clear nested descendants')
     assert(not state.expanded_dirs[root .. '/root/empty'], 'recursive collapse should clear empty descendants')
-    assert(not vim.tbl_contains(lines(), '├── a/'), 'recursive collapse should hide children')
+    assert(not vim.tbl_contains(lines(), '├ a/'), 'recursive collapse should hide children')
 
     core.expand()
-    assert(vim.tbl_contains(lines(), '├── a/'), 'expand after recursive collapse should show one level')
-    assert(not vim.tbl_contains(lines(), '│   └── b/'), 'expand after recursive collapse should not restore recursive state')
+    assert(vim.tbl_contains(lines(), '├ a/'), 'expand after recursive collapse should show one level')
+    assert(not vim.tbl_contains(lines(), '│ └ b/'), 'expand after recursive collapse should not restore recursive state')
 
     core.quit()
+    config.tree_indent = old_tree_indent
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
