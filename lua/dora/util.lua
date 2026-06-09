@@ -192,11 +192,11 @@ function M.set_cursor_pos(filename, or_top)
 end
 
 ---@param msg any
-function M.err(msg)  vim.notify('[dora] ' .. msg, vim.log.levels.ERROR) end
+function M.err(msg)  vim.notify('dora: ' .. msg, vim.log.levels.ERROR) end
 ---@param msg any
-function M.warn(msg) vim.notify('[dora] ' .. msg, vim.log.levels.WARN) end
+function M.warn(msg) vim.notify('dora: ' .. msg, vim.log.levels.WARN) end
 ---@param msg any
-function M.info(msg) vim.notify('[dora] ' .. msg, vim.log.levels.INFO) end
+function M.info(msg) vim.notify('dora: ' .. msg, vim.log.levels.INFO) end
 
 ---@class DoraYankRange
 ---@field line integer

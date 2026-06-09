@@ -1351,7 +1351,7 @@ do
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
     assert_eq(marked_path_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
-    assert_eq(notifications[#notifications].msg, '[dora] Pasted 1 item to ' .. state.cwd .. '/dest')
+    assert_eq(notifications[#notifications].msg, 'dora: Pasted 1 item to ' .. state.cwd .. '/dest')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
     core.quit()
@@ -1382,7 +1382,7 @@ do
     reload_map.callback()
     assert_eq(marked_path_count(state), 0, 'reload should clear marks for files deleted externally')
     core.paste()
-    assert_eq(notifications[#notifications].msg, '[dora] Nothing to paste')
+    assert_eq(notifications[#notifications].msg, 'dora: Nothing to paste')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
     core.quit()
@@ -2222,7 +2222,7 @@ do
     local yank_cursor = api.nvim_win_get_cursor(0)
     yank_filename_map.callback()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked filename: archive.tar.gz')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar.gz')
     assert_eq(api.nvim_win_get_cursor(0)[1], yank_cursor[1])
     assert_eq(api.nvim_win_get_cursor(0)[2], yank_cursor[2], 'filename yank should preserve the cursor')
@@ -2234,7 +2234,7 @@ do
 
     core.yank_file_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path: ' .. expected_path)
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file path: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '')
@@ -2245,7 +2245,7 @@ do
     vim.g.dora_smoke_yankpost_text = nil
     core.yank_file_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked file path to clipboard: ' .. expected_path)
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file path to clipboard: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '+')
@@ -2253,26 +2253,26 @@ do
 
     core.yank_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path: ' .. fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked directory path: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_dir_path_clipboard()
     assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked directory path to clipboard: ' .. fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked directory path to clipboard: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename: archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked filename: archive.tar.gz')
     start_col, end_col = yank_highlight_range()
     assert_eq(start_col, filename_col)
     assert_eq(end_col, filename_col + #'archive.tar.gz')
 
     core.yank_filename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked filename to clipboard: archive.tar.gz')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked filename to clipboard: archive.tar.gz')
 
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename: archive.tar')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
     start_col, end_col = yank_highlight_range()
     assert_eq(start_col, filename_col, 'basename yank should start at the filename')
@@ -2280,7 +2280,7 @@ do
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, '[dora] Yanked basename to clipboard: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename to clipboard: archive.tar')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -2317,14 +2317,14 @@ do
     end
     core.open_external()
     assert_eq(vim.g.dora_smoke_open_external_path, expected_path)
-    assert_eq(notifications[#notifications].msg, '[dora] Opening a')
+    assert_eq(notifications[#notifications].msg, 'dora: Opening a')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
     vim.ui.open = function()
         error('boom')
     end
     core.open_external()
-    assert_match(notifications[#notifications].msg, '^%[dora%] Could not open externally: ')
+    assert_match(notifications[#notifications].msg, '^dora: Could not open externally: ')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
     core.quit()
@@ -2953,4 +2953,4 @@ assert(api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
 assert(#api.nvim_buf_get_lines(0, 0, -1, false) > 0, 'Dora buffer should render entries')
 core.quit()
 
-print('[dora] smoke ok\n')
+print('dora: smoke ok\n')
