@@ -1364,6 +1364,48 @@ do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    write_file(tmp .. '/alpha.txt', 'new')
+    write_file(tmp .. '/dest/alpha.txt', 'old')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('^alpha%.txt$')
+    core.copy()
+    util.set_cursor_pos('dest')
+    core.expand()
+    set_cursor_line('alpha%.txt$')
+    core.paste()
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(win_title(confirm_win), 'Overwrite%?')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' dest/alpha.txt')
+    api.nvim_feedkeys('n', 'xt', false)
+
+    assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'old',
+        'declining overwrite should preserve the destination file')
+    assert_eq(marked_path_count(state), 1,
+        'declining overwrite should preserve paste marks')
+
+    core.paste()
+    assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'new',
+        'confirming overwrite should replace the destination file')
+    assert(fs.exists(tmp .. '/alpha.txt'), 'copy overwrite should preserve the source file')
+    assert_eq(marked_path_count(state), 0,
+        'successful overwrite should clear paste marks')
+    assert_match(current_line(), 'alpha%.txt$',
+        'successful overwrite should keep the cursor on the pasted file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
     touch(tmp .. '/c')
