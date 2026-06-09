@@ -1094,7 +1094,14 @@ function M.parent_dir()
     if not row or not row.parent_path then
         return
     end
-    set_cursor_path(state, row.parent_path)
+    local parent_path = row.parent_path
+    if not set_cursor_path(state, parent_path) then
+        return
+    end
+    if clear_expanded_subtree(state, parent_path) then
+        render(state)
+        set_cursor_path(state, parent_path)
+    end
 end
 
 function M.next_sibling()
