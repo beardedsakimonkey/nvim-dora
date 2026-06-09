@@ -97,13 +97,14 @@ end
 ---@param bookmarks DoraBookmarks
 ---@return DoraHelpRow[]
 function M.help_rows(bookmarks)
-    local rows = {}
+    local previous_desc = 'Previous directory'
     if bookmarks.previous_directory then
-        rows[#rows+1] = {
-            lhs = "''",
-            desc = 'Last directory: ' .. util.display_path(bookmarks.previous_directory),
-        }
+        previous_desc = previous_desc .. ': ' .. util.display_path(bookmarks.previous_directory)
     end
+    local rows = {{
+        lhs = "''",
+        desc = previous_desc,
+    }}
 
     local keys = {}
     for key in pairs(bookmarks.paths) do

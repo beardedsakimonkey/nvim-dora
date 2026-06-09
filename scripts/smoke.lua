@@ -17,6 +17,7 @@ local function assert_match(str, pattern, msg)
 end
 
 local dora = require'dora'
+local bookmarks = require'dora.bookmarks'
 local fs = require'dora.fs'
 local config = dora.config
 local delete_win = require'dora.delete_win'
@@ -328,6 +329,12 @@ do
     api.nvim_set_current_buf(origin_buf)
     api.nvim_buf_delete(anchor_buf, {force = true})
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local bookmark_rows = bookmarks.help_rows(bookmarks.new())
+    assert_eq(bookmark_rows[1].lhs, "''", "a fresh bookmark state should include the previous-directory shortcut")
+    assert_eq(bookmark_rows[1].desc, 'Previous directory')
 end
 
 do
@@ -1713,7 +1720,7 @@ do
     assert(navigation_line < bookmarks_line, 'help should show navigation before bookmarks')
     assert(bookmarks_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
         'help should show bookmark mappings under the bookmarks title')
-    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Last directory:"),
+    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Previous directory:"),
         'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
     assert(help_text:find("'a", 1, true), 'help should include bookmark a')
@@ -2335,6 +2342,8 @@ do
         previous_line = line
     end
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
+    assert(find_line_index(help_lines, "^  ''%s+Previous directory"),
+        "help should always include the builtin previous-directory bookmark")
     local general_line = find_line_index(help_lines, '^General$') - 1
     local quit_line = find_line_index(help_lines, '^  q%s+Quit$') - 1
     local section_highlight, key_highlight = false, false
