@@ -5,6 +5,7 @@ local uv = vim.loop
 
 local M = {}
 
+local HINT_DELAY = 200
 local HINT_ARROW = '→'
 local HINT_COLUMN_GAP = '    '
 local HINT_KEY_ORDERS = {
@@ -317,12 +318,17 @@ end
 ---@param group {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]
 ---@param direct? {action: DoraKeymapAction, desc: string?}
 local function show_keymap_hints(prefix, group, direct)
-    local buf, win = M.open_hint_window(prefix, vim.tbl_map(function(entry)
-        return {lhs=entry.lhs, desc=entry.desc}
-    end, group))
-    vim.cmd.redraw()
-    local key = read_key(vim.o.timeoutlen)
-    window.close(buf, win)
+    local timeout = math.max(0, vim.o.timeoutlen)
+    local delay = math.min(timeout, HINT_DELAY)
+    local key = read_key(delay)
+    if not key and delay < timeout then
+        local buf, win = M.open_hint_window(prefix, vim.tbl_map(function(entry)
+            return {lhs=entry.lhs, desc=entry.desc}
+        end, group))
+        vim.cmd.redraw()
+        key = read_key(timeout - delay)
+        window.close(buf, win)
+    end
     for _, entry in ipairs(group) do
         if key == entry.key then
             dispatch_keymap_action(entry.action)
