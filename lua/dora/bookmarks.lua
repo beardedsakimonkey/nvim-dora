@@ -2,6 +2,9 @@ local util = require'dora.util'
 
 local M = {}
 
+---@type table<string, string>
+local global_paths = {}
+
 ---@class DoraBookmarks
 ---@field paths table<string, string>
 ---@field previous_directory? string
@@ -10,7 +13,7 @@ local M = {}
 ---@return DoraBookmarks
 function M.new(previous_directory)
     return {
-        paths = {},
+        paths = global_paths,
         previous_directory = previous_directory,
     }
 end

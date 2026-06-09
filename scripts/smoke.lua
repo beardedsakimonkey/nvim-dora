@@ -1638,6 +1638,10 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(project))
     local reopened_state = store.get()
+    assert_eq(reopened_state.bookmarks.paths.a, root,
+        'reopening Dora should preserve bookmark a')
+    assert_eq(reopened_state.bookmarks.paths.b, project,
+        'reopening Dora should preserve bookmark b')
     assert_eq(reopened_state.bookmarks.previous_directory, root,
         "reopening Dora in the same window should preserve the '' bookmark")
     api.nvim_feedkeys("'", 't', false)
@@ -1662,9 +1666,14 @@ do
 
     api.nvim_set_current_win(other_win)
     vim.cmd('Dora ' .. vim.fn.fnameescape(project))
-    assert_eq(store.get().bookmarks.previous_directory, nil,
+    local other_state = store.get()
+    assert_eq(other_state.bookmarks.paths.a, root,
+        'bookmark a should be shared with another window')
+    assert_eq(other_state.bookmarks.paths.b, project,
+        'bookmark b should be shared with another window')
+    assert_eq(other_state.bookmarks.previous_directory, nil,
         "the '' bookmark should not be shared with another window")
-    assert_eq(store.get().expanded_dirs[root .. '/other'], nil,
+    assert_eq(other_state.expanded_dirs[root .. '/other'], nil,
         'expanded directories should not be shared with another window')
     core.quit()
 
