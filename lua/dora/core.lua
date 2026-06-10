@@ -17,9 +17,13 @@ local uv = vim.loop
 
 local M = {}
 
+-- Expanded directories are shared by all dora buffers and persist for the
+-- lifetime of the session, like bookmarks.
+---@type table<string, true>
+local global_expanded_dirs = {}
+
 local PROMPT_WIDTH = 32
 local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
-local EXPANDED_DIRECTORIES_VAR = 'dora_expanded_directories'
 local EMPTY_LABEL = '(empty)'
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local TREE_VERTICAL = '│'
@@ -930,16 +934,6 @@ local function save_previous_directory(state)
     end
 end
 
----@param state DoraState
-local function save_expanded_directories(state)
-    if not api.nvim_win_is_valid(state.win) then
-        return
-    end
-    local directories = vim.tbl_keys(state.expanded_dirs)
-    table.sort(directories)
-    api.nvim_win_set_var(state.win, EXPANDED_DIRECTORIES_VAR, directories)
-end
-
 ---@param win integer
 ---@return string?
 local function load_previous_directory(win)
@@ -947,27 +941,10 @@ local function load_previous_directory(win)
     return ok and type(directory) == 'string' and directory or nil
 end
 
----@param win integer
----@return table<string, true>
-local function load_expanded_directories(win)
-    local ok, directories = pcall(api.nvim_win_get_var, win, EXPANDED_DIRECTORIES_VAR)
-    if not ok or type(directories) ~= 'table' then
-        return {}
-    end
-    local expanded_dirs = {}
-    for _, directory in ipairs(directories) do
-        if type(directory) == 'string' then
-            expanded_dirs[directory] = true
-        end
-    end
-    return expanded_dirs
-end
-
 ---@param state DoraState
 local function cleanup(state)
     close_filter(state)
     save_previous_directory(state)
-    save_expanded_directories(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
@@ -2083,7 +2060,7 @@ function M.initialize(dir, from_au)
         show_hidden_files = config.show_hidden_files,
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, filename>
-        expanded_dirs = load_expanded_directories(win),  -- map<realpath, true>
+        expanded_dirs = global_expanded_dirs,  -- map<realpath, true>
         tree_rows = {},
         rows = {},
         filter_text = nil,

@@ -90,7 +90,6 @@ end
 
 local function clear_persisted_view_state(win)
     pcall(api.nvim_win_del_var, win or 0, 'dora_previous_directory')
-    pcall(api.nvim_win_del_var, win or 0, 'dora_expanded_directories')
 end
 
 local function lines()
@@ -1805,6 +1804,8 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(root))
     assert_eq(store.get().expanded_dirs[root .. '/other'], nil,
         'collapsed directories should remain collapsed after reopening Dora')
+    set_cursor_line('^other/$')
+    core.expand()
     core.quit()
 
     api.nvim_set_current_win(other_win)
@@ -1816,8 +1817,8 @@ do
         'bookmark b should be shared with another window')
     assert_eq(other_state.bookmarks.previous_directory, nil,
         "the '' bookmark should not be shared with another window")
-    assert_eq(other_state.expanded_dirs[root .. '/other'], nil,
-        'expanded directories should not be shared with another window')
+    assert(other_state.expanded_dirs[root .. '/other'],
+        'expanded directories should be shared with another window')
     core.quit()
 
     api.nvim_set_current_win(bookmark_win)
