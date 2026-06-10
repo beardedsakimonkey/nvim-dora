@@ -592,55 +592,31 @@ local function sibling_edge_line(state, line, step)
     end
 end
 
----@param state DoraState
-local function move_to_next_sibling(state)
+---@param step integer 1 for next, -1 for prev
+local function move_sibling(step)
+    local state = store.get()
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
     if not row or not row.parent_path then
         return
     end
-    local next_line = sibling_line(state, line, 1)
-    if next_line then
-        move_to_line(state, next_line)
+    local target = sibling_line(state, line, step)
+    if target then
+        move_to_line(state, target)
     end
 end
 
----@param state DoraState
-local function move_to_prev_sibling(state)
+---@param step integer 1 for last, -1 for first
+local function move_sibling_edge(step)
+    local state = store.get()
     local line = api.nvim_win_get_cursor(0)[1]
     local row = state.rows[line]
     if not row or not row.parent_path then
         return
     end
-    local prev_line = sibling_line(state, line, -1)
-    if prev_line then
-        move_to_line(state, prev_line)
-    end
-end
-
----@param state DoraState
-local function move_to_last_sibling(state)
-    local line = api.nvim_win_get_cursor(0)[1]
-    local row = state.rows[line]
-    if not row or not row.parent_path then
-        return
-    end
-    local last_line = sibling_edge_line(state, line, 1)
-    if last_line then
-        move_to_line(state, last_line)
-    end
-end
-
----@param state DoraState
-local function move_to_first_sibling(state)
-    local line = api.nvim_win_get_cursor(0)[1]
-    local row = state.rows[line]
-    if not row or not row.parent_path then
-        return
-    end
-    local first_line = sibling_edge_line(state, line, -1)
-    if first_line then
-        move_to_line(state, first_line)
+    local target = sibling_edge_line(state, line, step)
+    if target then
+        move_to_line(state, target)
     end
 end
 
@@ -1105,19 +1081,19 @@ function M.parent_dir()
 end
 
 function M.next_sibling()
-    move_to_next_sibling(store.get())
+    move_sibling(1)
 end
 
 function M.prev_sibling()
-    move_to_prev_sibling(store.get())
+    move_sibling(-1)
 end
 
 function M.last_sibling()
-    move_to_last_sibling(store.get())
+    move_sibling_edge(1)
 end
 
 function M.first_sibling()
-    move_to_first_sibling(store.get())
+    move_sibling_edge(-1)
 end
 
 function M.help()
