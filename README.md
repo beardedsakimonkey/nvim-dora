@@ -69,6 +69,7 @@ require('dora').setup {
         O = 'expand_recursive',
         u = 'collapse',
         U = 'collapse_recursive',
+        ['<BS>'] = 'close_dir',
         gp = 'parent_dir',
         gh = 'home_dir',
         gf = 'follow_symlink',

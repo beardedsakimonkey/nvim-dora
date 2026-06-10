@@ -1411,6 +1411,21 @@ function M.collapse_recursive()
     end
 end
 
+function M.close_dir()
+    local state = store.get()
+    local row = current_row(state)
+    if not row or not row.path or row.type ~= 'directory' then
+        return
+    end
+    -- Clear only this directory's entry so its subtree expansion is restored
+    -- on the next expand.
+    if state.expanded_dirs[row.path] then
+        state.expanded_dirs[row.path] = nil
+        render(state)
+        set_cursor_path(state, row.path)
+    end
+end
+
 ---@param op fun(state: DoraState, path: string): boolean
 local function visual_dir_rows_op(op)
     local state = store.get()
