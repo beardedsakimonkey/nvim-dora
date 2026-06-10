@@ -1389,7 +1389,7 @@ function M.expand()
     local changed = expand_next_level(state, row.path)
     if changed then
         render(state)
-        set_cursor_pos(state, row.display_name)
+        set_cursor_path(state, row.path)
     end
 end
 
@@ -1402,7 +1402,7 @@ function M.expand_recursive()
     local changed = expand_all_dirs(state, row.path)
     if changed then
         render(state)
-        set_cursor_pos(state, row.display_name)
+        set_cursor_path(state, row.path)
     end
 end
 
@@ -1431,7 +1431,7 @@ function M.collapse_recursive()
     local changed = clear_expanded_subtree(state, row.path)
     if changed then
         render(state)
-        set_cursor_pos(state, row.display_name)
+        set_cursor_path(state, row.path)
     end
 end
 
