@@ -1499,7 +1499,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
         return
     end
     delete_win.delete(overwrite_paths, state.cwd, function(confirmed)
-        if confirmed then
+        if confirmed and api.nvim_buf_is_valid(state.buf) then
             paste_entries(state, entries, dest_dir)
         end
     end, {
@@ -1617,7 +1617,7 @@ end
 ---@param anchor? {win: integer, line: integer, col: integer}
 local function remove_paths(state, paths, operation, action, anchor)
     delete_win.delete(paths, state.cwd, function(confirmed)
-        if not confirmed then
+        if not confirmed or not api.nvim_buf_is_valid(state.buf) then
             return
         end
         local removed_paths = {}
@@ -1710,7 +1710,7 @@ local function rename(prefill)
             return fs.validate_rename(input, path)
         end,
     }, function(input, dest)
-        if not input then
+        if not input or not api.nvim_buf_is_valid(state.buf) then
             return
         end
         local ok, err = pcall(fs.copy_or_move, true, path, dest, state.cwd)
@@ -1747,7 +1747,7 @@ local function create(under_directory)
             return fs.validate_create(input, state.cwd)
         end,
     }, function(input, path)
-        if input then
+        if input and api.nvim_buf_is_valid(state.buf) then
             local ok, msg
             if vim.endswith(input, util.sep) then
                 ok, msg = pcall(fs.create_dir, path)
@@ -1802,7 +1802,7 @@ function M.shell_cmd()
         anchor = current_name_anchor(current_row(state)),
         validate = function() return true end,
     }, function(input)
-        if not input then
+        if not input or not api.nvim_buf_is_valid(state.buf) then
             return
         end
         local cmd = input .. ' ' .. vim.fn.shellescape(path) .. ' 2>&1'
