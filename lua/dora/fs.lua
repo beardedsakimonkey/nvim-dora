@@ -11,15 +11,6 @@ end
 
 ---@param src string
 ---@param dest string
-local function move(src, dest)
-    assert(uv.fs_rename(src, dest))
-    if not M.is_dir(src) then
-        util.rename_buffers(src, dest)
-    end
-end
-
----@param src string
----@param dest string
 local function copy_file(src, dest)
     assert(uv.fs_copyfile(src, dest))
 end
@@ -53,6 +44,25 @@ local function copy_any(src, dest)
         copy_dir(src, dest)
     else
         copy_file(src, dest)
+    end
+end
+
+---@param src string
+---@param dest string
+local function move(src, dest)
+    local src_is_dir = M.is_dir(src)
+    local ok, err, errname = uv.fs_rename(src, dest)
+    if not ok then
+        -- fs_rename cannot cross filesystems, e.g. moving to a trash
+        -- directory on another mount, so fall back to copy+delete.
+        if errname ~= 'EXDEV' then
+            error(err)
+        end
+        copy_any(src, dest)
+        M.delete(src)
+    end
+    if not src_is_dir then
+        util.rename_buffers(src, dest)
     end
 end
 
