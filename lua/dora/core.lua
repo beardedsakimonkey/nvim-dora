@@ -1081,17 +1081,7 @@ function M.parent_dir()
     if not row or not row.parent_path then
         return
     end
-    local parent_path = row.parent_path
-    if not set_cursor_path(state, parent_path) then
-        return
-    end
-    -- Collapse only the parent itself so its subtree expansion is restored
-    -- on the next expand.
-    if state.expanded_dirs[parent_path] then
-        state.expanded_dirs[parent_path] = nil
-        render(state)
-        set_cursor_path(state, parent_path)
-    end
+    set_cursor_path(state, row.parent_path)
 end
 
 function M.next_sibling()

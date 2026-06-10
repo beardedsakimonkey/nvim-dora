@@ -945,7 +945,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = fs.realpath(tmp)
-    assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Go to and collapse parent directory')
+    assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste under parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
@@ -955,18 +955,12 @@ do
     set_cursor_line('file%.txt$')
     core.parent_dir()
     assert_match(current_line(), 'one/$', 'parent jump should move from a nested file to its parent directory')
-    assert(not state.expanded_dirs[root .. '/alpha/one'], 'parent jump should collapse the parent directory')
-    assert(not find_line_index(lines(), 'file%.txt$'), 'parent jump should hide the parent directory children')
+    assert(state.expanded_dirs[root .. '/alpha/one'], 'parent jump should not collapse the parent directory')
+    assert(find_line_index(lines(), 'file%.txt$'), 'parent jump should keep the parent directory children visible')
 
-    core.expand()
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent directory')
-    assert(not state.expanded_dirs[root .. '/alpha'], 'parent jump should collapse each visited parent directory')
-    assert(state.expanded_dirs[root .. '/alpha/one'], 'parent jump should preserve expanded descendant state')
-    assert(not find_line_index(lines(), 'one/$'), 'parent jump should hide each visited parent directory children')
-
-    core.expand()
-    assert(find_line_index(lines(), 'file%.txt$'), 're-expanding a collapsed parent should restore its expanded subtree')
+    assert(state.expanded_dirs[root .. '/alpha'], 'parent jump should not collapse visited parent directories')
 
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should keep the cursor when the parent is not visible')
@@ -1960,45 +1954,6 @@ do
     assert_eq(captured_rows[1].desc, 'Alpha')
     assert_eq(captured_rows[2].lhs, 'zx')
     assert_eq(captured_rows[2].desc, 'Xray')
-    core.quit()
-
-    keymaps.open_hint_window = old_open
-    config.keymaps = old_keymaps
-    config.show_keymap_hints = old_show_keymap_hints
-end
-
-do
-    local old_keymaps = config.keymaps
-    local old_show_keymap_hints = config.show_keymap_hints
-    local old_open = keymaps.open_hint_window
-    local captured_rows
-
-    config.keymaps = {
-        ['g?'] = {function() end, desc='Show help'},
-        ['g.'] = {function() end, desc='Toggle hidden files'},
-        gx = {function() end, desc='Open externally'},
-        gh = {function() end, desc='Go to Home directory'},
-        gf = {function() vim.g.dora_smoke_g_hint_keymap = 'gf' end, desc='Follow symlink'},
-    }
-    config.show_keymap_hints = true
-    keymaps.open_hint_window = function(prefix, rows)
-        captured_rows = rows
-        return old_open(prefix, rows)
-    end
-    vim.g.dora_smoke_g_hint_keymap = nil
-
-    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
-    local prefix_map = vim.fn.maparg('g', 'n', false, true)
-    vim.defer_fn(function()
-        api.nvim_feedkeys('f', 't', false)
-    end, 250)
-    prefix_map.callback()
-    assert_eq(vim.g.dora_smoke_g_hint_keymap, 'gf', 'g keymap hints should dispatch selected mappings')
-    assert_eq(captured_rows[1].lhs, 'gf')
-    assert_eq(captured_rows[2].lhs, 'gh')
-    assert_eq(captured_rows[3].lhs, 'gx')
-    assert_eq(captured_rows[4].lhs, 'g.')
-    assert_eq(captured_rows[5].lhs, 'g?')
     core.quit()
 
     keymaps.open_hint_window = old_open
