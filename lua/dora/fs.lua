@@ -282,6 +282,8 @@ function M.resolve_copy_or_move_dest(src, dest, cwd)
     if M.is_dir(dest) then
         dest = vim.fs.joinpath(dest, M.basename(src))
     end
+    assert(not vim.startswith(dest, src .. util.sep),
+        ('Cannot copy or move %q into itself'):format(src))
     return dest
 end
 
