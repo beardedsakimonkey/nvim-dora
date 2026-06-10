@@ -1085,7 +1085,10 @@ function M.parent_dir()
     if not set_cursor_path(state, parent_path) then
         return
     end
-    if clear_expanded_subtree(state, parent_path) then
+    -- Collapse only the parent itself so its subtree expansion is restored
+    -- on the next expand.
+    if state.expanded_dirs[parent_path] then
+        state.expanded_dirs[parent_path] = nil
         render(state)
         set_cursor_path(state, parent_path)
     end
