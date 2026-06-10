@@ -925,26 +925,36 @@ local function setup_autocmds(buf)
     })
 end
 
+-- The directory this session ends in is the previous directory from the
+-- next session's perspective. Must be called while the dora buffer is still
+-- current, so the hovered row can be captured.
 ---@param state DoraState
 local function save_previous_directory(state)
-    -- The directory this session ends in is the previous directory from the
-    -- next session's perspective.
     if api.nvim_win_is_valid(state.win) then
-        api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, state.cwd)
+        local row = current_row(state)
+        api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, {
+            directory = state.cwd,
+            hovered_path = row and row.path or nil,
+        })
     end
 end
 
 ---@param win integer
----@return string?
+---@return DoraBookmark?
 local function load_previous_directory(win)
-    local ok, directory = pcall(api.nvim_win_get_var, win, PREVIOUS_DIRECTORY_VAR)
-    return ok and type(directory) == 'string' and directory or nil
+    local ok, previous = pcall(api.nvim_win_get_var, win, PREVIOUS_DIRECTORY_VAR)
+    if not ok or type(previous) ~= 'table' or type(previous.directory) ~= 'string' then
+        return nil
+    end
+    return {
+        directory = previous.directory,
+        hovered_path = type(previous.hovered_path) == 'string' and previous.hovered_path or nil,
+    }
 end
 
 ---@param state DoraState
 local function cleanup(state)
     close_filter(state)
-    save_previous_directory(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
@@ -1020,7 +1030,8 @@ end
 ---@param or_top? boolean
 local function change_cwd(state, path, cursor_pattern, or_top)
     if state.cwd ~= path then
-        bookmarks.record_previous_directory(state.bookmarks, state.cwd)
+        local row = current_row(state)
+        bookmarks.record_previous_directory(state.bookmarks, state.cwd, row and row.path or nil)
         close_filter(state)
         state.cwd = path
         -- Only rename when the cwd changed; create_buf_name() counts the
@@ -1035,6 +1046,7 @@ end
 
 function M.quit()
     local state = store.get()
+    save_previous_directory(state)
     restore_cwd(state)
     if state.alt_buf then
         util.set_current_buf(state.alt_buf)
@@ -1208,17 +1220,18 @@ end
 
 function M.set_bookmark()
     local state = store.get()
-    bookmarks.set_current_directory(state.bookmarks, state.cwd)
+    local row = current_row(state)
+    bookmarks.set_current_directory(state.bookmarks, state.cwd, row and row.path or nil)
 end
 
 function M.jump_bookmark()
     local state = store.get()
-    local path
+    local path, hovered_path
     if config.show_keymap_hints then
         local key = keymaps.read_hint_key("'", bookmarks.help_rows(state.bookmarks))
-        path = bookmarks.resolve_jump_directory(state.bookmarks, key)
+        path, hovered_path = bookmarks.resolve_jump_directory(state.bookmarks, key)
     else
-        path = bookmarks.read_jump_directory(state.bookmarks)
+        path, hovered_path = bookmarks.read_jump_directory(state.bookmarks)
     end
     if not path then
         return
@@ -1234,6 +1247,9 @@ function M.jump_bookmark()
     end
     remember_hovered_file(state)
     change_cwd(state, realpath, state.hovered_files[realpath], --[[or_top]]true)
+    if hovered_path then
+        set_cursor_path(state, hovered_path)
+    end
 end
 
 function M.info()
@@ -1267,6 +1283,7 @@ function M.open(cmd)
                 change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
             end
         else
+            save_previous_directory(state)
             restore_cwd(state)
             util.set_current_buf(state.origin_buf)  -- update the altfile
             vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
@@ -1336,6 +1353,7 @@ function M.follow_symlink()
         change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
         return
     end
+    save_previous_directory(state)
     restore_cwd(state)
     util.set_current_buf(state.origin_buf)  -- update the altfile
     vim.cmd('edit ' .. vim.fn.fnameescape(path))
