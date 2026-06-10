@@ -1598,6 +1598,10 @@ local function paste_entries(state, entries, dest_dir)
         return
     end
     clear_marked_paths(state)
+    -- Expand the destination so the pasted rows are visible.
+    if dest_dir ~= state.cwd then
+        state.expanded_dirs[dest_dir] = true
+    end
     render(state)
     set_cursor_path(state, first_dest)
     local item_label = #entries == 1 and 'item' or 'items'
