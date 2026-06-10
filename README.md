@@ -202,8 +202,8 @@ hi default link DoraCopy                DiagnosticOk
 hi default link DoraFilterMatch         Special
 hi default link DoraFilterPath          Comment
 hi default link DoraPromptBorder        FloatBorder
-hi default link DoraPromptBorderValid   DiagnosticOk
-hi default link DoraPromptBorderInvalid DiagnosticError
+hi default link DoraPromptBorderValid   DoraPromptBorder
+hi default link DoraPromptBorderInvalid DoraPromptBorder
 hi default link DoraInfoLabel           Label
 hi default link DoraInfoValue           Special
 hi default link DoraHelpSection         Title
@@ -211,6 +211,11 @@ hi default link DoraDeleteMore          NonText
 hi default link DoraKeymapHintArrow     NonText
 ```
 <!-- dora-highlights:end -->
+
+Unless overridden, `DoraPromptBorderValid` and `DoraPromptBorderInvalid` get
+their foreground color replaced with that of `DiagnosticOk` and
+`DiagnosticError` respectively, keeping the other `DoraPromptBorder`
+attributes.
 
 ## Development
 
