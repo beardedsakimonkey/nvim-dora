@@ -879,6 +879,35 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('root')
+    core.expand()
+    set_cursor_line('%(empty%)$')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.initial_prompt, 'root/', 'create on a placeholder should prefill its directory path')
+        assert(opts.anchor, 'create on a placeholder should anchor the prompt to its row')
+        assert_eq(opts.anchor.line, api.nvim_win_get_cursor(0)[1])
+        local input = opts.initial_prompt .. 'file.txt'
+        cb(input, opts.validate(input))
+    end
+    core.create()
+    prompt.input = old_input
+
+    assert(fs.exists(tmp .. '/root/file.txt'), 'create on a placeholder should create inside its directory')
+    assert_match(current_line(), 'file%.txt$', 'cursor should move to the file created from a placeholder')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/anchor.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))

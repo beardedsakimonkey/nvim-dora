@@ -168,6 +168,8 @@ local function build_tree_rows(state)
                 tree_prefix_len = #tree_prefix,
                 tree_continuation_segments = copy_tree_segments(continuation_segments),
                 tree_connector_start_col = #prefix,
+                name_start_col = #tree_prefix,
+                name_end_col = #tree_prefix + #placeholder_label,
             }
             return
         end
@@ -488,14 +490,16 @@ end
 ---@param under_directory? boolean
 ---@return string?
 local function create_parent_default(state, row, under_directory)
-    if not row or not row.path then
+    if not row then
         return nil
     end
-    if under_directory and row.type == 'directory' then
+    if under_directory and row.type == 'directory' and row.path then
         return relative_child_path(state, row.path) .. util.sep
     end
-    local parent = fs.get_parent_dir(row.path)
-    if parent == state.cwd then
+    -- Placeholder rows have no path of their own; create inside the
+    -- directory that shows them.
+    local parent = row.path and fs.get_parent_dir(row.path) or row.parent_path
+    if not parent or parent == state.cwd then
         return nil
     end
     return relative_child_path(state, parent) .. util.sep
