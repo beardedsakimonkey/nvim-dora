@@ -877,6 +877,18 @@ local function rename_expanded_subtree(state, old_path, new_path)
     end
 end
 
+---@param state DoraState
+local function close_filter(state)
+    state.filter_text = nil
+    state.filter_preview = nil
+    state.filter_editing = false
+    local filter_window = state.filter_window
+    state.filter_window = nil
+    if filter_window then
+        filter_window:close()
+    end
+end
+
 ---@param buf integer
 local function setup_autocmds(buf)
     local group = api.nvim_create_augroup('dora.cursor.' .. buf, {clear=true})
@@ -890,18 +902,19 @@ local function setup_autocmds(buf)
             end
         end,
     })
-end
-
----@param state DoraState
-local function close_filter(state)
-    state.filter_text = nil
-    state.filter_preview = nil
-    state.filter_editing = false
-    local filter_window = state.filter_window
-    state.filter_window = nil
-    if filter_window then
-        filter_window:close()
-    end
+    -- Don't leak state if the buffer is wiped without going through cleanup(),
+    -- e.g. by a user's :bwipeout
+    api.nvim_create_autocmd('BufWipeout', {
+        group = group,
+        buffer = buf,
+        callback = function(args)
+            local ok, state = pcall(store.get, args.buf)
+            if ok then
+                close_filter(state)
+                store.remove(args.buf)
+            end
+        end,
+    })
 end
 
 ---@param state DoraState
