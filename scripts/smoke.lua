@@ -2946,6 +2946,37 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/İmage.png')  -- 'İ' (U+0130) is 2 bytes but lowercases to 1-byte 'i'
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+
+    local function match_highlight()
+        local marks = vim.tbl_filter(function(mark)
+            return mark[4].hl_group == 'DoraFilterMatch'
+        end, api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true}))
+        assert_eq(#marks, 1, 'multibyte filter should highlight the single match')
+        local mark = marks[1]
+        return buf_lines(state.buf)[mark[2] + 1]:sub(mark[3] + 1, mark[4].end_col)
+    end
+
+    core.filter()
+    local filter = assert(state.filter_window)
+    filter:set_input('png')
+    assert_eq(match_highlight(), 'png',
+        'match highlight should stay byte-accurate after case folding shrinks earlier characters')
+    filter:set_input('image')
+    assert_eq(match_highlight(), 'İmage',
+        'match highlight should span multibyte characters whose case folding shrinks')
+    filter:cancel()
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
 local state = store.get()
 assert_eq(state.cwd, fs.realpath(cwd))
