@@ -143,8 +143,18 @@ end
 ---@param path string
 ---@return DoraFile[]
 function M.list(path)
+    -- vim.fs.dir() silently yields nothing when the directory can't be
+    -- scanned, so use fs_scandir directly to surface errors like EPERM.
+    local handle, err = uv.fs_scandir(path)
+    if not handle then
+        error(err, 0)
+    end
     local ret = {}
-    for basename, file_type in vim.fs.dir(path) do
+    while true do
+        local basename, file_type = uv.fs_scandir_next(handle)
+        if not basename then
+            break
+        end
         local full_path = vim.fs.joinpath(path, basename)
         table.insert(ret, M.file_from_path(full_path, file_type))
     end

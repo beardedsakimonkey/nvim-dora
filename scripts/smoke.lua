@@ -879,6 +879,26 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/secret', tonumber('755', 8)))
+    touch(tmp .. '/secret/hidden.txt')
+    assert(vim.loop.fs_chmod(tmp .. '/secret', tonumber('000', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('secret')
+    core.expand()
+    assert(find_line_index(lines(), '%(not permitted%)$'),
+        'expanding an unreadable directory should show the not-permitted placeholder')
+    assert(not find_line_index(lines(), 'hidden%.txt$'),
+        'unreadable directory contents should not be listed')
+
+    core.quit()
+    assert(vim.loop.fs_chmod(tmp .. '/secret', tonumber('755', 8)))
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
