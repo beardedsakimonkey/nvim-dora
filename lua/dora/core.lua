@@ -1463,6 +1463,38 @@ function M.toggle_copy()
     toggle_marked_path('copy')
 end
 
+---@param operation DoraPasteOperation
+local function toggle_marked_paths_visual(operation)
+    local state = store.get()
+    local start_line, end_line = visual_line_range()
+    local found = false
+    for line = start_line, end_line do
+        local row = state.rows and state.rows[line] or nil
+        if row and row.path then
+            found = true
+            if state.marked_paths[row.path] == operation then
+                state.marked_paths[row.path] = nil
+            else
+                state.marked_paths[row.path] = operation
+            end
+        end
+    end
+    if not found then
+        util.err('No files selected')
+        return
+    end
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
+    render(state)
+end
+
+function M.toggle_cut_visual()
+    toggle_marked_paths_visual('cut')
+end
+
+function M.toggle_copy_visual()
+    toggle_marked_paths_visual('copy')
+end
+
 function M.clear_paste_operation()
     local state = store.get()
     clear_marked_paths(state)

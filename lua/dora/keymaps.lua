@@ -83,6 +83,8 @@ local VISUAL_KEYMAP_ACTIONS = {
     last_sibling = 'last_sibling',
     next_sibling = 'next_sibling',
     prev_sibling = 'prev_sibling',
+    toggle_copy = 'toggle_copy_visual',
+    toggle_cut = 'toggle_cut_visual',
     trash = 'trash_visual',
 }
 
