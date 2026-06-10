@@ -945,7 +945,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = fs.realpath(tmp)
-    assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Parent directory')
+    assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Go to parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste under parent directory')
     util.set_cursor_pos('alpha')
     core.expand()
