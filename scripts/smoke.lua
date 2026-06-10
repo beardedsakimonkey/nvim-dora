@@ -1360,6 +1360,30 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+    touch(tmp .. '/dest/beta.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('alpha%.txt$')
+    core.toggle_copy()
+    util.set_cursor_pos('dest')
+    core.expand()
+    set_cursor_line('beta%.txt$')
+    core.paste()
+
+    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste over a plain file should copy into its parent directory')
+    assert_eq(marked_path_count(state), 0)
+    assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local old_notify = vim.notify
     local notifications = {}
     vim.notify = function(msg, level)
