@@ -1579,7 +1579,7 @@ function M.yank_filename(reg)
     local row = current_row(state)
     local filename = fs.basename(path)
     util.copy_value(filename, reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename', {
-        line = api.nvim_win_get_cursor(state.win)[1],
+        line = api.nvim_win_get_cursor(0)[1],
         start_col = row.name_end_col - #row.name,
     })
 end
@@ -1601,7 +1601,7 @@ function M.yank_basename(reg)
     local message = reg == '+' and 'Yanked basename to clipboard' or 'Yanked basename'
     local row = current_row(state)
     util.copy_value(basename, reg, message, {
-        line = api.nvim_win_get_cursor(state.win)[1],
+        line = api.nvim_win_get_cursor(0)[1],
         start_col = row.name_end_col - #row.name,
     })
 end
