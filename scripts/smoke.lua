@@ -1785,14 +1785,14 @@ do
         'reopening Dora should preserve bookmark a')
     assert_eq(reopened_state.bookmarks.paths.b, project,
         'reopening Dora should preserve bookmark b')
-    assert_eq(reopened_state.bookmarks.previous_directory, root,
-        "reopening Dora in the same window should preserve the '' bookmark")
-    api.nvim_feedkeys("'", 't', false)
+    assert_eq(reopened_state.bookmarks.previous_directory, project,
+        "reopening Dora should point '' at the last session's directory")
+    api.nvim_feedkeys('a', 't', false)
     jump_map = vim.fn.maparg("'", 'n', false, true)
     jump_map.callback()
-    assert_eq(reopened_state.cwd, root, "'' should jump to the previous view after reopening Dora")
+    assert_eq(reopened_state.cwd, root, "'a should jump to bookmark a after reopening Dora")
     assert_eq(reopened_state.bookmarks.previous_directory, project,
-        "'' should keep toggling after reopening Dora")
+        'jumping to a bookmark after reopening should update the previous directory')
     assert(reopened_state.expanded_dirs[root .. '/other'],
         'reopening Dora in the same window should preserve expanded directories')
     assert(find_line_index(lines(), '^└── nested/$'),
@@ -1822,6 +1822,37 @@ do
 
     api.nvim_set_current_win(bookmark_win)
     vim.cmd('close!')
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    clear_persisted_view_state()
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/sub/file.txt')
+    local root = fs.realpath(tmp)
+    local sub = fs.realpath(tmp .. '/sub')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('^sub/$')
+    core.expand()
+    set_cursor_line('file%.txt$')
+    core.open()
+    assert_eq(api.nvim_buf_get_name(0), sub .. '/file.txt', 'open should edit the selected file')
+
+    vim.cmd('Dora')
+    local state = store.get()
+    assert_eq(state.cwd, sub)
+    assert_eq(state.bookmarks.previous_directory, root,
+        "opening a file should record the session's directory as the previous directory")
+    local jump_map = vim.fn.maparg("'", 'n', false, true)
+    api.nvim_feedkeys("'", 't', false)
+    jump_map.callback()
+    assert_eq(state.cwd, root, "'' should jump back to where the file was opened from")
+
+    core.quit()
+    vim.cmd('bdelete!')
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 

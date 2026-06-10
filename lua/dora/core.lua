@@ -923,8 +923,10 @@ end
 
 ---@param state DoraState
 local function save_previous_directory(state)
-    if api.nvim_win_is_valid(state.win) and state.bookmarks.previous_directory then
-        api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, state.bookmarks.previous_directory)
+    -- The directory this session ends in is the previous directory from the
+    -- next session's perspective.
+    if api.nvim_win_is_valid(state.win) then
+        api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, state.cwd)
     end
 end
 
