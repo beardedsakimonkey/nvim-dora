@@ -1802,6 +1802,41 @@ function M.create_under()
     create(true)
 end
 
+function M.create_symlink()
+    local state = store.get()
+    local row = current_row(state)
+    local path, msg = current_path(state)
+    if not path then
+        util.err(msg)
+        return
+    end
+    local dir = util.display_path(state.cwd)
+    if not vim.endswith(dir, util.sep) then
+        dir = dir .. util.sep
+    end
+    prompt.input({
+        prompt = 'Add symlink',
+        cwd = state.cwd,
+        width = PROMPT_WIDTH,
+        initial_prompt = dir,
+        anchor = current_name_anchor(row),
+        validate = function(input)
+            return fs.validate_symlink(input, state.cwd)
+        end,
+    }, function(input, dest)
+        if not input or not api.nvim_buf_is_valid(state.buf) then
+            return
+        end
+        local ok, err = pcall(fs.create_symlink, path, dest)
+        if not ok then
+            util.err(err)
+            return
+        end
+        render(state)
+        set_cursor_path(state, dest)
+    end)
+end
+
 function M.toggle_hidden_files()
     local state = store.get()
     local row = current_row(state)
