@@ -1805,10 +1805,11 @@ end
 function M.toggle_hidden_files()
     local state = store.get()
     local row = current_row(state)
-    local hovered_file = row and row.display_name or nil
     state.show_hidden_files = not state.show_hidden_files
     render(state)
-    set_cursor_pos(state, hovered_file)
+    if not row or not row.path or not set_cursor_path(state, row.path) then
+        set_cursor_pos(state, row and row.display_name or nil)
+    end
 end
 
 function M.shell_cmd()
