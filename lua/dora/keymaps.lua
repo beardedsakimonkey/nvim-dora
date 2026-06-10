@@ -26,6 +26,7 @@ local ACTION_DESCRIPTIONS = {
     expand_recursive = 'Expand directory recursively',
     collapse = 'Collapse directory',
     collapse_recursive = 'Collapse directory recursively',
+    close_dir = 'Close directory',
     filter = 'Filter visible files',
     clear_filter = 'Clear filter',
     reload = 'Reload listing',

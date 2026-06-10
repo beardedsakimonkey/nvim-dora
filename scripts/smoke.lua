@@ -972,6 +972,40 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
+    touch(tmp .. '/alpha/one/file.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local root = fs.realpath(tmp)
+    assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Close directory')
+    util.set_cursor_pos('alpha')
+    core.expand()
+    util.set_cursor_pos('one')
+    core.expand()
+
+    set_cursor_line('^alpha/$')
+    core.close_dir()
+    assert_match(current_line(), 'alpha/$', 'close should keep the cursor on the closed directory')
+    assert(not state.expanded_dirs[root .. '/alpha'], 'close should collapse the hovered directory')
+    assert(state.expanded_dirs[root .. '/alpha/one'], 'close should not touch expanded subdirectories')
+    assert(not find_line_index(lines(), 'one/$'), 'close should hide the directory children')
+
+    core.expand()
+    assert(find_line_index(lines(), 'file%.txt$'), 're-expanding a closed directory should restore its expanded subtree')
+
+    set_cursor_line('file%.txt$')
+    core.close_dir()
+    assert(state.expanded_dirs[root .. '/alpha/one'], 'close should ignore file rows')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/a')
     touch(tmp .. '/b')
 
