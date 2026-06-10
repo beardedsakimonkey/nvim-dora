@@ -35,10 +35,11 @@ local function copy_dir(src, dest)
     end
 end
 
+-- NOTE: Uses lstat so that dangling symlinks are considered to exist
 ---@param path string
 ---@return boolean
 local function exists(path)
-    return uv.fs_stat(path) ~= nil
+    return uv.fs_lstat(path) ~= nil
 end
 
 ---@param path string
