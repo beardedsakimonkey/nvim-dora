@@ -1914,10 +1914,9 @@ function M.create_symlink()
         util.err(msg)
         return
     end
-    local dir = util.display_path(state.cwd)
-    if not vim.endswith(dir, util.sep) then
-        dir = dir .. util.sep
-    end
+    local target_dir = fs.parent_dir(path)
+    local dir = vim.fs.relpath(state.cwd, target_dir)
+    dir = (dir and dir ~= '.') and dir .. util.sep or ''
     prompt.input({
         prompt = 'Add symlink',
         cwd = state.cwd,
