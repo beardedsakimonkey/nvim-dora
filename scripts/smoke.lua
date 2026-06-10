@@ -3084,6 +3084,47 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local old_home = vim.env.HOME
+    vim.env.HOME = tmp
+
+    vim.cmd('vsplit ~')
+    local state = store.get()
+    assert(api.nvim_buf_get_var(0, 'is_dora'), 'editing ~ should open Dora')
+    assert_eq(state.cwd, fs.realpath(tmp), 'editing ~ should open Dora at the home directory')
+
+    core.quit()
+    vim.cmd('close!')
+    vim.env.HOME = old_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local buf = api.nvim_get_current_buf()
+    local buf_count = #api.nvim_list_bufs()
+
+    vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/sub'))
+    assert_eq(api.nvim_get_current_buf(), buf, 'editing a directory from dora should reuse the session buffer')
+    assert_eq(store.get(), state, 'editing a directory from dora should reuse the session state')
+    assert_eq(state.cwd, fs.realpath(tmp .. '/sub'), 'editing a directory from dora should navigate the session')
+    assert_eq(#api.nvim_list_bufs(), buf_count, 'editing a directory from dora should not leak buffers')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    assert_eq(api.nvim_get_current_buf(), buf, ':Dora inside dora should reuse the session buffer')
+    assert_eq(state.cwd, fs.realpath(tmp), ':Dora inside dora should navigate the session')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
 local state = store.get()
 assert_eq(state.cwd, fs.realpath(cwd))

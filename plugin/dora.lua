@@ -45,7 +45,7 @@ api.nvim_create_autocmd('ColorScheme', {
 })
 
 api.nvim_create_user_command('Dora', function(o)
-    require'dora.core'.initialize(o.args)
+    require'dora.core'.initialize(o.args ~= '' and vim.fn.expand(o.args) or '')
 end, {bar=true, nargs='?', complete='dir'})
 
 local function buf_has_var(buf, var_name)
@@ -58,8 +58,14 @@ api.nvim_create_autocmd('BufEnter', {
     group = augroup,
     callback = function()
         local path = vim.fn.expand('%')
+        if vim.startswith(path, '~') then
+            -- `:edit ~` names the buffer with a literal `~`, which
+            -- isdirectory() does not expand. Unlike expand(), fnamemodify()
+            -- expands it without globbing the rest of the name.
+            path = vim.fn.fnamemodify(path, ':p')
+        end
         if not buf_has_var(0, 'is_dora') and vim.fn.isdirectory(path) == 1 then
-            require'dora.core'.initialize('', true)
+            require'dora.core'.initialize(path, true)
         end
     end,
 })

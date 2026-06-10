@@ -2052,7 +2052,7 @@ end
 ---@return string
 local function getcwd(dir)
     dir = dir or ''
-    if dir ~= '' then return fs.realpath(vim.fn.expand(dir)) end
+    if dir ~= '' then return fs.realpath(dir) end
     local p = vim.fn.expand'%:p:h'
     if p ~= '' then return fs.realpath(p) end
     -- `expand('%')` can be empty if in an unnamed buffer, like `:enew`, so
@@ -2071,6 +2071,21 @@ function M.initialize(dir, from_au)
     local origin_buf = (from_au and has_altbuf)
         and vim.fn.bufnr'#'
         or api.nvim_get_current_buf()
+
+    -- If we're in (or came from) an existing dora session, navigate it to the
+    -- new directory instead of stacking another dora buffer.
+    local prior_ok, prior_state = pcall(store.get, origin_buf)
+    if prior_ok then
+        local dir_buf = from_au and api.nvim_get_current_buf() or nil
+        util.set_current_buf(origin_buf)
+        if dir_buf and dir_buf ~= origin_buf and api.nvim_buf_is_valid(dir_buf) then
+            api.nvim_buf_delete(dir_buf, {force=true})
+        end
+        local cwd = getcwd(dir)
+        remember_hovered_file(prior_state)
+        change_cwd(prior_state, cwd, prior_state.hovered_files[cwd], --[[or_top]]true)
+        return
+    end
     local alt_buf = (not from_au and has_altbuf) and vim.fn.bufnr'#' or nil
     local win = api.nvim_get_current_win()
     local cwd = getcwd(dir)
