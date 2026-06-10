@@ -1635,7 +1635,8 @@ local function paste_to_directory(state, row, dest_dir, entries)
     })
 end
 
-function M.paste()
+---@param resolve_dest fun(row: DoraTreeRow): string?
+local function paste_at(resolve_dest)
     local state = store.get()
     local entries = marked_path_entries(state)
     if #entries == 0 then
@@ -1643,26 +1644,20 @@ function M.paste()
         return
     end
     local row = current_row(state)
-    if not row or row.type ~= 'directory' or not row.path then
-        util.err('No directory selected')
-        return
-    end
-    paste_to_directory(state, row, row.path, entries)
-end
-
-function M.paste_parent()
-    local state = store.get()
-    local entries = marked_path_entries(state)
-    if #entries == 0 then
-        util.err('Nothing to paste')
-        return
-    end
-    local row = current_row(state)
-    if not row or not row.parent_path then
+    local dest_dir = row and resolve_dest(row)
+    if not row or not dest_dir then
         util.err('No paste destination')
         return
     end
-    paste_to_directory(state, row, row.parent_path, entries)
+    paste_to_directory(state, row, dest_dir, entries)
+end
+
+function M.paste()
+    paste_at(function(row) return row.type == 'directory' and row.path or row.parent_path end)
+end
+
+function M.paste_parent()
+    paste_at(function(row) return row.parent_path end)
 end
 
 ---@param reg? string
