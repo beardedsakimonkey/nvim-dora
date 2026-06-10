@@ -123,7 +123,7 @@ end
 
 ---@param buf integer
 function M.set_current_buf(buf)
-    if vim.fn.bufexists(buf) then
+    if vim.fn.bufexists(buf) ~= 0 then
         vim.cmd('sil! keepj buffer' .. buf)
     end
 end
@@ -147,7 +147,7 @@ end
 function M.rename_buffers(old_name, new_name)
     -- If we're clobbering an existing file for which we have a buffer, delete
     -- the buffer first
-    if vim.fn.bufexists(new_name) then
+    if vim.fn.bufexists(new_name) ~= 0 then
         M.delete_buffers(new_name)
     end
     for _, buf in pairs(vim.fn.getbufinfo()) do
