@@ -620,6 +620,18 @@ local function move_sibling_edge(step)
     end
 end
 
+---@param path string
+---@param selected string[]
+---@return boolean
+local function path_under_selected(path, selected)
+    for _, selected_path in ipairs(selected) do
+        if path == selected_path or vim.startswith(path, selected_path .. util.sep) then
+            return true
+        end
+    end
+    return false
+end
+
 ---@class DoraMarkedPathEntry
 ---@field path string
 ---@field operation DoraPasteOperation
@@ -627,11 +639,16 @@ end
 ---@param state DoraState
 ---@return DoraMarkedPathEntry[]
 local function marked_path_entries(state)
+    local paths = vim.tbl_keys(state.marked_paths)
+    table.sort(paths)
     local entries = {}
-    for path, operation in pairs(state.marked_paths) do
-        entries[#entries+1] = {path = path, operation = operation}
+    local kept_paths = {}
+    for _, path in ipairs(paths) do
+        if not path_under_selected(path, kept_paths) then
+            kept_paths[#kept_paths+1] = path
+            entries[#entries+1] = {path = path, operation = state.marked_paths[path]}
+        end
     end
-    table.sort(entries, function(a, b) return a.path < b.path end)
     return entries
 end
 
@@ -674,18 +691,6 @@ local function visual_line_range()
         start_line, end_line = end_line, start_line
     end
     return start_line, end_line
-end
-
----@param path string
----@param selected string[]
----@return boolean
-local function path_under_selected(path, selected)
-    for _, selected_path in ipairs(selected) do
-        if path == selected_path or vim.startswith(path, selected_path .. util.sep) then
-            return true
-        end
-    end
-    return false
 end
 
 ---@param state DoraState
@@ -1800,7 +1805,7 @@ function M.shell_cmd()
         if not input then
             return
         end
-        local cmd = input .. ' ' .. vim.fn.fnameescape(path) .. ' 2>&1'
+        local cmd = input .. ' ' .. vim.fn.shellescape(path) .. ' 2>&1'
         local ok, result = pcall(vim.fn.system, cmd)
         if not ok then
             util.err(tostring(result))
