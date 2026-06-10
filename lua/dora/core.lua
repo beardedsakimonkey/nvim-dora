@@ -246,8 +246,15 @@ local function build_filtered_rows(state, tree_rows)
     local rows = {}
     local needle = vim.fn.tolower(filter)
     for _, row in ipairs(tree_rows) do
-        local match_index = vim.fn.stridx(vim.fn.tolower(row.name), needle)
+        local lowered_name = vim.fn.tolower(row.name)
+        local match_index = vim.fn.stridx(lowered_name, needle)
         if row.path and match_index >= 0 then
+            -- Case folding can change byte lengths (e.g. 'İ' → 'i'), so map
+            -- the match back to byte offsets in the original name via
+            -- character indices, which tolower() preserves.
+            local match_char_start = vim.fn.charidx(lowered_name, match_index)
+            local match_start = vim.fn.byteidx(row.name, match_char_start)
+            local match_end = vim.fn.byteidx(row.name, match_char_start + vim.fn.strchars(needle))
             local relative_path = relative_child_path(state, row.path)
             local icon_prefix = row.icon and row.icon .. ' ' or ''
             local display_name = icon_prefix .. relative_path
@@ -275,8 +282,8 @@ local function build_filtered_rows(state, tree_rows)
                 directory_suffix_col = directory_suffix_col,
                 filter_directory_start_col = basename_start_col > #icon_prefix and #icon_prefix or nil,
                 filter_directory_end_col = basename_start_col > #icon_prefix and basename_start_col or nil,
-                filter_match_start_col = basename_start_col + match_index,
-                filter_match_end_col = basename_start_col + match_index + #filter,
+                filter_match_start_col = basename_start_col + match_start,
+                filter_match_end_col = basename_start_col + match_end,
             }
         end
     end
