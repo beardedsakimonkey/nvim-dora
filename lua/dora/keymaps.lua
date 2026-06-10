@@ -41,6 +41,7 @@ local ACTION_DESCRIPTIONS = {
     delete = 'Delete file permanently',
     create = 'Add file',
     create_under = 'Add file under directory',
+    create_symlink = 'Add symlink to file',
     rename = 'Rename file',
     rename_empty = 'Rename file with empty prompt',
     set_bookmark = 'Set bookmark',

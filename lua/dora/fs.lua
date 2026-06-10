@@ -225,6 +225,14 @@ function M.create_file(path)
     assert(uv.fs_close(fd))
 end
 
+---@param target string
+---@param path string
+function M.create_symlink(target, path)
+    assert(not exists(path), ('%q already exists'):format(path))
+    -- The dir flag only matters on Windows
+    assert(uv.fs_symlink(target, path, {dir = M.is_dir(target)}))
+end
+
 ---@param input string
 ---@param cwd string
 ---@return string path
@@ -256,6 +264,19 @@ function M.validate_rename(input, src)
     local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')
     assert(not exists(path), ('%q already exists'):format(path))
+    return path
+end
+
+---@param input string
+---@param cwd string
+---@return string path
+function M.validate_symlink(input, cwd)
+    assert(input, 'Empty path')
+    local path = M.normalize_path(input, cwd)
+    assert(not exists(path), ('%q already exists'):format(path))
+    local parent = parent_dir(path)
+    assert(exists(parent), ('%q does not exist'):format(parent))
+    assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
     return path
 end
 

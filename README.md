@@ -90,6 +90,7 @@ require('dora').setup {
         -- File operations
         a = 'create',
         A = 'create_under',
+        S = 'create_symlink',
         r = 'rename',
         R = 'rename_empty',
         d = 'trash',
