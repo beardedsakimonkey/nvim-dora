@@ -86,7 +86,7 @@ function M.create_buf(cwd)
             -- Canonicalize the buffer name when launching nvim with a directory
             -- arg.
             if api.nvim_get_current_buf() == existing_buf then
-                vim.cmd('sil file' .. vim.fn.fnameescape(cwd))
+                vim.cmd('sil file ' .. vim.fn.fnameescape(cwd))
             end
         end
     else
