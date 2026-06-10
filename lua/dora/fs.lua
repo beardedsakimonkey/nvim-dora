@@ -26,12 +26,33 @@ end
 
 ---@param src string
 ---@param dest string
+local function copy_link(src, dest)
+    local target = assert(uv.fs_readlink(src))
+    assert(uv.fs_symlink(target, dest))
+end
+
+---@param src string
+---@param dest string
 local function copy_dir(src, dest)
     local stat = assert(uv.fs_stat(src))
     assert(uv.fs_mkdir(dest, stat.mode))
     for name, type in vim.fs.dir(src) do
-        local copy = type == 'directory' and copy_dir or copy_file
+        local copy = type == 'directory' and copy_dir
+            or type == 'link' and copy_link
+            or copy_file
         copy(vim.fs.joinpath(src, name), vim.fs.joinpath(dest, name))
+    end
+end
+
+---@param src string
+---@param dest string
+local function copy_any(src, dest)
+    if uv.fs_readlink(src) then
+        copy_link(src, dest)
+    elseif M.is_dir(src) then
+        copy_dir(src, dest)
+    else
+        copy_file(src, dest)
     end
 end
 
@@ -262,8 +283,8 @@ end
 ---@return string dest
 function M.copy_or_move(is_move, src, dest, cwd)
     dest = M.resolve_copy_or_move_dest(src, dest, cwd)
-    local op = is_move and move or M.is_dir(src) and copy_dir or copy_file
     -- Note: Moving from a file to a file should overwrite the file
+    local op = is_move and move or copy_any
     op(src, dest)
     return dest
 end
