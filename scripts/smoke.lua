@@ -1377,12 +1377,12 @@ do
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
     util.set_cursor_pos('dest')
-    core.expand()
     core.paste()
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
     assert_eq(marked_path_count(state), 0)
+    assert(state.expanded_dirs[state.cwd .. '/dest'], 'paste should expand the destination directory')
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
     assert_eq(notifications[#notifications].msg, 'dora: Pasted 1 item to ' .. state.cwd .. '/dest')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
