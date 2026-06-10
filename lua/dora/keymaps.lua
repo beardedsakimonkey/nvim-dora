@@ -78,7 +78,11 @@ local ACTION_DESCRIPTIONS = {
 }
 
 local VISUAL_KEYMAP_ACTIONS = {
+    collapse = 'collapse_visual',
+    collapse_recursive = 'collapse_recursive_visual',
     delete = 'delete_visual',
+    expand = 'expand_visual',
+    expand_recursive = 'expand_recursive_visual',
     first_sibling = 'first_sibling',
     last_sibling = 'last_sibling',
     next_sibling = 'next_sibling',

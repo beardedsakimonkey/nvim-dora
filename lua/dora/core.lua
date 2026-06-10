@@ -700,6 +700,10 @@ local function visual_line_range()
     return start_line, end_line
 end
 
+local function exit_visual_mode()
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
+end
+
 ---@param state DoraState
 ---@return string[]? paths
 ---@return string? error
@@ -1435,6 +1439,74 @@ function M.collapse_recursive()
     end
 end
 
+---@param op fun(state: DoraState, path: string): boolean
+local function visual_dir_rows_op(op)
+    local state = store.get()
+    local start_line, end_line = visual_line_range()
+    local anchor_row = state.rows and state.rows[start_line] or nil
+    local changed = false
+    local first_path
+    for line = start_line, end_line do
+        local row = state.rows and state.rows[line] or nil
+        if row and row.path and row.type == 'directory' then
+            first_path = first_path or row.path
+            if op(state, row.path) then
+                changed = true
+            end
+        end
+    end
+    exit_visual_mode()
+    if changed then
+        render(state)
+        if not (anchor_row and anchor_row.path and set_cursor_path(state, anchor_row.path)) and first_path then
+            set_cursor_path(state, first_path)
+        end
+    end
+end
+
+function M.expand_visual()
+    visual_dir_rows_op(expand_next_level)
+end
+
+function M.expand_recursive_visual()
+    visual_dir_rows_op(expand_all_dirs)
+end
+
+function M.collapse_recursive_visual()
+    visual_dir_rows_op(clear_expanded_subtree)
+end
+
+function M.collapse_visual()
+    local state = store.get()
+    local start_line, end_line = visual_line_range()
+    local anchor_row = state.rows and state.rows[start_line] or nil
+    local targets = {}
+    local seen = {}
+    for line = start_line, end_line do
+        local row = state.rows and state.rows[line] or nil
+        local path, target_depth = collapse_target(state, row)
+        if path and target_depth and not seen[path] then
+            seen[path] = true
+            targets[#targets+1] = {path = path, depth = target_depth}
+        end
+    end
+    -- Collapse targets are computed against the pre-collapse view, so nested
+    -- and duplicate targets collapse a single level rather than compounding.
+    local changed = false
+    for _, target in ipairs(targets) do
+        if collapse_deepest_visible_dirs(state, target.path, target.depth) then
+            changed = true
+        end
+    end
+    exit_visual_mode()
+    if changed then
+        render(state)
+        if not (anchor_row and anchor_row.path and set_cursor_path(state, anchor_row.path)) then
+            set_cursor_path(state, targets[1].path)
+        end
+    end
+end
+
 function M.clear_marks()
     M.clear_paste_operation()
 end
@@ -1483,7 +1555,7 @@ local function toggle_marked_paths_visual(operation)
         util.err('No files selected')
         return
     end
-    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
+    exit_visual_mode()
     render(state)
 end
 
