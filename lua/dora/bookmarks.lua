@@ -2,14 +2,18 @@ local util = require'dora.util'
 
 local M = {}
 
----@type table<string, string>
+---@class DoraBookmark
+---@field directory string
+---@field hovered_path? string
+
+---@type table<string, DoraBookmark>
 local global_paths = {}
 
 ---@class DoraBookmarks
----@field paths table<string, string>
----@field previous_directory? string
+---@field paths table<string, DoraBookmark>
+---@field previous_directory? DoraBookmark
 
----@param previous_directory? string
+---@param previous_directory? DoraBookmark
 ---@return DoraBookmarks
 function M.new(previous_directory)
     return {
@@ -42,13 +46,15 @@ end
 
 ---@param bookmarks DoraBookmarks
 ---@param directory string
-function M.record_previous_directory(bookmarks, directory)
-    bookmarks.previous_directory = directory
+---@param hovered_path? string
+function M.record_previous_directory(bookmarks, directory, hovered_path)
+    bookmarks.previous_directory = {directory = directory, hovered_path = hovered_path}
 end
 
 ---@param bookmarks DoraBookmarks
 ---@param directory string
-function M.set_current_directory(bookmarks, directory)
+---@param hovered_path? string
+function M.set_current_directory(bookmarks, directory, hovered_path)
     local key = read_key()
     if not key then
         return
@@ -58,13 +64,14 @@ function M.set_current_directory(bookmarks, directory)
         util.err(message)
         return
     end
-    bookmarks.paths[key] = directory
+    bookmarks.paths[key] = {directory = directory, hovered_path = hovered_path}
     util.info(('Set bookmark %s to %s'):format(key, util.display_path(directory)))
 end
 
 ---@param bookmarks DoraBookmarks
 ---@param key string?
----@return string?
+---@return string? directory
+---@return string? hovered_path
 function M.resolve_jump_directory(bookmarks, key)
     if not key or key == '\027' then
         return nil
@@ -74,22 +81,24 @@ function M.resolve_jump_directory(bookmarks, key)
         return nil
     end
     if key == "'" then
-        if not bookmarks.previous_directory then
+        local previous = bookmarks.previous_directory
+        if not previous then
             util.err('No previous directory')
             return nil
         end
-        return bookmarks.previous_directory
+        return previous.directory, previous.hovered_path
     end
-    local directory = bookmarks.paths[key]
-    if not directory then
+    local bookmark = bookmarks.paths[key]
+    if not bookmark then
         util.err(('No bookmark %s'):format(key))
         return nil
     end
-    return directory
+    return bookmark.directory, bookmark.hovered_path
 end
 
 ---@param bookmarks DoraBookmarks
----@return string?
+---@return string? directory
+---@return string? hovered_path
 function M.read_jump_directory(bookmarks)
     return M.resolve_jump_directory(bookmarks, read_key())
 end
@@ -110,7 +119,7 @@ function M.help_rows(bookmarks)
     for _, key in ipairs(keys) do
         rows[#rows+1] = {
             lhs = "'" .. key,
-            desc = util.display_path(bookmarks.paths[key]),
+            desc = util.display_path(bookmarks.paths[key].directory),
         }
     end
     return rows

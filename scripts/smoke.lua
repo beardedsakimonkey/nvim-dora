@@ -1739,9 +1739,11 @@ do
     assert_eq(type(jump_map.callback), 'function')
     assert_eq(vim.fn.maparg('M', 'n'), '', 'move should not be mapped')
 
+    set_cursor_line('^project/$')
     api.nvim_feedkeys('a', 't', false)
     set_map.callback()
-    assert_eq(state.bookmarks.paths.a, root, 'ma should bookmark the current directory')
+    assert_eq(state.bookmarks.paths.a.directory, root, 'ma should bookmark the current directory')
+    assert_eq(state.bookmarks.paths.a.hovered_path, project, 'ma should record the hovered file')
 
     set_cursor_line('^other/$')
     core.expand()
@@ -1750,11 +1752,11 @@ do
     set_cursor_line('^project/$')
     core.open()
     assert_eq(state.cwd, project)
-    assert_eq(state.bookmarks.previous_directory, root, 'directory changes should update the builtin bookmark')
+    assert_eq(state.bookmarks.previous_directory.directory, root, 'directory changes should update the builtin bookmark')
 
     api.nvim_feedkeys('b', 't', false)
     set_map.callback()
-    assert_eq(state.bookmarks.paths.b, project, 'mb should bookmark the new current directory')
+    assert_eq(state.bookmarks.paths.b.directory, project, 'mb should bookmark the new current directory')
 
     local old_open = keymaps.open_hint_window
     local captured_prefix
@@ -1769,7 +1771,7 @@ do
     end, 250)
     jump_map.callback()
     assert_eq(state.cwd, root, "'a should jump to bookmark a")
-    assert_eq(state.bookmarks.previous_directory, project, 'jumping to a bookmark should update the previous directory')
+    assert_eq(state.bookmarks.previous_directory.directory, project, 'jumping to a bookmark should update the previous directory')
     assert_eq(captured_prefix, "'", 'delayed bookmark jumps should open mark hints')
     assert_eq(captured_rows[1].lhs, "''")
     assert_eq(captured_rows[2].lhs, "'a")
@@ -1779,7 +1781,7 @@ do
     api.nvim_feedkeys("'", 't', false)
     jump_map.callback()
     assert_eq(state.cwd, project, "'' should jump to the previous directory")
-    assert_eq(state.bookmarks.previous_directory, root, "'' should toggle the previous directory")
+    assert_eq(state.bookmarks.previous_directory.directory, root, "'' should toggle the previous directory")
     assert_eq(captured_prefix, nil, "fast bookmark jumps should not open mark hints")
     keymaps.open_hint_window = old_open
 
@@ -1814,17 +1816,19 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(project))
     local reopened_state = store.get()
-    assert_eq(reopened_state.bookmarks.paths.a, root,
+    assert_eq(reopened_state.bookmarks.paths.a.directory, root,
         'reopening Dora should preserve bookmark a')
-    assert_eq(reopened_state.bookmarks.paths.b, project,
+    assert_eq(reopened_state.bookmarks.paths.b.directory, project,
         'reopening Dora should preserve bookmark b')
-    assert_eq(reopened_state.bookmarks.previous_directory, project,
+    assert_eq(reopened_state.bookmarks.previous_directory.directory, project,
         "reopening Dora should point '' at the last session's directory")
     api.nvim_feedkeys('a', 't', false)
     jump_map = vim.fn.maparg("'", 'n', false, true)
     jump_map.callback()
     assert_eq(reopened_state.cwd, root, "'a should jump to bookmark a after reopening Dora")
-    assert_eq(reopened_state.bookmarks.previous_directory, project,
+    assert_match(current_line(), 'project/$',
+        "'a should restore the cursor to the bookmarked hovered file")
+    assert_eq(reopened_state.bookmarks.previous_directory.directory, project,
         'jumping to a bookmark after reopening should update the previous directory')
     assert(reopened_state.expanded_dirs[root .. '/other'],
         'reopening Dora in the same window should preserve expanded directories')
@@ -1845,9 +1849,9 @@ do
     api.nvim_set_current_win(other_win)
     vim.cmd('Dora ' .. vim.fn.fnameescape(project))
     local other_state = store.get()
-    assert_eq(other_state.bookmarks.paths.a, root,
+    assert_eq(other_state.bookmarks.paths.a.directory, root,
         'bookmark a should be shared with another window')
-    assert_eq(other_state.bookmarks.paths.b, project,
+    assert_eq(other_state.bookmarks.paths.b.directory, project,
         'bookmark b should be shared with another window')
     assert_eq(other_state.bookmarks.previous_directory, nil,
         "the '' bookmark should not be shared with another window")
@@ -1879,12 +1883,15 @@ do
     vim.cmd('Dora')
     local state = store.get()
     assert_eq(state.cwd, sub)
-    assert_eq(state.bookmarks.previous_directory, root,
+    assert_eq(state.bookmarks.previous_directory.directory, root,
         "opening a file should record the session's directory as the previous directory")
+    assert_eq(state.bookmarks.previous_directory.hovered_path, sub .. '/file.txt',
+        'opening a file should record the hovered file for the previous directory')
     local jump_map = vim.fn.maparg("'", 'n', false, true)
     api.nvim_feedkeys("'", 't', false)
     jump_map.callback()
     assert_eq(state.cwd, root, "'' should jump back to where the file was opened from")
+    assert_match(current_line(), 'file%.txt$', "'' should restore the cursor to the hovered file")
 
     core.quit()
     vim.cmd('bdelete!')
