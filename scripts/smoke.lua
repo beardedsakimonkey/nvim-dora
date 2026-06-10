@@ -944,6 +944,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
+    local root = fs.realpath(tmp)
     assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Go to and collapse parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste under parent directory')
     util.set_cursor_pos('alpha')
@@ -954,13 +955,18 @@ do
     set_cursor_line('file%.txt$')
     core.parent_dir()
     assert_match(current_line(), 'one/$', 'parent jump should move from a nested file to its parent directory')
-    assert(not state.expanded_dirs[tmp .. '/alpha/one'], 'parent jump should collapse the parent directory')
+    assert(not state.expanded_dirs[root .. '/alpha/one'], 'parent jump should collapse the parent directory')
     assert(not find_line_index(lines(), 'file%.txt$'), 'parent jump should hide the parent directory children')
 
+    core.expand()
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent directory')
-    assert(not state.expanded_dirs[tmp .. '/alpha'], 'parent jump should collapse each visited parent directory')
+    assert(not state.expanded_dirs[root .. '/alpha'], 'parent jump should collapse each visited parent directory')
+    assert(state.expanded_dirs[root .. '/alpha/one'], 'parent jump should preserve expanded descendant state')
     assert(not find_line_index(lines(), 'one/$'), 'parent jump should hide each visited parent directory children')
+
+    core.expand()
+    assert(find_line_index(lines(), 'file%.txt$'), 're-expanding a collapsed parent should restore its expanded subtree')
 
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should keep the cursor when the parent is not visible')
