@@ -197,7 +197,7 @@ function M.trash(path)
     local trash_dir
     if sysname:match('Windows') then
         util.err('Trash is not currently supported on Windows')
-        return
+        return false
     elseif sysname == 'Darwin' then
         trash_dir = vim.fs.joinpath(assert(os.getenv'HOME'), '.Trash')
     else
