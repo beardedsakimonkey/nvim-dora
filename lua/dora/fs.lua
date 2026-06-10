@@ -69,15 +69,8 @@ end
 -- NOTE: Uses lstat so that dangling symlinks are considered to exist
 ---@param path string
 ---@return boolean
-local function exists(path)
+function M.exists(path)
     return uv.fs_lstat(path) ~= nil
-end
-
----@param path string
----@return string
-local function parent_dir(path)
-    local parent = assert(vim.fs.dirname(M.strip_trailing_sep(path)))
-    return parent == '.' and '' or parent
 end
 
 ---@param dir string
@@ -85,22 +78,16 @@ end
 ---@return string
 local function unused_child_path(dir, basename)
     local path = vim.fs.joinpath(dir, basename)
-    if not exists(path) then
+    if not M.exists(path) then
         return path
     end
     for i = 1, 1000 do
         path = vim.fs.joinpath(dir, basename .. ' ' .. i)
-        if not exists(path) then
+        if not M.exists(path) then
             return path
         end
     end
     error('Could not find an unused trash destination for ' .. basename)
-end
-
----@param path string
----@return boolean
-function M.exists(path)
-    return exists(path)
 end
 
 ---@param path string
@@ -164,18 +151,19 @@ function M.list(path)
     return ret
 end
 
----@param dir string
----@return string
-function M.get_parent_dir(dir)
-    local parent = parent_dir(dir)
-    assert(exists(parent))
-    return parent
-end
-
 ---@param path string
 ---@return string
 function M.parent_dir(path)
-    return parent_dir(path)
+    local parent = assert(vim.fs.dirname(M.strip_trailing_sep(path)))
+    return parent == '.' and '' or parent
+end
+
+---@param dir string
+---@return string
+function M.get_parent_dir(dir)
+    local parent = M.parent_dir(dir)
+    assert(M.exists(parent))
+    return parent
 end
 
 ---@param path string
@@ -192,7 +180,7 @@ end
 ---@param path string
 ---@return boolean?
 function M.trash(path)
-    assert(exists(path), ("%s doesn't exist"):format(path))
+    assert(M.exists(path), ("%s doesn't exist"):format(path))
     local sysname = uv.os_uname().sysname
     local trash_dir
     if sysname:match('Windows') then
@@ -210,15 +198,15 @@ end
 
 ---@param path string
 function M.create_dir(path)
-    assert(not exists(path), ('%q already exists'):format(path))
+    assert(not M.exists(path), ('%q already exists'):format(path))
     -- 755 = RWX for owner, RX for group/other
     assert(vim.fn.mkdir(path, 'p') == 1)
 end
 
 ---@param path string
 function M.create_file(path)
-    assert(not exists(path), ('%q already exists'):format(path))
-    local parent = parent_dir(path)
+    assert(not M.exists(path), ('%q already exists'):format(path))
+    local parent = M.parent_dir(path)
     assert(vim.fn.mkdir(parent, 'p') == 1)
     -- 644 = RW for owner, R for group/other
     local fd = assert(uv.fs_open(path, 'w', tonumber('644', 8)))
@@ -228,7 +216,7 @@ end
 ---@param target string
 ---@param path string
 function M.create_symlink(target, path)
-    assert(not exists(path), ('%q already exists'):format(path))
+    assert(not M.exists(path), ('%q already exists'):format(path))
     -- The dir flag only matters on Windows
     assert(uv.fs_symlink(target, path, {dir = M.is_dir(target)}))
 end
@@ -242,11 +230,11 @@ function M.validate_create(input, cwd)
     assert(input ~= '', 'Empty path')
     assert(input:sub(1, 1) ~= util.sep, 'Create paths must be relative')
     local path = vim.fs.joinpath(cwd, input)
-    assert(not exists(path), ('%q already exists'):format(path))
+    assert(not M.exists(path), ('%q already exists'):format(path))
     local path_for_parent = vim.endswith(path, util.sep) and path:sub(1, -2) or path
-    local parent = parent_dir(path_for_parent)
-    while not exists(parent) do
-        parent = parent_dir(parent)
+    local parent = M.parent_dir(path_for_parent)
+    while not M.exists(parent) do
+        parent = M.parent_dir(parent)
     end
     assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
     return path
@@ -260,10 +248,10 @@ function M.validate_rename(input, src)
     input = util.trim_start(input)
     assert(input ~= '', 'Empty filename')
     assert(not input:find(util.sep, 1, true), 'Rename cannot move files between directories')
-    local parent = parent_dir(src)
+    local parent = M.parent_dir(src)
     local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')
-    assert(not exists(path), ('%q already exists'):format(path))
+    assert(not M.exists(path), ('%q already exists'):format(path))
     return path
 end
 
@@ -273,9 +261,9 @@ end
 function M.validate_symlink(input, cwd)
     assert(input, 'Empty path')
     local path = M.normalize_path(input, cwd)
-    assert(not exists(path), ('%q already exists'):format(path))
-    local parent = parent_dir(path)
-    assert(exists(parent), ('%q does not exist'):format(parent))
+    assert(not M.exists(path), ('%q already exists'):format(path))
+    local parent = M.parent_dir(path)
+    assert(M.exists(parent), ('%q does not exist'):format(parent))
     assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
     return path
 end
@@ -283,12 +271,12 @@ end
 ---@param src string
 ---@param dest string
 function M.rename(src, dest)
-    assert(exists(src), ("%s doesn't exist"):format(src))
+    assert(M.exists(src), ("%s doesn't exist"):format(src))
     assert(src ~= dest, '`src` equals `dest`')
-    local parent = parent_dir(dest)
-    assert(exists(parent), ('%q does not exist'):format(parent))
+    local parent = M.parent_dir(dest)
+    assert(M.exists(parent), ('%q does not exist'):format(parent))
     assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
-    assert(not exists(dest), ('%q already exists'):format(dest))
+    assert(not M.exists(dest), ('%q already exists'):format(dest))
     move(src, dest)
 end
 
@@ -297,7 +285,7 @@ end
 ---@param cwd string
 ---@return string dest
 function M.resolve_copy_or_move_dest(src, dest, cwd)
-    assert(exists(src), ("%s doesn't exist"):format(src))
+    assert(M.exists(src), ("%s doesn't exist"):format(src))
     dest = M.normalize_path(dest, cwd)
     assert(src ~= dest, '`src` equals `dest`')
     if M.is_dir(dest) then
