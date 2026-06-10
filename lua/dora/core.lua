@@ -1039,11 +1039,14 @@ local function change_cwd(state, path, cursor_pattern, or_top)
     if state.cwd ~= path then
         bookmarks.record_previous_directory(state.bookmarks, state.cwd)
         close_filter(state)
+        state.cwd = path
+        -- Only rename when the cwd changed; create_buf_name() counts the
+        -- current buffer as a collision, so renaming to the same cwd would
+        -- append a spurious ' [1]' suffix.
+        util.update_buf_name(state.cwd)
+        sync_local_cwd(state)
     end
-    state.cwd = path
     render(state)
-    util.update_buf_name(state.cwd)
-    sync_local_cwd(state)
     set_cursor_pos(state, cursor_pattern, or_top)
 end
 
