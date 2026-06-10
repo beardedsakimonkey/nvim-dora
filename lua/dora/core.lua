@@ -1452,12 +1452,13 @@ end
 ---@param state DoraState
 ---@param entries DoraMarkedPathEntry[]
 ---@param dest_dir string
----@param dest_path string
-local function paste_entries(state, entries, dest_dir, dest_path)
+local function paste_entries(state, entries, dest_dir)
+    local first_dest
     local ok, msg = pcall(function()
         assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
         for _, entry in ipairs(entries) do
-            fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
+            local dest = fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
+            first_dest = first_dest or dest
         end
     end)
     if not ok then
@@ -1466,7 +1467,7 @@ local function paste_entries(state, entries, dest_dir, dest_path)
     end
     clear_marked_paths(state)
     render(state)
-    set_cursor_path(state, dest_path)
+    set_cursor_path(state, first_dest)
     local item_label = #entries == 1 and 'item' or 'items'
     util.info(('Pasted %d %s to %s'):format(#entries, item_label, util.display_path(dest_dir)))
 end
@@ -1476,7 +1477,6 @@ end
 ---@param dest_dir string
 ---@param entries DoraMarkedPathEntry[]
 local function paste_to_directory(state, row, dest_dir, entries)
-    local dest_path = vim.fs.joinpath(dest_dir, fs.basename(entries[1].path))
     local overwrite_paths = {}
     local seen_overwrite_paths = {}
     local ok, msg = pcall(function()
@@ -1495,12 +1495,12 @@ local function paste_to_directory(state, row, dest_dir, entries)
         return
     end
     if #overwrite_paths == 0 then
-        paste_entries(state, entries, dest_dir, dest_path)
+        paste_entries(state, entries, dest_dir)
         return
     end
     delete_win.delete(overwrite_paths, state.cwd, function(confirmed)
         if confirmed then
-            paste_entries(state, entries, dest_dir, dest_path)
+            paste_entries(state, entries, dest_dir)
         end
     end, {
         anchor = current_name_anchor(row),
