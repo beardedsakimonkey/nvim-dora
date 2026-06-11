@@ -189,8 +189,11 @@ dora.setup({
     icons = true,
 })
 
+-- `dora.config` is mutable and affects existing dora buffers.
 -- To remove a default keymap, set it to `nil`
 dora.config.keymaps.l = nil
+-- To remove all keymaps, set keymaps to `{}`
+dora.config.keymaps = {}
 ```
 
 Keymaps may be core action names, Vim RHS strings, functions, or
