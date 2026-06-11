@@ -5,8 +5,6 @@ It is currently under development so expect breaking changes.
 
 <!-- panvimdoc-ignore-start -->
 
-## Screenshot
-
 <img width="888" height="767" alt="Screenshot 2026-05-08 at 1 13 52 PM" src="https://github.com/user-attachments/assets/5cc644cc-9c7f-4ac1-95e8-c15ed3c61cb7" />
 
 <!-- panvimdoc-ignore-end -->
@@ -174,7 +172,12 @@ require('dora').setup {
 ```
 <!-- dora-config:end -->
 
-Example:
+> [!NOTE]
+> Visual mode mappings are installed automatically for built-in actions that
+> support them, including cursor movements, expanding/collapsing directories,
+> opening, marking, and deleting files.
+
+Example setup:
 
 ```lua
 local dora = require('dora')
@@ -191,18 +194,14 @@ dora.setup({
 
 -- `dora.config` is mutable and affects existing dora buffers.
 -- To remove a default keymap, set it to `nil`
-dora.config.keymaps.l = nil
+dora.config.keymaps.D = nil
 -- To remove all keymaps, set keymaps to `{}`
 dora.config.keymaps = {}
 ```
 
 Keymaps may be core action names, Vim RHS strings, functions, or
 `{action, desc=...}` tables. Built-in action names automatically use Dora's
-description in mappings, prefix hints, and `g?` help, even when remapped:
-
-```lua
-dora.config.keymaps.x = "reload"
-```
+description in mappings, prefix hints, and `g?` help, even when remapped.
 
 Use the table form to override the built-in wording or describe a custom
 mapping:
