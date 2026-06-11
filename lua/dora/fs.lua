@@ -140,6 +140,40 @@ function M.file_from_path(path, fallback_type)
     }
 end
 
+-- Watch a directory for changes. `on_change` is called on the main loop
+-- after the first change, and the watcher stops itself; watch again for
+-- further changes. Returns a function that cancels the watch, or nil when
+-- the directory can't be watched.
+---@param dir string
+---@param on_change fun()
+---@return fun()? cancel
+function M.watch_dir(dir, on_change)
+    local watcher = uv.new_fs_event()
+    if not watcher then
+        return nil
+    end
+    local function cancel()
+        if not watcher:is_closing() then
+            watcher:stop()
+            watcher:close()
+        end
+    end
+    local ok = watcher:start(dir, {}, vim.schedule_wrap(function()
+        -- Events can queue up faster than they're handled, and the watch
+        -- may have been cancelled before a queued event runs.
+        if watcher:is_closing() then
+            return
+        end
+        cancel()
+        on_change()
+    end))
+    if not ok then
+        watcher:close()
+        return nil
+    end
+    return cancel
+end
+
 ---@param path string
 ---@return DoraFile[]
 function M.list(path)

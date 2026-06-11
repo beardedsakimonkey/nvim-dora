@@ -3125,6 +3125,29 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/sub/seed.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    util.set_cursor_pos('sub')
+    core.expand()
+    assert(find_line_index(lines(), 'seed%.txt$'), 'setup should show the expanded directory contents')
+
+    -- The cached listing should refresh via the directory watcher when the
+    -- directory changes behind dora's back.
+    touch(tmp .. '/sub/external.txt')
+    local found = vim.wait(2000, function()
+        return find_line_index(lines(), 'external%.txt$') ~= nil
+    end, 10)
+    assert(found, 'external file changes should refresh the cached listing')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
 local state = store.get()
 assert_eq(state.cwd, fs.realpath(cwd))

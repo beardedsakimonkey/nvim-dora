@@ -75,6 +75,7 @@ local TREE_VERTICAL = '│'
 ---@field show_hidden_files boolean
 ---@field sort_order DoraSortOrder
 ---@field hovered_files table<string, string>
+---@field listings table<string, DoraListingEntry>
 ---@field expanded_dirs table<string, true>
 ---@field tree_rows DoraTreeRow[]
 ---@field rows DoraTreeRow[]
@@ -96,19 +97,21 @@ local function is_permission_error(msg)
         or msg:lower():match('permission denied') ~= nil
 end
 
+local render
+
+---@class DoraListingEntry
+---@field raw DoraFile[]? unfiltered listing; nil when the listing failed
+---@field files DoraFile[] filtered and sorted files
+---@field placeholder_label string?
+---@field show_hidden boolean
+---@field sort_order DoraSortOrder
+---@field unwatch fun()?
+
 ---@param state DoraState
+---@param all_files DoraFile[]
 ---@param dir string
----@return DoraFile[] files
----@return string? placeholder_label
-local function visible_files(state, dir)
-    local ok, all_files = pcall(fs.list, dir)
-    if not ok then
-        if is_permission_error(all_files) then
-            return {}, NOT_PERMITTED_LABEL
-        end
-        util.warn(tostring(all_files))
-        return {}, nil
-    end
+---@return DoraFile[]
+local function filter_and_sort(state, all_files, dir)
     local files = vim.tbl_filter(function(file)
         if state.show_hidden_files then
             return true
@@ -117,7 +120,74 @@ local function visible_files(state, dir)
         end
     end, all_files)
     sorter.files(files, state.sort_order)
-    return files, nil
+    return files
+end
+
+-- Watch for external changes so the cached listing doesn't go stale: the
+-- first change drops the cache entry, and the rescan on the following
+-- render starts a new watch.
+---@param state DoraState
+---@param dir string
+---@return fun()? unwatch
+local function watch_directory(state, dir)
+    return fs.watch_dir(dir, function()
+        if state.listings[dir] then
+            state.listings[dir] = nil
+            if api.nvim_buf_is_valid(state.buf) then
+                render(state)
+            end
+        end
+    end)
+end
+
+-- Drop all cached listings and their watchers; the next render rescans.
+---@param state DoraState
+local function clear_listings(state)
+    for dir, entry in pairs(state.listings) do
+        if entry.unwatch then
+            entry.unwatch()
+        end
+        state.listings[dir] = nil
+    end
+end
+
+---@param state DoraState
+---@param dir string
+---@return DoraFile[] files
+---@return string? placeholder_label
+local function visible_files(state, dir)
+    local entry = state.listings[dir]
+    if entry then
+        if entry.show_hidden ~= state.show_hidden_files or entry.sort_order ~= state.sort_order then
+            -- Only the view settings changed; refilter and resort the
+            -- listing we already have instead of rescanning.
+            if entry.raw then
+                entry.files = filter_and_sort(state, entry.raw, dir)
+            end
+            entry.show_hidden = state.show_hidden_files
+            entry.sort_order = state.sort_order
+        end
+        return entry.files, entry.placeholder_label
+    end
+    entry = {
+        files = {},
+        show_hidden = state.show_hidden_files,
+        sort_order = state.sort_order,
+    }
+    local ok, all_files = pcall(fs.list, dir)
+    if not ok then
+        if is_permission_error(all_files) then
+            entry.placeholder_label = NOT_PERMITTED_LABEL
+        else
+            util.warn(tostring(all_files))
+        end
+    else
+        entry.raw = all_files
+        entry.files = filter_and_sort(state, all_files, dir)
+    end
+    entry.unwatch = watch_directory(state, dir)
+    state.listings[dir] = entry
+    return entry.files, entry.placeholder_label
 end
 
 ---@param segments DoraTreeSegment[]
@@ -339,7 +409,7 @@ end
 
 
 ---@param state DoraState
-local function render(state)
+function render(state)
     local buf, ns = state.buf, state.ns
     prune_deleted_marked_paths(state)
     local tree_rows = build_tree_rows(state)
@@ -923,6 +993,7 @@ local function setup_autocmds(buf)
             local ok, state = pcall(store.get, args.buf)
             if ok then
                 close_filter(state)
+                clear_listings(state)
                 store.remove(args.buf)
             end
         end,
@@ -959,6 +1030,7 @@ end
 ---@param state DoraState
 local function cleanup(state)
     close_filter(state)
+    clear_listings(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
@@ -1606,6 +1678,7 @@ local function paste_entries(state, entries, dest_dir)
     if dest_dir ~= state.cwd then
         state.expanded_dirs[dest_dir] = true
     end
+    clear_listings(state)
     render(state)
     set_cursor_path(state, first_dest)
     local item_label = #entries == 1 and 'item' or 'items'
@@ -1763,6 +1836,7 @@ local function remove_paths(state, paths, operation, action, anchor)
                     for _, removed_path in ipairs(removed_paths) do
                         clear_marked_paths_under(state, removed_path)
                     end
+                    clear_listings(state)
                     render(state)
                 end
                 util.err(result)
@@ -1776,6 +1850,7 @@ local function remove_paths(state, paths, operation, action, anchor)
             for _, removed_path in ipairs(removed_paths) do
                 clear_marked_paths_under(state, removed_path)
             end
+            clear_listings(state)
             render(state)
         end
     end, {
@@ -1855,6 +1930,7 @@ local function rename(prefill)
         end
         rename_expanded_subtree(state, path, dest)
         rename_marked_paths_under(state, path, dest)
+        clear_listings(state)
         render(state)
         set_cursor_path(state, dest)
     end)
@@ -1893,6 +1969,7 @@ local function create(under_directory)
                 util.err(msg)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
+                clear_listings(state)
                 render(state)
                 while cursor_path ~= state.cwd and not set_cursor_path(state, cursor_path) do
                     cursor_path = fs.parent_dir(cursor_path)
@@ -1943,6 +2020,7 @@ function M.create_symlink()
             util.err(err)
             return
         end
+        clear_listings(state)
         render(state)
         set_cursor_path(state, dest)
     end)
@@ -1986,6 +2064,7 @@ function M.shell_cmd()
                 util.info(result:gsub('%s+$', ''))
             end
         end
+        clear_listings(state)
         render(state)
     end)
 end
@@ -2043,7 +2122,9 @@ function M.sort_by_extension_desc()
 end
 
 function M.reload()
-    render(store.get())
+    local state = store.get()
+    clear_listings(state)
+    render(state)
 end
 
 -- Initialization --------------------------------------------------------------
@@ -2109,6 +2190,7 @@ function M.initialize(dir, from_au)
         show_hidden_files = config.show_hidden_files,
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, filename>
+        listings = {},  -- map<realpath, DoraListingEntry>
         expanded_dirs = global_expanded_dirs,  -- map<realpath, true>
         tree_rows = {},
         rows = {},
