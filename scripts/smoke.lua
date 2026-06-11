@@ -1984,11 +1984,37 @@ do
 end
 
 do
+    local buf, win = keymaps.open_hint_window(',', {
+        {lhs=',n', key='n', desc='Sort by name'},
+        {lhs=',s', key='s', desc='Sort by size'},
+        {lhs=',x', key='x', desc='Open externally'},
+        {lhs=',q', key='q', desc='Sort by name'},
+        {lhs=',.', key='.', desc='Toggle hidden files'},
+        {lhs=',y', key='y', mnemonic='full', desc='Yank full path'},
+    })
+    local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+    local mnemonics = {}
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(buf, -1, 0, -1, {details=true})) do
+        if mark[4].hl_group == 'DoraKeymapHintMnemonic' then
+            local line = hint_lines[mark[2] + 1]
+            mnemonics[#mnemonics+1] = line:sub(mark[3] + 1, mark[4].end_col)
+        end
+    end
+    table.sort(mnemonics)
+    assert_eq(#mnemonics, 4, 'hints without a matching word or an alphabetic key should not highlight a mnemonic')
+    assert_eq(mnemonics[1], 'externally', 'mnemonics should fall back to a word containing the key')
+    assert_eq(mnemonics[2], 'full', 'explicit mnemonics should override the key derivation')
+    assert_eq(mnemonics[3], 'name', 'mnemonics should highlight the word starting with the key')
+    assert_eq(mnemonics[4], 'size', 'mnemonics should prefer the last word starting with the key')
+    window.close(buf, win)
+end
+
+do
     local buf, win = keymaps.open_hint_window('y', {
         {lhs='yN', desc='Yank file name to clipboard'},
         {lhs='yn', desc='Yank file name'},
-        {lhs='yB', desc='Yank basename to clipboard'},
-        {lhs='yb', desc='Yank basename'},
+        {lhs='yB', desc='Yank file basename to clipboard'},
+        {lhs='yb', desc='Yank file basename'},
         {lhs='yY', desc='Yank full path to clipboard'},
         {lhs='yy', desc='Yank full path'},
         {lhs='yD', desc='Yank directory path to clipboard'},
@@ -1998,7 +2024,7 @@ do
     assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
     assert_match(hint_lines[2], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
     assert_match(hint_lines[3], '^  yn%s+→%s+Yank file name%s+yN%s+→%s+Yank file name to clipboard$')
-    assert_match(hint_lines[4], '^  yb%s+→%s+Yank basename%s+yB%s+→%s+Yank basename to clipboard$')
+    assert_match(hint_lines[4], '^  yb%s+→%s+Yank file basename%s+yB%s+→%s+Yank file basename to clipboard$')
     window.close(buf, win)
 end
 
@@ -2379,7 +2405,7 @@ do
 
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename: archive.tar')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
     start_col, end_col = yank_highlight_range()
     assert_eq(start_col, filename_col, 'basename yank should start at the filename')
@@ -2387,7 +2413,7 @@ do
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename to clipboard: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename to clipboard: archive.tar')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

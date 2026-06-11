@@ -26,6 +26,7 @@ vim.cmd 'hi default link DoraInfoValue           Special'
 vim.cmd 'hi default link DoraHelpSection         Title'
 vim.cmd 'hi default link DoraDeleteMore          NonText'
 vim.cmd 'hi default link DoraKeymapHintArrow     NonText'
+vim.cmd 'hi default link DoraKeymapHintMnemonic  Underlined'
 
 local function set_prompt_border_hls()
     local function update_hl_fg(name, fg_group)
