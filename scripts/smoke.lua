@@ -1207,6 +1207,66 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    write_file(tmp .. '/source.txt', 'new')
+    write_file(tmp .. '/dest.txt', 'old')
+    assert(vim.loop.fs_mkdir(tmp .. '/dest-dir', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/source-dir', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/other-dir', tonumber('755', 8)))
+
+    assert_eq(fs.validate_rename('dest.txt', tmp .. '/source.txt'), tmp .. '/dest.txt',
+        'file rename should allow an existing file destination')
+    assert(not pcall(fs.validate_rename, 'dest-dir', tmp .. '/source.txt'),
+        'file rename should reject an existing directory destination')
+    assert(not pcall(fs.validate_rename, 'dest.txt', tmp .. '/source-dir'),
+        'directory rename should reject an existing file destination')
+    assert(not pcall(fs.validate_rename, 'other-dir', tmp .. '/source-dir'),
+        'directory rename should reject an existing directory destination')
+    assert(not pcall(fs.rename, tmp .. '/source.txt', tmp .. '/dest-dir'),
+        'file rename execution should reject an existing directory destination')
+    assert(not pcall(fs.rename, tmp .. '/source-dir', tmp .. '/dest.txt'),
+        'directory rename execution should reject an existing file destination')
+    assert(not pcall(fs.rename, tmp .. '/source-dir', tmp .. '/other-dir'),
+        'directory rename execution should reject an existing directory destination')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('source%.txt$')
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        cb('dest.txt', opts.validate('dest.txt'))
+    end
+
+    core.rename()
+    assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' dest.txt')
+    api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(vim.fn.readfile(tmp .. '/source.txt')[1], 'new',
+        'declining rename overwrite should preserve the source file')
+    assert_eq(vim.fn.readfile(tmp .. '/dest.txt')[1], 'old',
+        'declining rename overwrite should preserve the destination file')
+    assert_eq(api.nvim_get_current_buf(), state.buf,
+        'declining rename overwrite should restore Dora')
+
+    core.rename()
+    assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
+    api.nvim_feedkeys('y', 'xt', false)
+    prompt.input = old_input
+
+    assert(not fs.exists(tmp .. '/source.txt'),
+        'confirming rename overwrite should remove the source file')
+    assert_eq(vim.fn.readfile(tmp .. '/dest.txt')[1], 'new',
+        'confirming rename overwrite should replace the destination file')
+    assert_match(current_line(), 'dest%.txt$',
+        'confirming rename overwrite should move the cursor to the destination')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/split.txt')
     touch(tmp .. '/vsplit.txt')
     touch(tmp .. '/tab.txt')
