@@ -5,6 +5,7 @@
 Table of Contents                                     *dora-table-of-contents*
 
 1. nvim-dora                                                  |dora-nvim-dora|
+  - Motivation                                     |dora-nvim-dora-motivation|
   - Usage                                               |dora-nvim-dora-usage|
   - Configuration                               |dora-nvim-dora-configuration|
   - Highlights                                     |dora-nvim-dora-highlights|
@@ -15,6 +16,39 @@ Table of Contents                                     *dora-table-of-contents*
 
 Dora is a directory explorer for Neovim 0.12+ focused on usability. It is
 currently under development so expect breaking changes.
+
+
+MOTIVATION                                         *dora-nvim-dora-motivation*
+
+Dora sits between project-drawer plugins such as nvim-tree
+<https://github.com/nvim-tree/nvim-tree.lua> and in-place directory browsers
+such as netrw. Like netrw, it opens in the current window and gets out of the
+way when a file is selected. Unlike many netrw-style plugins (e.g. vim-vinegar
+<https://github.com/tpope/vim-vinegar>, oil.nvim
+<https://github.com/stevearc/oil.nvim>, and vim-dirvish
+<https://github.com/justinmk/vim-dirvish>), it also provides a tree view for
+exploring more than one directory at a time.
+
+Dora aims to make filesystem navigation and common file operations efficient:
+
+- The directory listing is non-modifiable, leaving more keys available for
+    commands.
+- Prompt border colors provide immediate validation feedback while creating
+    or renaming files.
+- Create and rename windows open below the cursor, keeping attention near the
+    file being acted on.
+- Files can be marked directly for cut or copy operations, then pasted at the
+    destination.
+- Expanded directories persist for the lifetime of the Neovim session, and
+    the last directory and cursor position survive closing Dora. Reopen it and
+    press `''` to return to where you left off.
+- Built-in which-key <https://github.com/folke/which-key.nvim>-style hints make prefixed keymaps discoverable.
+- Navigation and file operations use convenient, mnemonic keymaps.
+
+Dora has no required dependencies, about 4,000 lines of Lua, and a small
+configuration surface. It also keeps startup overhead low: `require('dora')`
+loads only the configuration module and measures well under 1 ms in the
+included benchmark.
 
 
 USAGE                                                   *dora-nvim-dora-usage*
