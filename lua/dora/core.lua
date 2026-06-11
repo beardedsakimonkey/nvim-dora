@@ -1362,7 +1362,7 @@ function M.open(cmd)
 end
 
 ---@param cmd DoraOpenCommand
-local function open_keep(cmd)
+local function open_stay(cmd)
     local state = store.get()
     local row = current_row(state)
     if not row or not row.path then
@@ -1393,16 +1393,16 @@ function M.open_tab()
     M.open('tabedit')
 end
 
-function M.open_split_keep()
-    open_keep('split')
+function M.open_split_stay()
+    open_stay('split')
 end
 
-function M.open_vsplit_keep()
-    open_keep('vsplit')
+function M.open_vsplit_stay()
+    open_stay('vsplit')
 end
 
-function M.open_tab_keep()
-    open_keep('tabedit')
+function M.open_tab_stay()
+    open_stay('tabedit')
 end
 
 function M.follow_symlink()

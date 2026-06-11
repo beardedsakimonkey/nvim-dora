@@ -83,9 +83,9 @@ require('dora').setup {
         s = 'open_split',
         v = 'open_vsplit',
         t = 'open_tab',
-        ['<C-s>'] = 'open_split_keep',
-        ['<C-v>'] = 'open_vsplit_keep',
-        ['<C-t>'] = 'open_tab_keep',
+        ['<C-s>'] = 'open_split_stay',
+        ['<C-v>'] = 'open_vsplit_stay',
+        ['<C-t>'] = 'open_tab_stay',
         gx = 'open_external',
 
         -- File operations
