@@ -1830,6 +1830,51 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    touch(tmp .. '/dir/child.txt')
+    touch(tmp .. '/a.txt')
+    touch(tmp .. '/b.txt')
+    local root = fs.realpath(tmp)
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local dora_buf = state.buf
+    set_cursor_line('^dir/$')
+    core.expand()
+    set_cursor_line('^dir/$')
+    for lhs, desc in pairs({
+        l = 'Open',
+        s = 'Open in split',
+        v = 'Open in vertical split',
+        t = 'Open in tab',
+        ['<C-s>'] = 'Open in split (stay)',
+        ['<C-v>'] = 'Open in vertical split (stay)',
+        ['<C-t>'] = 'Open in tab (stay)',
+    }) do
+        assert_eq(vim.fn.maparg(lhs, 'x', false, true).desc, desc)
+    end
+    api.nvim_feedkeys('V3jl', 'xt', false)
+
+    assert_eq(api.nvim_get_mode().mode, 'n', 'visual open should return to normal mode')
+    assert_eq(api.nvim_buf_get_name(0), root .. '/b.txt',
+        'visual open should leave the last selected file current')
+    assert(vim.fn.bufexists(root .. '/dir/child.txt') ~= 0,
+        'visual open should load nested selected files')
+    assert(vim.fn.bufexists(root .. '/a.txt') ~= 0,
+        'visual open should load every selected file')
+    assert_eq(vim.fn.bufexists(root .. '/dir'), 0,
+        'visual open should ignore selected directories')
+    assert_eq(vim.fn.bufexists(dora_buf), 0, 'visual open should close Dora')
+
+    for _, path in ipairs({'dir/child.txt', 'a.txt', 'b.txt'}) do
+        pcall(vim.cmd, 'bdelete! ' .. vim.fn.fnameescape(root .. '/' .. path))
+    end
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/project', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/other', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/other/nested', tonumber('755', 8)))
