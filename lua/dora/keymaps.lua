@@ -175,10 +175,12 @@ local function mnemonic_span(desc, key)
             break
         end
         local word = desc:sub(start_pos, stop_pos):lower()
-        if word:sub(1, 1) == key then
-            match_start, match_stop = start_pos, stop_pos
-        elseif not contains_start and word:find(key, 1, true) then
-            contains_start, contains_stop = start_pos, stop_pos
+        if word ~= 'yank' then
+            if word:sub(1, 1) == key then
+                match_start, match_stop = start_pos, stop_pos
+            elseif not contains_start and word:find(key, 1, true) then
+                contains_start, contains_stop = start_pos, stop_pos
+            end
         end
         init = stop_pos + 1
     end
