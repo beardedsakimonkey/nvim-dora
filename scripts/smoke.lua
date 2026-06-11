@@ -2505,6 +2505,27 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/target.txt')
+    assert(vim.loop.fs_symlink('target.txt', tmp .. '/link'))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('link$')
+    core.info()
+    local info_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+
+    assert_match(info_lines[3], '^Path%s+')
+    assert_match(info_lines[4], '^Target%s+target%.txt$')
+    assert_match(info_lines[5], '^Target type%s+File$')
+    assert_match(info_lines[6], '^Size%s+')
+
+    api.nvim_feedkeys('q', 'xt', false)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local origin_win = api.nvim_get_current_win()
     core.help()
