@@ -66,7 +66,7 @@ local SECTIONS = {
 ---@param height integer
 ---@return table
 local function layout(width, height)
-    return window.centered_layout({
+    return window.layout({
         title = 'Help',
         width = width,
         height = height,

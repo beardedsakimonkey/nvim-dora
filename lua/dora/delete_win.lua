@@ -212,12 +212,12 @@ function M.delete(paths, cwd, cb, opts)
     vim.bo[buf].modifiable = false
 
     local function layout()
-        local layout_opts = {
+        return window.layout({
             title = confirm_title,
             width = get_width(confirm_title, rendered_lines),
             height = #rendered_lines,
-        }
-        return window.anchored_layout(vim.tbl_extend('force', layout_opts, anchor))
+            anchor = anchor,
+        })
     end
 
     local win = api.nvim_open_win(buf, true, layout())
