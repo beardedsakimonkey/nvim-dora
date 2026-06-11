@@ -1405,30 +1405,6 @@ function M.open_tab_stay()
     open_stay('tabedit')
 end
 
-function M.follow_symlink()
-    local state = store.get()
-    local row = current_row(state)
-    if not row or row.type ~= 'link' or not row.path then
-        return
-    end
-    -- fs_realpath resolves the symlink and checks target existence.
-    local path, msg = uv.fs_realpath(row.path)
-    if not path then
-        util.err(msg)
-        return
-    end
-    if fs.is_dir(path) then
-        remember_hovered_file(state)
-        change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
-        return
-    end
-    save_previous_directory(state)
-    restore_cwd(state)
-    util.set_current_buf(state.origin_buf)  -- update the altfile
-    vim.cmd('edit ' .. vim.fn.fnameescape(path))
-    cleanup(state)
-end
-
 function M.open_external()
     local state = store.get()
     local row = current_row(state)

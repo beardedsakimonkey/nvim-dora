@@ -111,7 +111,6 @@ require('dora').setup {
         ['<BS>'] = 'close_dir',
         gp = 'parent_dir',
         gh = 'home_dir',
-        gf = 'follow_symlink',
         m = 'set_bookmark',
         ["'"] = 'jump_bookmark',
 
