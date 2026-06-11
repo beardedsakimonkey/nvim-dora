@@ -35,13 +35,14 @@ local SECTIONS = {
     },
     {
         name = 'View',
-        actions = {'filter', 'clear_filter', 'reload', 'info', 'toggle_hidden_files'},
+        actions = {'filter', 'clear_filter', 'info', 'toggle_hidden_files', 'reload'},
     },
     {
         name = 'Yank',
         actions = {
-            'yank_filename', 'yank_file_path', 'yank_file_path_clipboard',
-            'yank_dir_path', 'yank_dir_path_clipboard', 'yank_filename_clipboard',
+            'yank_file_path', 'yank_file_path_clipboard',
+            'yank_dir_path', 'yank_dir_path_clipboard',
+            'yank_filename', 'yank_filename_clipboard',
             'yank_basename', 'yank_basename_clipboard',
         },
     },

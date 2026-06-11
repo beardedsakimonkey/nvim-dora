@@ -106,9 +106,9 @@ require('dora').setup {
         -- View
         f = 'filter',
         F = 'clear_filter',
-        ['<C-r>'] = 'reload',
         i = 'info',
         ['g.'] = 'toggle_hidden_files',
+        ['<C-r>'] = 'reload',
 
         -- Yank
         yy = 'yank_file_path',
@@ -119,7 +119,6 @@ require('dora').setup {
         yN = 'yank_filename_clipboard',
         yb = 'yank_basename',
         yB = 'yank_basename_clipboard',
-        Y = 'yank_filename',
 
         -- Sort
         [',n'] = 'sort_by_name',

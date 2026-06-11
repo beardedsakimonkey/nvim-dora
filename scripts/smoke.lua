@@ -2349,7 +2349,7 @@ do
         return marks[1][3], marks[1][4].end_col
     end
 
-    local yank_filename_map = vim.fn.maparg('Y', 'n', false, true)
+    local yank_filename_map = vim.fn.maparg('yn', 'n', false, true)
     assert_eq(yank_filename_map.desc, 'Yank file name')
     assert_eq(type(yank_filename_map.callback), 'function')
     local yank_cursor = api.nvim_win_get_cursor(0)
