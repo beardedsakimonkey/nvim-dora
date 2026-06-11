@@ -1892,16 +1892,30 @@ local function rename(prefill)
         if not input or not api.nvim_buf_is_valid(state.buf) then
             return
         end
-        local ok, err = pcall(fs.copy_or_move, true, path, dest, state.cwd)
-        if not ok then
-            util.err(err)
-            return
+        local function perform_rename()
+            local ok, err = pcall(fs.rename, path, dest)
+            if not ok then
+                util.err(err)
+                return
+            end
+            rename_expanded_subtree(state, path, dest)
+            rename_marked_paths_under(state, path, dest)
+            clear_listings(state)
+            render(state)
+            set_cursor_path(state, dest)
         end
-        rename_expanded_subtree(state, path, dest)
-        rename_marked_paths_under(state, path, dest)
-        clear_listings(state)
-        render(state)
-        set_cursor_path(state, dest)
+        if fs.exists(dest) then
+            delete_win.delete({dest}, state.cwd, function(confirmed)
+                if confirmed and api.nvim_buf_is_valid(state.buf) then
+                    perform_rename()
+                end
+            end, {
+                anchor = current_name_anchor(row),
+                action = 'Overwrite',
+            })
+        else
+            perform_rename()
+        end
     end)
 end
 

@@ -295,7 +295,12 @@ function M.validate_rename(input, src)
     local parent = M.parent_dir(src)
     local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')
-    assert(not M.exists(path), ('%q already exists'):format(path))
+    local dest_stat = uv.fs_lstat(path)
+    if dest_stat then
+        local src_stat = uv.fs_lstat(src)
+        assert(src_stat and src_stat.type == 'file' and dest_stat.type == 'file',
+            ('%q already exists'):format(path))
+    end
     return path
 end
 
@@ -315,12 +320,17 @@ end
 ---@param src string
 ---@param dest string
 function M.rename(src, dest)
-    assert(M.exists(src), ("%s doesn't exist"):format(src))
+    local src_stat = uv.fs_lstat(src)
+    assert(src_stat, ("%s doesn't exist"):format(src))
     assert(src ~= dest, '`src` equals `dest`')
     local parent = M.parent_dir(dest)
     assert(M.exists(parent), ('%q does not exist'):format(parent))
     assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
-    assert(not M.exists(dest), ('%q already exists'):format(dest))
+    local dest_stat = uv.fs_lstat(dest)
+    if dest_stat then
+        assert(src_stat.type == 'file' and dest_stat.type == 'file',
+            ('%q already exists'):format(dest))
+    end
     move(src, dest)
 end
 
