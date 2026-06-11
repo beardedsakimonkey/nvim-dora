@@ -11,7 +11,7 @@ local HINT_COLUMN_GAP = '    '
 local HINT_KEY_ORDERS = {
     [','] = {n=1, m=2, c=3, s=4, e=5},
     g = {p=1, h=2, f=3, x=4, ['.']=5, ['?']=6},
-    y = {y=1, d=2, f=3, b=4},
+    y = {y=1, d=2, n=3, b=4},
 }
 
 local ACTION_DESCRIPTIONS = {
@@ -58,12 +58,12 @@ local ACTION_DESCRIPTIONS = {
     shell_cmd = 'Shell command on file',
     toggle_hidden_files = 'Toggle hidden files',
     help = 'Show help',
-    yank_filename = 'Yank filename',
+    yank_filename = 'Yank file name',
     yank_file_path = 'Yank full path',
     yank_file_path_clipboard = 'Yank full path to clipboard',
     yank_dir_path = 'Yank directory path',
     yank_dir_path_clipboard = 'Yank directory path to clipboard',
-    yank_filename_clipboard = 'Yank filename to clipboard',
+    yank_filename_clipboard = 'Yank file name to clipboard',
     yank_basename = 'Yank basename',
     yank_basename_clipboard = 'Yank basename to clipboard',
     sort_by_name = 'Sort by name',

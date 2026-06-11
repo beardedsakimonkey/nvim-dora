@@ -1985,8 +1985,8 @@ end
 
 do
     local buf, win = keymaps.open_hint_window('y', {
-        {lhs='yF', desc='Yank filename to clipboard'},
-        {lhs='yf', desc='Yank filename'},
+        {lhs='yN', desc='Yank file name to clipboard'},
+        {lhs='yn', desc='Yank file name'},
         {lhs='yB', desc='Yank basename to clipboard'},
         {lhs='yb', desc='Yank basename'},
         {lhs='yY', desc='Yank full path to clipboard'},
@@ -1997,7 +1997,7 @@ do
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
     assert_match(hint_lines[2], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
-    assert_match(hint_lines[3], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
+    assert_match(hint_lines[3], '^  yn%s+→%s+Yank file name%s+yN%s+→%s+Yank file name to clipboard$')
     assert_match(hint_lines[4], '^  yb%s+→%s+Yank basename%s+yB%s+→%s+Yank basename to clipboard$')
     window.close(buf, win)
 end
@@ -2324,7 +2324,7 @@ do
     end
 
     local yank_filename_map = vim.fn.maparg('Y', 'n', false, true)
-    assert_eq(yank_filename_map.desc, 'Yank filename')
+    assert_eq(yank_filename_map.desc, 'Yank file name')
     assert_eq(type(yank_filename_map.callback), 'function')
     local yank_cursor = api.nvim_win_get_cursor(0)
     yank_filename_map.callback()
