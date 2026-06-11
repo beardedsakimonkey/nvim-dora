@@ -776,14 +776,26 @@ local function exit_visual_mode()
 end
 
 ---@param state DoraState
----@return string[]? paths
----@return string? error
-local function visual_paths(state)
+---@return DoraTreeRow[] rows
+local function selected_rows(state)
     local start_line, end_line = visual_line_range()
-    local paths = {}
+    local rows = {}
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        if row and row.path and not path_under_selected(row.path, paths) then
+        if row and row.path then
+            rows[#rows+1] = row
+        end
+    end
+    return rows
+end
+
+---@param state DoraState
+---@return string[]? paths
+---@return string? error
+local function selected_non_overlapping_paths(state)
+    local paths = {}
+    for _, row in ipairs(selected_rows(state)) do
+        if not path_under_selected(row.path, paths) then
             paths[#paths+1] = row.path
         end
     end
@@ -1419,6 +1431,26 @@ function M.open_external()
     end
 end
 
+function M.open_external_visual()
+    local state = store.get()
+    local rows = selected_rows(state)
+    vim.cmd.normal({args={api.nvim_replace_termcodes('<Esc>', true, false, true)}, bang=true})
+    if #rows == 0 then
+        util.err('No files selected')
+        return
+    end
+    for _, row in ipairs(rows) do
+        if fs.exists(row.path) then
+            local ok, err = pcall(vim.ui.open, row.path)
+            if ok then
+                util.info('Opening ' .. row.name)
+            else
+                util.err(('Could not open %s externally: %s'):format(row.name, tostring(err)))
+            end
+        end
+    end
+end
+
 function M.expand()
     local state = store.get()
     local row = current_row(state)
@@ -1846,7 +1878,7 @@ end
 local function remove_visual_paths(operation, action)
     local state = store.get()
     local row = current_row(state)
-    local paths, msg = visual_paths(state)
+    local paths, msg = selected_non_overlapping_paths(state)
     if not paths then
         util.err(msg)
         return

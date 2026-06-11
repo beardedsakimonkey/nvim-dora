@@ -1015,6 +1015,8 @@ do
     set_cursor_line('file%.txt$')
     api.nvim_feedkeys('Vgp', 'xt', false)
     assert_match(current_line(), 'one/$', 'visual parent jump should use the visual cursor row')
+    assert_eq(api.nvim_get_mode().mode, 'V', 'visual parent jump should stay in visual mode')
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
 
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent')
@@ -2500,10 +2502,15 @@ do
 
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    touch(tmp .. '/dir/child')
     touch(tmp .. '/a')
+    touch(tmp .. '/b')
+    touch(tmp .. '/c')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local expected_path = fs.realpath(tmp) .. '/a'
+    set_cursor_line('a$')
     vim.ui.open = function(path)
         vim.g.dora_smoke_open_external_path = path
     end
@@ -2518,6 +2525,30 @@ do
     core.open_external()
     assert_match(notifications[#notifications].msg, '^dora: Could not open externally: ')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
+
+    local opened_paths = {}
+    vim.ui.open = function(path)
+        opened_paths[#opened_paths+1] = path
+        if vim.endswith(path, '/b') then
+            error('boom')
+        end
+    end
+    set_cursor_line('^dir/$')
+    core.expand()
+    set_cursor_line('^dir/$')
+    assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, 'Open externally')
+    api.nvim_feedkeys('V4jgx', 'xt', false)
+    assert_eq(#opened_paths, 5, 'visual gx should try to open every selected path')
+    assert_eq(api.nvim_get_mode().mode, 'n', 'visual gx should return to normal mode')
+    assert_eq(opened_paths[1], fs.realpath(tmp) .. '/dir')
+    assert_eq(opened_paths[2], fs.realpath(tmp) .. '/dir/child')
+    assert_eq(opened_paths[3], fs.realpath(tmp) .. '/a')
+    assert_eq(opened_paths[4], fs.realpath(tmp) .. '/b')
+    assert_eq(opened_paths[5], fs.realpath(tmp) .. '/c')
+    assert_match(notifications[#notifications - 1].msg, '^dora: Could not open b externally: ',
+        'visual gx should report individual failures')
+    assert_eq(notifications[#notifications].msg, 'dora: Opening c',
+        'visual gx should continue after a failed open')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
