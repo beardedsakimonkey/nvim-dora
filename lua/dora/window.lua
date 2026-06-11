@@ -25,54 +25,33 @@ end
 ---@field width integer
 ---@field height integer
 ---@field min_width? integer
-
----@class DoraAnchoredFloatLayoutOptions: DoraFloatLayoutOptions
----@field win integer
----@field line integer
----@field col integer
+---@field anchor? {win: integer, line: integer, col: integer}
 
 ---@param opts DoraFloatLayoutOptions
 ---@return table
----Returns a config for vim.api.nvim_win_set_config()
-function M.centered_layout(opts)
-    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 4))
+---Returns a config for vim.api.nvim_win_set_config(). Anchored to the
+---given position when it's visible, centered in the editor otherwise.
+function M.layout(opts)
     local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
     local title = opts.title and (' ' .. opts.title .. ' ') or nil
+    local anchor = opts.anchor
+    local pos = anchor ~= nil and M.valid_win(anchor.win)
+        and vim.fn.screenpos(anchor.win, anchor.line, anchor.col + 1)
+        or nil
+    local row, col, width
+    if pos and pos.row ~= 0 and pos.col ~= 0 then
+        width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
+        row = math.max(0, pos.row)
+        col = math.min(math.max(0, pos.col - 1), math.max(0, vim.o.columns - width - 2))
+    else
+        width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 4))
+        row = math.max(0, math.floor((vim.o.lines - height - 2) / 2))
+        col = math.floor((vim.o.columns - width) / 2)
+    end
     return {
         relative = 'editor',
         anchor = 'NW',
-        row = math.max(0, math.floor((vim.o.lines - height - 2) / 2)),
-        col = math.floor((vim.o.columns - width) / 2),
-        width = width,
-        height = height,
-        border = M.border(),
-        title = title,
-        title_pos = title and (opts.title_pos or 'left') or nil,
-        style = 'minimal',
-        noautocmd = true,
-    }
-end
-
----@param opts DoraAnchoredFloatLayoutOptions
----@return table
----Anchored to cursor
-function M.anchored_layout(opts)
-    if not M.valid_win(opts.win) then
-        return M.centered_layout(opts)
-    end
-    local pos = vim.fn.screenpos(opts.win, opts.line, opts.col + 1)
-    if pos.row == 0 or pos.col == 0 then
-        return M.centered_layout(opts)
-    end
-    local anchor_col = math.max(0, pos.col - 1)
-    local width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
-    local col = math.min(anchor_col, math.max(0, vim.o.columns - width - 2))
-    local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
-    local title = opts.title and (' ' .. opts.title .. ' ') or nil
-    return {
-        relative = 'editor',
-        anchor = 'NW',
-        row = math.max(0, pos.row),
+        row = row,
         col = col,
         width = width,
         height = height,

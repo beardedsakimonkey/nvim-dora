@@ -15,15 +15,12 @@ local M = {}
 ---@param width integer
 ---@return table
 local function win_layout(opts, width)
-    local layout_opts = {
+    return window.layout({
         title = opts.prompt,
         width = width,
         height = 1,
-    }
-    if opts.anchor then
-        return window.anchored_layout(vim.tbl_extend('force', layout_opts, opts.anchor))
-    end
-    return window.centered_layout(layout_opts)
+        anchor = opts.anchor,
+    })
 end
 
 ---@class DoraPrompt

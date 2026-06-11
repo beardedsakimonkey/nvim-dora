@@ -178,12 +178,12 @@ function M.open(path, anchor)
     render(buf, ns, info_rows, label_len)
     vim.bo[buf].modifiable = false
 
-    local layout_opts = vim.tbl_extend('force', {
+    local win = api.nvim_open_win(buf, true, window.layout({
         title = 'Info',
         width = width(rendered_lines),
         height = #rendered_lines,
-    }, anchor)
-    local win = api.nvim_open_win(buf, true, window.anchored_layout(layout_opts))
+        anchor = anchor,
+    }))
     vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
     vim.wo[win].wrap = false
 
