@@ -82,17 +82,18 @@ local function rows(path, stat)
     add(ret, 'Name', fs.basename(path))
     add(ret, 'Type', format_type(stat.type))
     add(ret, 'Path', util.display_path(path))
-    add(ret, 'Size', format_size(stat.size or 0))
-    add(ret, 'Permissions', format_mode(stat.mode or 0))
-    if stat.type == 'file' then
-        add(ret, 'Executable', uv.fs_access(path, 'X') and 'yes' or 'no')
-    end
 
     local link_target = stat.type == 'link' and uv.fs_readlink(path) or nil
     if link_target then
         add(ret, 'Target', vim.startswith(link_target, util.sep) and util.display_path(link_target) or link_target)
         local target_stat = uv.fs_stat(path)
         add(ret, 'Target type', target_stat and format_type(target_stat.type) or 'missing')
+    end
+
+    add(ret, 'Size', format_size(stat.size or 0))
+    add(ret, 'Permissions', format_mode(stat.mode or 0))
+    if stat.type == 'file' then
+        add(ret, 'Executable', uv.fs_access(path, 'X') and 'yes' or 'no')
     end
 
     add(ret, 'Modified', format_time(stat.mtime))
