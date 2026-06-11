@@ -1719,23 +1719,16 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/target-dir', tonumber('755', 8)))
     touch(tmp .. '/target-dir/inside.txt')
-    touch(tmp .. '/regular.txt')
     assert(vim.loop.fs_symlink(tmp .. '/target-dir', tmp .. '/dir-link'))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    assert_eq(vim.fn.maparg('gf', 'n', false, true).desc, 'Follow symlink')
-
-    set_cursor_line('regular%.txt$')
-    local cwd = state.cwd
-    core.follow_symlink()
-    assert_eq(state.cwd, cwd, 'follow symlink should ignore regular files')
-    assert_eq(api.nvim_get_current_buf(), state.buf, 'follow symlink should keep Dora focused for regular files')
+    assert_eq(vim.fn.maparg('gf', 'n'), '', 'gf should remain available for users')
 
     set_cursor_line('dir%-link$')
-    core.follow_symlink()
-    assert_eq(state.cwd, fs.realpath(tmp .. '/target-dir'), 'follow symlink should navigate to directory targets')
-    assert(vim.tbl_contains(lines(), 'inside.txt'), 'follow symlink should render the target directory contents')
+    core.open()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/target-dir'), 'open should navigate to symlinked directories')
+    assert(vim.tbl_contains(lines(), 'inside.txt'), 'open should render symlinked directory contents')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1754,9 +1747,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local dora_buf = api.nvim_get_current_buf()
     set_cursor_line('file%-link$')
-    core.follow_symlink()
-    assert_eq(api.nvim_buf_get_name(0), fs.realpath(tmp .. '/target.txt'), 'follow symlink should open file targets')
-    assert_eq(vim.fn.bufexists(dora_buf), 0, 'following a file symlink should close Dora')
+    core.open()
+    assert_eq(api.nvim_buf_get_name(0), fs.realpath(tmp .. '/target.txt'), 'open should edit symlinked files')
+    assert_eq(vim.fn.bufexists(dora_buf), 0, 'opening a symlinked file should close Dora')
 
     vim.cmd('bdelete!')
     vim.o.directory = old_directory

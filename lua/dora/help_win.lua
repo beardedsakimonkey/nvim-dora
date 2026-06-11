@@ -16,7 +16,7 @@ local SECTIONS = {
         actions = {
             'up_dir', 'next_sibling', 'prev_sibling', 'last_sibling', 'first_sibling',
             'expand', 'expand_recursive', 'collapse', 'collapse_recursive', 'close_dir',
-            'parent_dir', 'home_dir', 'follow_symlink', 'set_bookmark', 'jump_bookmark',
+            'parent_dir', 'home_dir', 'set_bookmark', 'jump_bookmark',
         },
     },
     {
