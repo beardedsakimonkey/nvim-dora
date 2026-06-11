@@ -2013,8 +2013,8 @@ do
     local buf, win = keymaps.open_hint_window('y', {
         {lhs='yN', desc='Yank file name to clipboard'},
         {lhs='yn', desc='Yank file name'},
-        {lhs='yB', desc='Yank basename to clipboard'},
-        {lhs='yb', desc='Yank basename'},
+        {lhs='yB', desc='Yank file basename to clipboard'},
+        {lhs='yb', desc='Yank file basename'},
         {lhs='yY', desc='Yank full path to clipboard'},
         {lhs='yy', desc='Yank full path'},
         {lhs='yD', desc='Yank directory path to clipboard'},
@@ -2024,7 +2024,7 @@ do
     assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
     assert_match(hint_lines[2], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
     assert_match(hint_lines[3], '^  yn%s+→%s+Yank file name%s+yN%s+→%s+Yank file name to clipboard$')
-    assert_match(hint_lines[4], '^  yb%s+→%s+Yank basename%s+yB%s+→%s+Yank basename to clipboard$')
+    assert_match(hint_lines[4], '^  yb%s+→%s+Yank file basename%s+yB%s+→%s+Yank file basename to clipboard$')
     window.close(buf, win)
 end
 
@@ -2405,7 +2405,7 @@ do
 
     core.yank_basename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename: archive.tar')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
     start_col, end_col = yank_highlight_range()
     assert_eq(start_col, filename_col, 'basename yank should start at the filename')
@@ -2413,7 +2413,7 @@ do
 
     core.yank_basename_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked basename to clipboard: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename to clipboard: archive.tar')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
