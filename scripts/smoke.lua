@@ -995,6 +995,7 @@ do
     local state = store.get()
     local root = fs.realpath(tmp)
     assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Go to parent directory')
+    assert_eq(vim.fn.maparg('gp', 'x', false, true).desc, 'Go to parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste')
     util.set_cursor_pos('alpha')
     core.expand()
@@ -1010,6 +1011,13 @@ do
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent directory')
     assert(state.expanded_dirs[root .. '/alpha'], 'parent jump should not collapse visited parent directories')
+
+    set_cursor_line('file%.txt$')
+    api.nvim_feedkeys('Vgp', 'xt', false)
+    assert_match(current_line(), 'one/$', 'visual parent jump should use the visual cursor row')
+
+    core.parent_dir()
+    assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent')
 
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should keep the cursor when the parent is not visible')
