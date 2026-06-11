@@ -1990,7 +1990,6 @@ do
         {lhs=',x', key='x', desc='Open externally'},
         {lhs=',q', key='q', desc='Sort by name'},
         {lhs=',.', key='.', desc='Toggle hidden files'},
-        {lhs=',y', key='y', mnemonic='full', desc='Yank full path'},
     })
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     local mnemonics = {}
@@ -2001,11 +2000,10 @@ do
         end
     end
     table.sort(mnemonics)
-    assert_eq(#mnemonics, 4, 'hints without a matching word or an alphabetic key should not highlight a mnemonic')
+    assert_eq(#mnemonics, 3, 'hints without a matching word or an alphabetic key should not highlight a mnemonic')
     assert_eq(mnemonics[1], 'externally', 'mnemonics should fall back to a word containing the key')
-    assert_eq(mnemonics[2], 'full', 'explicit mnemonics should override the key derivation')
-    assert_eq(mnemonics[3], 'name', 'mnemonics should highlight the word starting with the key')
-    assert_eq(mnemonics[4], 'size', 'mnemonics should prefer the last word starting with the key')
+    assert_eq(mnemonics[2], 'name', 'mnemonics should highlight the word starting with the key')
+    assert_eq(mnemonics[3], 'size', 'mnemonics should prefer the last word starting with the key')
     window.close(buf, win)
 end
 
