@@ -23,7 +23,7 @@ local SECTIONS = {
         name = 'Open',
         actions = {
             'open', 'open_split', 'open_vsplit', 'open_tab',
-            'open_split_keep', 'open_vsplit_keep', 'open_tab_keep', 'open_external',
+            'open_split_stay', 'open_vsplit_stay', 'open_tab_stay', 'open_external',
         },
     },
     {

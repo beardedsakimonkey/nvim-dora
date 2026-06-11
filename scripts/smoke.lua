@@ -1225,7 +1225,7 @@ do
 
     set_cursor_line('split%.txt$')
     local existing_wins = api.nvim_tabpage_list_wins(0)
-    core.open_split_keep()
+    core.open_split_stay()
     local split_win = vim.iter(api.nvim_tabpage_list_wins(0)):find(function(win)
         return not vim.tbl_contains(existing_wins, win)
     end)
@@ -1238,7 +1238,7 @@ do
 
     set_cursor_line('vsplit%.txt$')
     existing_wins = api.nvim_tabpage_list_wins(0)
-    core.open_vsplit_keep()
+    core.open_vsplit_stay()
     local vsplit_win = vim.iter(api.nvim_tabpage_list_wins(0)):find(function(win)
         return not vim.tbl_contains(existing_wins, win)
     end)
@@ -1252,7 +1252,7 @@ do
     set_cursor_line('tab%.txt$')
     local dora_tab = api.nvim_get_current_tabpage()
     local existing_tabs = api.nvim_list_tabpages()
-    core.open_tab_keep()
+    core.open_tab_stay()
     local file_tab = vim.iter(api.nvim_list_tabpages()):find(function(tab)
         return not vim.tbl_contains(existing_tabs, tab)
     end)
