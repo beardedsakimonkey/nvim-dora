@@ -775,6 +775,10 @@ local function exit_visual_mode()
     api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
 end
 
+local function exit_visual_mode_now()
+    vim.cmd.normal({args={api.nvim_replace_termcodes('<Esc>', true, false, true)}, bang=true})
+end
+
 ---@param state DoraState
 ---@return DoraTreeRow[] rows
 local function selected_rows(state)
@@ -1373,6 +1377,77 @@ function M.open(cmd)
     end
 end
 
+---@param state DoraState
+---@return string[] paths
+local function selected_file_paths(state)
+    local paths = {}
+    for _, row in ipairs(selected_rows(state)) do
+        local path, msg = uv.fs_realpath(row.path)
+        if not path then
+            util.err(msg)
+        elseif not fs.is_dir(path) then
+            paths[#paths+1] = path
+        end
+    end
+    return paths
+end
+
+---@param cmd DoraOpenCommand
+---@param stay boolean
+local function open_selected_files(cmd, stay)
+    local state = store.get()
+    local paths = selected_file_paths(state)
+    if #paths == 0 then
+        return
+    end
+    exit_visual_mode_now()
+    if stay then
+        local dora_win = api.nvim_get_current_win()
+        for _, path in ipairs(paths) do
+            vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
+            if api.nvim_win_is_valid(dora_win) then
+                api.nvim_set_current_win(dora_win)
+            end
+        end
+        return
+    end
+    save_previous_directory(state)
+    restore_cwd(state)
+    util.set_current_buf(state.origin_buf)  -- update the altfile
+    for _, path in ipairs(paths) do
+        vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
+    end
+    cleanup(state)
+end
+
+function M.open_visual()
+    open_selected_files('edit', false)
+end
+
+function M.open_split_visual()
+    open_selected_files('split', false)
+end
+
+function M.open_vsplit_visual()
+    open_selected_files('vsplit', false)
+end
+
+function M.open_tab_visual()
+    open_selected_files('tabedit', false)
+end
+
+function M.open_split_stay_visual()
+    open_selected_files('split', true)
+end
+
+function M.open_vsplit_stay_visual()
+    open_selected_files('vsplit', true)
+end
+
+function M.open_tab_stay_visual()
+    open_selected_files('tabedit', true)
+end
+
 ---@param cmd DoraOpenCommand
 local function open_stay(cmd)
     local state = store.get()
@@ -1434,7 +1509,7 @@ end
 function M.open_external_visual()
     local state = store.get()
     local rows = selected_rows(state)
-    vim.cmd.normal({args={api.nvim_replace_termcodes('<Esc>', true, false, true)}, bang=true})
+    exit_visual_mode_now()
     if #rows == 0 then
         util.err('No files selected')
         return
