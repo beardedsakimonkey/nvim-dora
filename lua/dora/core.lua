@@ -639,19 +639,12 @@ local function sibling_line(state, line, step)
     end
     if active_filter(state) then
         local next_line = line + step
-        if next_line < 1 then
-            return #state.rows
-        elseif next_line > #state.rows then
-            return 1
+        if next_line < 1 or next_line > #state.rows then
+            return nil
         end
         return state.rows[next_line].path and next_line or nil
     end
     for i = line + step, step > 0 and #state.rows or 1, step do
-        if state.rows[i].parent_path == row.parent_path then
-            return i
-        end
-    end
-    for i = step > 0 and 1 or #state.rows, line - step, step do
         if state.rows[i].parent_path == row.parent_path then
             return i
         end
