@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 June 10
+                                 For Neovim 0.12+    Last change: 2026 June 11
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
