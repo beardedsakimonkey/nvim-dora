@@ -1806,7 +1806,7 @@ function M.yank_basename(reg)
     end
     local filename = fs.basename(path)
     local basename = vim.fn.fnamemodify(filename, ':r')
-    local message = reg == '+' and 'Yanked basename to clipboard' or 'Yanked basename'
+    local message = reg == '+' and 'Yanked file basename to clipboard' or 'Yanked file basename'
     local row = current_row(state)
     util.copy_value(basename, reg, message, {
         line = api.nvim_win_get_cursor(0)[1],

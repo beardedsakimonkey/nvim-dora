@@ -64,8 +64,8 @@ local ACTION_DESCRIPTIONS = {
     yank_dir_path = 'Yank directory path',
     yank_dir_path_clipboard = 'Yank directory path to clipboard',
     yank_filename_clipboard = 'Yank file name to clipboard',
-    yank_basename = 'Yank basename',
-    yank_basename_clipboard = 'Yank basename to clipboard',
+    yank_basename = 'Yank file basename',
+    yank_basename_clipboard = 'Yank file basename to clipboard',
     sort_by_name = 'Sort by name',
     sort_by_name_desc = 'Sort by name (descending)',
     sort_by_modified = 'Sort by modified time',
@@ -76,6 +76,16 @@ local ACTION_DESCRIPTIONS = {
     sort_by_size_desc = 'Sort by size (descending)',
     sort_by_extension = 'Sort by extension',
     sort_by_extension_desc = 'Sort by extension (descending)',
+}
+
+-- Mnemonic words for hints where the right word can't be derived from the
+-- hint key, e.g. the doubled key in yy → 'Yank full path', or non-letter
+-- keys like g? and g.
+local ACTION_MNEMONICS = {
+    help = 'help',
+    toggle_hidden_files = 'hidden',
+    yank_file_path = 'full',
+    yank_file_path_clipboard = 'full',
 }
 
 local VISUAL_KEYMAP_ACTIONS = {
@@ -151,6 +161,48 @@ end
 ---@class DoraKeymapHintRow
 ---@field lhs string
 ---@field desc string
+---@field key? string hint key used to derive the highlighted mnemonic word
+---@field mnemonic? string explicit mnemonic word overriding the derivation
+
+-- Find the word in `desc` that motivates the hint key, e.g. "name" in
+-- 'Sort by name' for ,n. Prefers the last word starting with the key (the
+-- leading verb is usually shared by the whole hint group), then the first
+-- word merely containing it (e.g. "externally" for gx). An explicit
+-- `mnemonic` word takes precedence over the derivation.
+---@param desc string
+---@param key string?
+---@param mnemonic string?
+---@return integer? start_pos
+---@return integer? stop_pos inclusive
+local function mnemonic_span(desc, key, mnemonic)
+    if mnemonic then
+        return desc:lower():find('%f[%a]' .. mnemonic:lower() .. '%f[%A]')
+    end
+    if not key or not key:match('^%a$') then
+        return nil
+    end
+    key = key:lower()
+    local match_start, match_stop
+    local contains_start, contains_stop
+    local init = 1
+    while true do
+        local start_pos, stop_pos = desc:find('%a+', init)
+        if not start_pos or not stop_pos then
+            break
+        end
+        local word = desc:sub(start_pos, stop_pos):lower()
+        if word:sub(1, 1) == key then
+            match_start, match_stop = start_pos, stop_pos
+        elseif not contains_start and word:find(key, 1, true) then
+            contains_start, contains_stop = start_pos, stop_pos
+        end
+        init = stop_pos + 1
+    end
+    if match_start then
+        return match_start, match_stop
+    end
+    return contains_start, contains_stop
+end
 
 ---@param rows DoraKeymapHintRow[]
 ---@return integer key_width
@@ -201,6 +253,16 @@ local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, p
         end_col = desc_col + #row.desc,
         hl_group = 'DoraInfoValue',
     }
+    local mnemonic_start, mnemonic_stop = mnemonic_span(row.desc, row.key, row.mnemonic)
+    if mnemonic_start then
+        marks[#marks+1] = {
+            lnum = lnum,
+            col = desc_col + mnemonic_start - 1,
+            end_col = desc_col + mnemonic_stop,
+            hl_group = 'DoraKeymapHintMnemonic',
+            priority = 200,
+        }
+    end
     return line
 end
 
@@ -332,6 +394,7 @@ function M.open_hint_window(prefix, rows)
         api.nvim_buf_set_extmark(buf, ns, mark.lnum, mark.col, {
             end_col = mark.end_col,
             hl_group = mark.hl_group,
+            priority = mark.priority,
         })
     end
     vim.bo[buf].modifiable = false
@@ -376,7 +439,7 @@ function M.read_hint_key(prefix, rows)
 end
 
 ---@param keymaps table<string, DoraKeymapSpec>
----@return table<string, {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]>
+---@return table<string, {lhs: string, key: string, action: DoraKeymapAction, desc: string, mnemonic?: string}[]>
 local function keymap_hint_groups(keymaps)
     local groups = {}
     for lhs, rhs in pairs(keymaps) do
@@ -389,6 +452,7 @@ local function keymap_hint_groups(keymaps)
                 key = lhs:sub(2, 2),
                 action = action,
                 desc = desc or tostring(action),
+                mnemonic = type(action) == 'string' and ACTION_MNEMONICS[action] or nil,
             }
         end
     end
@@ -413,7 +477,7 @@ end
 ---@param direct? {action: DoraKeymapAction, desc: string?}
 local function show_keymap_hints(prefix, group, direct)
     local key = M.read_hint_key(prefix, vim.tbl_map(function(entry)
-        return {lhs=entry.lhs, desc=entry.desc}
+        return {lhs=entry.lhs, desc=entry.desc, key=entry.key, mnemonic=entry.mnemonic}
     end, group))
     for _, entry in ipairs(group) do
         if key == entry.key then
