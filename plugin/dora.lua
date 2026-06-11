@@ -58,6 +58,10 @@ end
 api.nvim_create_autocmd('BufEnter', {
     group = augroup,
     callback = function()
+        local disable_auto_open = vim.g.dora_disable_auto_open
+        if disable_auto_open and disable_auto_open ~= 0 then
+            return
+        end
         local path = vim.fn.expand('%')
         if vim.startswith(path, '~') then
             -- `:edit ~` names the buffer with a literal `~`, which

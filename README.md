@@ -26,6 +26,13 @@ Or add a mapping:
 vim.keymap.set('n', '-', '<Cmd>Dora<CR>')
 ```
 
+Dora also opens automatically when you edit a directory (e.g. `nvim .`).
+To disable this, set:
+
+```lua
+vim.g.dora_disable_auto_open = true
+```
+
 ## Configuration
 
 Dora works without setup, but you can change the default config using `setup()`.
