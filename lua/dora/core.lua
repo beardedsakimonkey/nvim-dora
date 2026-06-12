@@ -267,7 +267,7 @@ local function build_tree_rows(state)
             local directory_suffix_col
             if file.type == 'directory' then
                 directory_suffix_col = #display_name
-                display_name = display_name .. util.sep
+                display_name = display_name .. '/'
             end
             rows[#rows+1] = {
                 name = file.name,
@@ -335,7 +335,7 @@ local function build_filtered_rows(state, tree_rows)
             local directory_suffix_col
             if row.type == 'directory' then
                 directory_suffix_col = #display_name
-                display_name = display_name .. util.sep
+                display_name = display_name .. '/'
             end
             rows[#rows+1] = {
                 name = row.name,
@@ -519,7 +519,7 @@ end
 ---@param path string
 ---@return boolean
 local function set_cursor_path(state, path)
-    if vim.endswith(path, util.sep) then
+    if vim.endswith(path, '/') then
         path = path:sub(1, -2)
     end
     for i, row in ipairs(state.rows or {}) do
@@ -541,7 +541,7 @@ local function set_cursor_pos(state, pattern, or_top)
         for i, row in ipairs(state.rows or {}) do
             if row.display_name == pattern
                     or row.name == pattern
-                    or row.name .. util.sep == pattern then
+                    or row.name .. '/' == pattern then
                 line = i
                 break
             end
@@ -562,7 +562,7 @@ local function create_parent_default(state, row, under_directory)
         return nil
     end
     if under_directory and row.type == 'directory' and row.path then
-        return relative_child_path(state, row.path) .. util.sep
+        return relative_child_path(state, row.path) .. '/'
     end
     -- Placeholder rows have no path of their own; create inside the
     -- directory that shows them.
@@ -570,7 +570,7 @@ local function create_parent_default(state, row, under_directory)
     if not parent or parent == state.cwd then
         return nil
     end
-    return relative_child_path(state, parent) .. util.sep
+    return relative_child_path(state, parent) .. '/'
 end
 
 ---@param state DoraState
@@ -599,11 +599,11 @@ end
 ---@param prefix string
 ---@return integer?
 local function relative_dir_depth(path, prefix)
-    if not vim.startswith(path, prefix .. util.sep) then
+    if not vim.startswith(path, prefix .. '/') then
         return nil
     end
     local rest = path:sub(#prefix + 2)
-    return select(2, rest:gsub(util.sep, '')) + 1
+    return select(2, rest:gsub('/', '')) + 1
 end
 
 ---@param row DoraTreeRow
@@ -611,9 +611,9 @@ end
 ---@return boolean
 local function row_under_path(row, path)
     if row.path then
-        return row.path == path or vim.startswith(row.path, path .. util.sep)
+        return row.path == path or vim.startswith(row.path, path .. '/')
     end
-    return row.parent_path == path or vim.startswith(row.parent_path or '', path .. util.sep)
+    return row.parent_path == path or vim.startswith(row.parent_path or '', path .. '/')
 end
 
 ---@param state DoraState
@@ -701,7 +701,7 @@ end
 ---@return boolean
 local function path_under_selected(path, selected)
     for _, selected_path in ipairs(selected) do
-        if path == selected_path or vim.startswith(path, selected_path .. util.sep) then
+        if path == selected_path or vim.startswith(path, selected_path .. '/') then
             return true
         end
     end
@@ -815,7 +815,7 @@ end
 ---@param state DoraState
 ---@param path string
 local function clear_marked_paths_under(state, path)
-    local prefix = path .. util.sep
+    local prefix = path .. '/'
     for marked_path in pairs(state.marked_paths) do
         if marked_path == path or vim.startswith(marked_path, prefix) then
             state.marked_paths[marked_path] = nil
@@ -827,7 +827,7 @@ end
 ---@param old_path string
 ---@param new_path string
 local function rename_marked_paths_under(state, old_path, new_path)
-    local old_prefix = old_path .. util.sep
+    local old_prefix = old_path .. '/'
     local updated = {}
     for marked_path, operation in pairs(state.marked_paths) do
         if marked_path == old_path then
@@ -901,7 +901,7 @@ end
 ---@param path string
 ---@return boolean changed
 local function clear_expanded_subtree(state, path)
-    local prefix = path .. util.sep
+    local prefix = path .. '/'
     local changed = false
     for expanded_path in pairs(state.expanded_dirs) do
         if expanded_path == path or vim.startswith(expanded_path, prefix) then
@@ -950,7 +950,7 @@ end
 ---@param old_path string
 ---@param new_path string
 local function rename_expanded_subtree(state, old_path, new_path)
-    local old_prefix = old_path .. util.sep
+    local old_prefix = old_path .. '/'
     local updated = {}
     for expanded_path in pairs(state.expanded_dirs) do
         if expanded_path == old_path then
@@ -2050,7 +2050,7 @@ local function create(under_directory)
     }, function(input, path)
         if input and api.nvim_buf_is_valid(state.buf) then
             local ok, msg
-            if vim.endswith(input, util.sep) then
+            if vim.endswith(input, '/') then
                 ok, msg = pcall(fs.create_dir, path)
             else
                 ok, msg = pcall(fs.create_file, path)
@@ -2091,7 +2091,7 @@ function M.create_symlink()
     end
     local target_dir = fs.parent_dir(path)
     local dir = vim.fs.relpath(state.cwd, target_dir)
-    dir = (dir and dir ~= '.') and dir .. util.sep or ''
+    dir = (dir and dir ~= '.') and dir .. '/' or ''
     prompt.input({
         prompt = 'Add symlink',
         cwd = state.cwd,

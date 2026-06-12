@@ -304,9 +304,9 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     local long_dir = 'very-long-delete-confirmation-path-segment-with-extra-context'
     local long_file = 'file-with-a-long-name-that-should-stay-visible.txt'
-    local rel_path = long_dir .. util.sep .. long_file
-    assert_eq(vim.fn.mkdir(tmp .. util.sep .. long_dir, 'p'), 1)
-    touch(tmp .. util.sep .. rel_path)
+    local rel_path = long_dir .. '/' .. long_file
+    assert_eq(vim.fn.mkdir(tmp .. '/' .. long_dir, 'p'), 1)
+    touch(tmp .. '/' .. rel_path)
 
     local anchor_buf = api.nvim_create_buf(false, true)
     api.nvim_set_current_buf(anchor_buf)
@@ -315,7 +315,7 @@ do
     local anchor_col = math.max(0, vim.o.columns - 12)
     local anchor_pos = vim.fn.screenpos(anchor_win, 1, anchor_col + 1)
 
-    delete_win.delete({tmp .. util.sep .. rel_path}, tmp, function() end, {
+    delete_win.delete({tmp .. '/' .. rel_path}, tmp, function() end, {
         anchor = {win = anchor_win, line = 1, col = anchor_col},
     })
     local confirm_win = api.nvim_get_current_win()
@@ -565,9 +565,9 @@ assert(not pcall(fs.validate_rename, 'old.txt', cwd .. '/old.txt'), 'rename shou
 assert_match(fs.resolve_copy_or_move_dest(cwd, '/tmp', cwd), '/tmp/[^/]+$')
 assert_eq(fs.normalize_path('./foo/../bar', cwd), vim.fs.joinpath(cwd, 'bar'),
     'normalize_path should resolve relative dot components')
-assert_eq(fs.parent_dir(util.sep), util.sep, 'parent_dir should not go above root')
-assert_eq(fs.parent_dir(util.sep .. 'tmp'), util.sep, 'parent_dir should keep root for top-level paths')
-assert_eq(fs.get_parent_dir(util.sep .. 'tmp'), util.sep, 'get_parent_dir should allow top-level paths')
+assert_eq(fs.parent_dir('/'), '/', 'parent_dir should not go above root')
+assert_eq(fs.parent_dir('/tmp'), '/', 'parent_dir should keep root for top-level paths')
+assert_eq(fs.get_parent_dir('/tmp'), '/', 'get_parent_dir should allow top-level paths')
 assert_eq(fs.parent_dir('/tmp/foo/'), '/tmp', 'parent_dir should ignore a trailing separator')
 assert_eq(fs.basename('/tmp/foo/'), 'foo', 'basename should ignore a trailing separator')
 assert_eq(fs.strip_trailing_sep('/tmp/foo/'), '/tmp/foo', 'strip_trailing_sep should trim one or more trailing separators')
@@ -803,12 +803,12 @@ end
 
 do
     clear_persisted_view_state()
-    vim.cmd('Dora ' .. vim.fn.fnameescape(util.sep))
+    vim.cmd('Dora ' .. vim.fn.fnameescape('/'))
     local state = store.get()
     local name = api.nvim_buf_get_name(state.buf)
 
     core.up_dir()
-    assert_eq(state.cwd, util.sep, 'up directory should no-op at root')
+    assert_eq(state.cwd, '/', 'up directory should no-op at root')
     assert_eq(api.nvim_buf_get_name(state.buf), name, 'up directory should not rename the root buffer')
     assert_eq(state.bookmarks.previous_directory, nil, 'up directory at root should not update the previous-directory bookmark')
 
@@ -816,15 +816,15 @@ do
 end
 
 do
-    local parts = vim.tbl_filter(function(part) return part ~= '' end, vim.split(fs.realpath(cwd), util.sep, {plain=true}))
+    local parts = vim.tbl_filter(function(part) return part ~= '' end, vim.split(fs.realpath(cwd), '/', {plain=true}))
     assert(#parts >= 2, 'smoke cwd should have a top-level parent')
-    local top_path = util.sep .. parts[1]
+    local top_path = '/' .. parts[1]
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(top_path))
     local state = store.get()
     core.up_dir()
 
-    assert_eq(state.cwd, util.sep, 'up directory should navigate from a top-level directory to root')
+    assert_eq(state.cwd, '/', 'up directory should navigate from a top-level directory to root')
     assert(state.expanded_dirs[top_path], 'up directory should preserve the top-level previous cwd expansion')
     assert_match(current_line(), vim.pesc(parts[1]) .. '/$', 'up directory should move cursor to the previous top-level cwd row')
     assert(find_line_index(lines(), vim.pesc(parts[2]) .. '/$'), 'up directory should keep top-level previous cwd children visible at root')

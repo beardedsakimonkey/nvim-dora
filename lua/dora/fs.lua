@@ -396,7 +396,7 @@ function M.resolve_copy_or_move_dest(src, dest, cwd)
         dest = vim.fs.joinpath(dest, M.basename(src))
         assert(src ~= dest, '`src` equals `dest`')
     end
-    assert(not vim.startswith(dest, src .. util.sep),
+    assert(not vim.startswith(dest, src .. '/'),
         ('Cannot copy or move %q into itself'):format(src))
     return dest
 end
