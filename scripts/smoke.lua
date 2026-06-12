@@ -2631,6 +2631,15 @@ do
     assert_match(info_text, 'Permissions%s+rw%-r%-%-r%-%-')
     assert_match(info_text, 'Modified%s+%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d')
     assert(info_text:find(tmp .. '/alpha.txt', 1, true), 'info should show the selected path')
+    local stat = assert(vim.loop.fs_lstat(tmp .. '/alpha.txt'))
+    assert(info_text:find(stat.uid .. ':' .. stat.gid, 1, true), 'info should retain numeric owner and group IDs')
+    if vim.loop.os_uname().sysname == 'Darwin' or vim.loop.os_uname().sysname == 'Linux' then
+        local passwd = vim.loop.os_get_passwd()
+        assert(info_text:find(passwd.username, 1, true), 'info should resolve the owner name')
+    end
+    assert(not find_line_index(info_lines, '^Executable%s+'), 'info should omit executable status')
+    assert(not find_line_index(info_lines, '^Links%s+'), 'info should omit hard-link count')
+    assert(not find_line_index(info_lines, '^Inode%s+'), 'info should omit inode')
 
     local marks = api.nvim_buf_get_extmarks(info_buf, -1, 0, -1, {details=true})
     local has_label, has_value = false, false
