@@ -2,26 +2,6 @@ local M = {}
 
 local api = vim.api
 
----@generic T
----@param list T[]
----@param fn fun(item: T): boolean
----@return integer?
-local function find_index(list, fn)
-    for idx, item in ipairs(list) do
-        if fn(item) then
-            return idx
-        end
-    end
-end
-
--- Returns the first line number that matches the predicate, otherwise nil
----@param fn fun(line: string): boolean
----@return integer?
-local function find_line(fn)
-    local lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    return find_index(lines, fn)
-end
-
 ---@param buf integer
 ---@param var_name string
 ---@return any
@@ -136,12 +116,6 @@ function M.set_lines(buf, lines)
     vim.bo[buf].modifiable = false
 end
 
----@return string
-function M.get_line()
-    local row = api.nvim_win_get_cursor(0)[1]
-    return api.nvim_buf_get_lines(0, row-1, row, true)[1]
-end
-
 ---@param old_name string
 ---@param new_name string
 function M.rename_buffers(old_name, new_name)
@@ -158,10 +132,6 @@ function M.rename_buffers(old_name, new_name)
     end
 end
 
-function M.clear_prompt()
-    vim.cmd 'norm! :'
-end
-
 ---@param path string
 ---@return string
 function M.display_path(path)
@@ -170,23 +140,6 @@ function M.display_path(path)
         return '~' .. path:sub(#home + 1)
     end
     return path
-end
-
----@param filename? string
----@param or_top? boolean
-function M.set_cursor_pos(filename, or_top)
-    local line = or_top and 1 or nil
-    if filename then
-        local found = find_line(function(l)
-            return l == filename or l == filename .. '/'
-        end)
-        if found then
-            line = found
-        end
-    end
-    if line then
-        api.nvim_win_set_cursor(0, {line, 0})
-    end
 end
 
 ---@param msg any
