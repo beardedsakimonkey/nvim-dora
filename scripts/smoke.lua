@@ -122,15 +122,16 @@ local function find_line_index(search_lines, pattern)
     end
 end
 
--- Exact match on a filename (or directory name with trailing '/'); no-op if
--- the line isn't found.
-local function set_cursor_pos(filename)
-    for i, line in ipairs(lines()) do
-        if line == filename or line == filename .. '/' then
+-- Mirrors core's set_cursor_pos: find the row by name rather than parsing
+-- rendered lines
+local function set_cursor_pos(name)
+    for i, row in ipairs(store.get().rows or {}) do
+        if row.name == name then
             api.nvim_win_set_cursor(0, {i, 0})
             return
         end
     end
+    error('could not find row ' .. name)
 end
 
 local function assert_line_before(pattern_a, pattern_b, msg)
@@ -948,7 +949,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    set_cursor_pos('anchor%.txt')
+    set_cursor_pos('anchor.txt')
     local cursor = api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]
 
@@ -1209,7 +1210,7 @@ do
     touch(tmp .. '/single.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    set_cursor_pos('single%.txt')
+    set_cursor_pos('single.txt')
     local origin_win = api.nvim_get_current_win()
     local cursor = api.nvim_win_get_cursor(origin_win)
     local row = store.get().rows[cursor[1]]
@@ -1376,7 +1377,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    set_cursor_pos('trashed%.txt')
+    set_cursor_pos('trashed.txt')
     core.trash()
 
     local confirm_win = api.nvim_get_current_win()
@@ -1398,7 +1399,7 @@ do
     touch(tmp .. '/deleted.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    set_cursor_pos('deleted%.txt')
+    set_cursor_pos('deleted.txt')
     core.delete()
 
     local confirm_win = api.nvim_get_current_win()
@@ -1703,7 +1704,7 @@ do
     local state = store.get()
     assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename file')
     assert_eq(vim.fn.maparg('R', 'n', false, true).desc, 'Rename file with empty prompt')
-    set_cursor_pos('alpha%.txt')
+    set_cursor_pos('alpha.txt')
     local cursor = api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]
 
