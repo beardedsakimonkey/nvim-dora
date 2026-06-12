@@ -5,7 +5,7 @@ It is currently under development so expect breaking changes.
 
 <!-- panvimdoc-ignore-start -->
 
-<img width="888" height="767" alt="Screenshot 2026-05-08 at 1 13 52 PM" src="https://github.com/user-attachments/assets/5cc644cc-9c7f-4ac1-95e8-c15ed3c61cb7" />
+<img width="636" height="533" alt="Dora screenshot" src="https://github.com/user-attachments/assets/74a50d2b-c132-4586-a08f-0a0ea28bf696" />
 
 <!-- panvimdoc-ignore-end -->
 
