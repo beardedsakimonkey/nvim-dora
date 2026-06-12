@@ -607,26 +607,35 @@ end
 
 do
     local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
-    assert(vim.loop.fs_mkdir(tmp .. '/home/.Trash', tonumber('755', 8)))
-    touch(tmp .. '/foo')
-    touch(tmp .. '/home/.Trash/foo')
-    assert(vim.loop.fs_mkdir(tmp .. '/home/.Trash/bar', tonumber('755', 8)))
-    touch(tmp .. '/bar')
     vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    local trash_dir
+    if vim.loop.os_uname().sysname == 'Darwin' then
+        trash_dir = tmp .. '/home/.Trash'
+    else
+        trash_dir = tmp .. '/data/Trash/files'
+    end
+    assert(vim.fn.mkdir(trash_dir, 'p') == 1)
+    touch(tmp .. '/foo')
+    touch(trash_dir .. '/foo')
+    assert(vim.loop.fs_mkdir(trash_dir .. '/bar', tonumber('755', 8)))
+    touch(tmp .. '/bar')
 
     fs.trash(tmp .. '/foo')
     fs.trash(tmp .. '/bar')
     assert(not fs.exists(tmp .. '/foo'), 'trash should remove source files')
     assert(not fs.exists(tmp .. '/bar'), 'trash should remove source files when destination name collides with a directory')
-    assert(fs.exists(tmp .. '/home/.Trash/foo'), 'trash should preserve existing trash entries')
-    assert(fs.exists(tmp .. '/home/.Trash/foo 1'), 'trash should suffix colliding file names')
-    assert(fs.exists(tmp .. '/home/.Trash/bar'), 'trash should preserve existing trash directories')
-    assert(fs.exists(tmp .. '/home/.Trash/bar 1'), 'trash should suffix colliding directory names')
+    assert(fs.exists(trash_dir .. '/foo'), 'trash should preserve existing trash entries')
+    assert(fs.exists(trash_dir .. '/foo 1'), 'trash should suffix colliding file names')
+    assert(fs.exists(trash_dir .. '/bar'), 'trash should preserve existing trash directories')
+    assert(fs.exists(trash_dir .. '/bar 1'), 'trash should suffix colliding directory names')
 
     vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
