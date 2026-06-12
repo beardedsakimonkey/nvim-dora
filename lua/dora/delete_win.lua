@@ -48,12 +48,9 @@ end
 ---@param cwd string
 ---@return string
 local function relative_display_path(path, cwd)
-    if cwd == util.sep and vim.startswith(path, util.sep) then
-        return path:sub(2)
-    end
-    local cwd_prefix = cwd .. util.sep
-    if vim.startswith(path, cwd_prefix) then
-        return path:sub(#cwd_prefix + 1)
+    local relative = vim.fs.relpath(cwd, path)
+    if relative and relative ~= '..' and not relative:match('^%.%.[/\\]') then
+        return relative
     end
     return util.display_path(path)
 end

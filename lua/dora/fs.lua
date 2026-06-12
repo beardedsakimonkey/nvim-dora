@@ -3,9 +3,22 @@ local uv = vim.uv
 
 local M = {}
 
+local iswin = uv.os_uname().sysname:match('Windows') ~= nil
+
+-- NOTE: Backslash is a separator only on Windows; on POSIX it's a valid
+-- filename character.
+---@param char string
+---@return boolean
+local function is_separator(char)
+    return char == '/' or (iswin and char == '\\')
+end
+
 ---@param path string
 ---@return boolean
 local function is_absolute(path)
+    if iswin then
+        return is_separator(path:sub(1, 1)) or path:match('^%a:[/\\]') ~= nil
+    end
     return vim.startswith(path, '/') or path:match('^%a:/') ~= nil
 end
 
@@ -103,16 +116,37 @@ function M.normalize_path(path, cwd)
     return vim.fs.normalize(vim.fs.joinpath(cwd, path), {expand_env = false})
 end
 
+-- Paths from the OS (fs_realpath, uv.cwd) are backslash-separated on Windows,
+-- while every path built internally uses '/' (vim.fs.joinpath/normalize), so
+-- convert to '/' for prefix and equality checks to work.
+---@param path string
+---@return string
+function M.normalize_sep(path)
+    return iswin and (path:gsub('\\', '/')) or path
+end
+
 ---@param path string
 ---@return string
 function M.realpath(path)
-    return assert(uv.fs_realpath(path))
+    return M.normalize_sep(assert(uv.fs_realpath(path)))
+end
+
+---@param path string
+---@return boolean
+function M.is_root(path)
+    if not iswin then
+        return path == '/'
+    end
+    local normalized = path:gsub('\\', '/')
+    return normalized == '/'
+        or normalized:match('^%a:/$') ~= nil
+        or normalized:match('^//[^/]+/[^/]+/?$') ~= nil
 end
 
 ---@param path string
 ---@return string
 function M.strip_trailing_sep(path)
-    while #path > 1 and vim.endswith(path, util.sep) do
+    while not M.is_root(path) and is_separator(path:sub(-1)) do
         path = path:sub(1, -2)
     end
     return path
@@ -198,7 +232,11 @@ end
 ---@param path string
 ---@return string
 function M.parent_dir(path)
-    local parent = assert(vim.fs.dirname(M.strip_trailing_sep(path)))
+    path = M.strip_trailing_sep(path)
+    if M.is_root(path) then
+        return path
+    end
+    local parent = assert(vim.fs.dirname(path))
     return parent == '.' and '' or parent
 end
 
@@ -272,10 +310,10 @@ function M.validate_create(input, cwd)
     assert(input, 'Empty path')
     input = util.trim_start(input)
     assert(input ~= '', 'Empty path')
-    assert(input:sub(1, 1) ~= util.sep, 'Create paths must be relative')
+    assert(not is_absolute(input), 'Create paths must be relative')
     local path = vim.fs.joinpath(cwd, input)
     assert(not M.exists(path), ('%q already exists'):format(path))
-    local path_for_parent = vim.endswith(path, util.sep) and path:sub(1, -2) or path
+    local path_for_parent = is_separator(path:sub(-1)) and path:sub(1, -2) or path
     local parent = M.parent_dir(path_for_parent)
     while not M.exists(parent) do
         parent = M.parent_dir(parent)
@@ -291,7 +329,7 @@ function M.validate_rename(input, src)
     assert(input, 'Empty filename')
     input = util.trim_start(input)
     assert(input ~= '', 'Empty filename')
-    assert(not input:find(util.sep, 1, true), 'Rename cannot move files between directories')
+    assert(not input:find(iswin and '[/\\]' or '/'), 'Rename cannot move files between directories')
     local parent = M.parent_dir(src)
     local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')

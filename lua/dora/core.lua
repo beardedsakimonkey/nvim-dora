@@ -204,10 +204,7 @@ end
 ---@param path string
 ---@return string
 local function relative_child_path(state, path)
-    if state.cwd == util.sep then
-        return path:sub(2)
-    end
-    return path:sub(#state.cwd + 2)
+    return assert(vim.fs.relpath(state.cwd, path))
 end
 
 ---@param state DoraState
@@ -2231,7 +2228,7 @@ local function getcwd(dir)
     if p ~= '' then return fs.realpath(p) end
     -- `expand('%')` can be empty if in an unnamed buffer, like `:enew`, so
     -- fallback to the cwd.
-    return assert(uv.cwd())
+    return fs.normalize_sep(assert(uv.cwd()))
 end
 
 -- Handler for the :Dora command

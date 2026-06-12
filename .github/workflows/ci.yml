@@ -32,3 +32,49 @@ jobs:
 
       - name: Run smoke suite
         run: ./scripts/smoke.sh
+
+  windows:
+    name: Windows / Neovim ${{ matrix.neovim }}
+    runs-on: windows-2022
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim:
+          - v0.12.0
+          - stable
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Show Neovim version
+        run: nvim --version
+
+      - name: Check generated docs
+        shell: pwsh
+        run: |
+          $env:DORA_DOCS_CHECK = "1"
+          $env:DORA_TEST_FILE = "scripts/docs.lua"
+          $env:NVIM_LOG_FILE = "$env:RUNNER_TEMP/dora-nvim.log"
+          nvim --headless -u NONE -i NONE --noplugin `
+            -c "set noswapfile" `
+            -c "lua vim.opt.rtp:prepend(vim.fn.getcwd())" `
+            -c "luafile scripts/run-headless.lua" `
+            -c "qa"
+
+      - name: Run Windows smoke suite
+        shell: pwsh
+        run: |
+          $env:DORA_TEST_FILE = "scripts/smoke-windows.lua"
+          $env:NVIM_LOG_FILE = "$env:RUNNER_TEMP/dora-nvim.log"
+          nvim --headless -u NONE -i NONE --noplugin `
+            -c "set noswapfile" `
+            -c "lua vim.opt.rtp:prepend(vim.fn.getcwd())" `
+            -c "runtime plugin/dora.lua" `
+            -c "luafile scripts/run-headless.lua" `
+            -c "qa"
