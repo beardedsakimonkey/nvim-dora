@@ -1156,7 +1156,7 @@ function M.home_dir()
         util.err('$HOME is not set')
         return
     end
-    local path, msg = uv.fs_realpath(home)
+    local path, msg = fs.try_realpath(home)
     if not path then
         util.err(msg)
         return
@@ -1319,7 +1319,7 @@ function M.jump_bookmark()
     if not path then
         return
     end
-    local realpath, msg = uv.fs_realpath(path)
+    local realpath, msg = fs.try_realpath(path)
     if not realpath then
         util.err(msg)
         return
@@ -1354,7 +1354,7 @@ function M.open(cmd)
         return
     end
     -- fs_realpath also checks file existence
-    local path, msg = uv.fs_realpath(row.path)
+    local path, msg = fs.try_realpath(row.path)
     if not path then
         util.err(msg)
     else
@@ -1380,7 +1380,7 @@ end
 local function selected_file_paths(state)
     local paths = {}
     for _, row in ipairs(selected_rows(state)) do
-        local path, msg = uv.fs_realpath(row.path)
+        local path, msg = fs.try_realpath(row.path)
         if not path then
             util.err(msg)
         elseif not fs.is_dir(path) then
@@ -1454,7 +1454,7 @@ local function open_stay(cmd)
         return
     end
     -- fs_realpath also checks file existence
-    local path, msg = uv.fs_realpath(row.path)
+    local path, msg = fs.try_realpath(row.path)
     if not path then
         util.err(msg)
         return
