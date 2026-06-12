@@ -4,7 +4,6 @@ local uv = vim.uv
 local core = require'dora.core'
 local fs = require'dora.fs'
 local store = require'dora.store'
-local util = require'dora.util'
 
 assert(uv.os_uname().sysname:match('Windows'), 'Windows smoke suite must run on Windows')
 
@@ -23,17 +22,21 @@ local function touch(path, contents)
     assert(uv.fs_close(fd))
 end
 
-local function row_line(name)
-    for i, row in ipairs(store.get().rows) do
-        if row.name == name then
+-- Find a row by its path relative to the listing root, so that a name
+-- appearing in several expanded directories can't match the wrong row.
+local function row_line(relative_path)
+    local state = store.get()
+    local target = vim.fs.joinpath(state.cwd, relative_path)
+    for i, row in ipairs(state.rows) do
+        if row.path == target then
             return i
         end
     end
-    error('could not find row ' .. name)
+    error('could not find row ' .. relative_path)
 end
 
-local function set_cursor(name)
-    api.nvim_win_set_cursor(0, {row_line(name), 0})
+local function set_cursor(relative_path)
+    api.nvim_win_set_cursor(0, {row_line(relative_path), 0})
 end
 
 local tmp = vim.fn.tempname()
@@ -50,7 +53,7 @@ assert(api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
 assert(row_line('alpha.txt'), 'Dora should render files')
 set_cursor('sub')
 core.expand()
-assert(row_line('child.txt'), 'Dora should expand directories')
+assert(row_line('sub/child.txt'), 'Dora should expand directories')
 
 set_cursor('alpha.txt')
 core.toggle_copy()
