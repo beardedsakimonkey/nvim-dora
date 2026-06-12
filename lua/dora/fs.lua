@@ -125,10 +125,22 @@ function M.normalize_sep(path)
     return iswin and (path:gsub('\\', '/')) or path
 end
 
+-- Like realpath(), but returns nil and a message instead of erroring
+---@param path string
+---@return string? path
+---@return string? msg
+function M.try_realpath(path)
+    local resolved, msg = uv.fs_realpath(path)
+    if not resolved then
+        return nil, msg
+    end
+    return M.normalize_sep(resolved)
+end
+
 ---@param path string
 ---@return string
 function M.realpath(path)
-    return M.normalize_sep(assert(uv.fs_realpath(path)))
+    return (assert(M.try_realpath(path)))
 end
 
 ---@param path string

@@ -9,7 +9,10 @@ local util = require'dora.util'
 assert(uv.os_uname().sysname:match('Windows'), 'Windows smoke suite must run on Windows')
 
 local function assert_eq(actual, expected, msg)
-    assert(actual == expected, msg or ('expected ' .. vim.inspect(expected) .. ', got ' .. vim.inspect(actual)))
+    if actual ~= expected then
+        error(('%sexpected %s, got %s'):format(
+            msg and msg .. ': ' or '', vim.inspect(expected), vim.inspect(actual)))
+    end
 end
 
 local function touch(path, contents)
