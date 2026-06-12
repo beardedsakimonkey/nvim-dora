@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 June 11
+                                 For Neovim 0.12+    Last change: 2026 June 12
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -157,14 +157,14 @@ Here are the defaults:
             ['<C-r>'] = 'reload',
     
             -- Yank
+            yf = 'yank_filename',
+            yF = 'yank_filename_clipboard',
             yy = 'yank_file_path',
             yY = 'yank_file_path_clipboard',
             yd = 'yank_dir_path',
             yD = 'yank_dir_path_clipboard',
-            yn = 'yank_filename',
-            yN = 'yank_filename_clipboard',
-            yb = 'yank_basename',
-            yB = 'yank_basename_clipboard',
+            yn = 'yank_name',
+            yN = 'yank_name_clipboard',
     
             -- Sort
             [',n'] = 'sort_by_name',

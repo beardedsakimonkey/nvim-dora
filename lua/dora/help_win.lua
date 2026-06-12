@@ -43,7 +43,7 @@ local SECTIONS = {
             'yank_file_path', 'yank_file_path_clipboard',
             'yank_dir_path', 'yank_dir_path_clipboard',
             'yank_filename', 'yank_filename_clipboard',
-            'yank_basename', 'yank_basename_clipboard',
+            'yank_name', 'yank_name_clipboard',
         },
     },
     {
