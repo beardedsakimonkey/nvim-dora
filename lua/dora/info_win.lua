@@ -65,6 +65,31 @@ local function format_type(type)
     })[type] or type
 end
 
+---@param path string
+---@param stat table
+---@return string?
+local function format_owner(path, stat)
+    if stat.uid == nil or stat.gid == nil then
+        return nil
+    end
+    local numeric = ('%s:%s'):format(stat.uid, stat.gid)
+    local sysname = uv.os_uname().sysname
+    local cmd
+    if sysname == 'Darwin' or sysname:match('BSD$') then
+        cmd = {'stat', '-f', '%Su:%Sg (%u:%g)', '--', path}
+    elseif sysname == 'Linux' then
+        cmd = {'stat', '-c', '%U:%G (%u:%g)', '--', path}
+    end
+    if cmd then
+        local result = vim.system(cmd, {text = true}):wait()
+        local owner = result.code == 0 and vim.trim(result.stdout or '') or ''
+        if owner ~= '' then
+            return owner
+        end
+    end
+    return numeric
+end
+
 ---@param rows DoraInfoRow[]
 ---@param label string
 ---@param value any
@@ -92,16 +117,11 @@ local function rows(path, stat)
 
     add(ret, 'Size', format_size(stat.size or 0))
     add(ret, 'Permissions', format_mode(stat.mode or 0))
-    if stat.type == 'file' then
-        add(ret, 'Executable', uv.fs_access(path, 'X') and 'yes' or 'no')
-    end
 
     add(ret, 'Modified', format_time(stat.mtime))
     add(ret, 'Accessed', format_time(stat.atime))
     add(ret, 'Created', format_time(stat.birthtime))
-    add(ret, 'Owner', stat.uid and stat.gid and (stat.uid .. ':' .. stat.gid) or nil)
-    add(ret, 'Links', stat.nlink)
-    add(ret, 'Inode', stat.ino)
+    add(ret, 'Owner', format_owner(path, stat))
     return ret
 end
 
