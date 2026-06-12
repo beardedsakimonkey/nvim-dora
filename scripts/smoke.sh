@@ -4,17 +4,19 @@ set -eu
 cd "$(dirname "$0")/.."
 
 DORA_DOCS_CHECK=1 \
+DORA_TEST_FILE=scripts/docs.lua \
 NVIM_LOG_FILE="${TMPDIR:-/tmp}/dora-nvim.log" \
 nvim --headless -u NONE -i NONE --noplugin \
   -c "set noswapfile" \
   -c "set rtp^=$PWD" \
-  -c "lua local ok, err = xpcall(function() dofile('scripts/docs.lua') end, debug.traceback); if not ok then vim.api.nvim_err_writeln(err); vim.cmd.cquit() end" \
+  -c "luafile scripts/run-headless.lua" \
   -c "qa"
 
+DORA_TEST_FILE=scripts/smoke.lua \
 NVIM_LOG_FILE="${TMPDIR:-/tmp}/dora-nvim.log" \
 nvim --headless -u NONE -i NONE --noplugin \
   -c "set noswapfile" \
   -c "set rtp^=$PWD" \
   -c "runtime plugin/dora.lua" \
-  -c "lua local ok, err = xpcall(function() dofile('scripts/smoke.lua') end, debug.traceback); if not ok then vim.api.nvim_err_writeln(err); vim.cmd.cquit() end" \
+  -c "luafile scripts/run-headless.lua" \
   -c "qa"

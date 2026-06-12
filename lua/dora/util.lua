@@ -162,7 +162,11 @@ function M.clear_prompt()
     vim.cmd 'norm! :'
 end
 
-M.sep = package.config:sub(1, 1)
+-- Always '/', even on Windows: internal paths are built with
+-- vim.fs.joinpath()/normalize()/relpath(), which emit '/' on every platform,
+-- and paths from the OS go through fs.normalize_sep(). Windows APIs accept
+-- '/' as a separator.
+M.sep = '/'
 
 ---@param path string
 ---@return string
