@@ -7,7 +7,7 @@ local highlights_start_marker = '<!-- dora-highlights:start -->'
 local highlights_end_marker = '<!-- dora-highlights:end -->'
 
 local function fail(message)
-    vim.api.nvim_err_writeln(message)
+    vim.api.nvim_echo({{message}}, true, {err = true})
     vim.cmd.cquit()
 end
 

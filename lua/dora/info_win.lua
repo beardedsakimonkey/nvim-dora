@@ -178,7 +178,7 @@ local function render(buf, ns, info_rows, label_len)
 end
 
 ---@param path string
----@param anchor {win: integer, line: integer, col: integer}
+---@param anchor? {win: integer, line: integer, col: integer}
 function M.open(path, anchor)
     local stat, msg = uv.fs_lstat(path)
     if not stat then

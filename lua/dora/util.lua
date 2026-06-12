@@ -224,7 +224,7 @@ function M.copy_value(value, reg, message, range)
             return
         end
     else
-        pcall(vim.cmd, reg == '+' and [[normal! "+yy]] or [[normal! yy]])
+        pcall(vim.cmd --[[@as function]], reg == '+' and [[normal! "+yy]] or [[normal! yy]])
     end
 
     local ok, err = pcall(vim.fn.setreg, reg or '"', value, 'c')
