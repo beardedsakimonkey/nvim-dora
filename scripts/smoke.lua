@@ -26,7 +26,6 @@ local keymaps = require'dora.keymaps'
 local prompt = require'dora.prompt'
 local core = require'dora.core'
 local store = require'dora.store'
-local util = require'dora.util'
 local window = require'dora.window'
 
 for lhs, rhs in pairs(config.keymaps) do
@@ -123,6 +122,17 @@ local function find_line_index(search_lines, pattern)
     end
 end
 
+-- Exact match on a filename (or directory name with trailing '/'); no-op if
+-- the line isn't found.
+local function set_cursor_pos(filename)
+    for i, line in ipairs(lines()) do
+        if line == filename or line == filename .. '/' then
+            api.nvim_win_set_cursor(0, {i, 0})
+            return
+        end
+    end
+end
+
 local function assert_line_before(pattern_a, pattern_b, msg)
     local search_lines = lines()
     local a = find_line_index(search_lines, pattern_a)
@@ -143,13 +153,6 @@ local function win_title(win)
         return table.concat(chunks)
     end
     return ''
-end
-
-local function assert_centered_float(win, msg)
-    local cfg = api.nvim_win_get_config(win)
-    assert_eq(cfg.relative, 'editor', msg)
-    assert_eq(cfg.row, math.max(0, math.floor((vim.o.lines - cfg.height - 2) / 2)), msg)
-    assert_eq(cfg.col, math.floor((vim.o.columns - cfg.width) / 2), msg)
 end
 
 local function has_highlight(state, hl_group)
@@ -751,7 +754,7 @@ do
     touch(tmp .. '/root/child/existing.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
     core.expand()
     set_cursor_line('child/$')
 
@@ -780,7 +783,7 @@ do
     touch(tmp .. '/root/child/existing.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
     core.expand_recursive()
     set_cursor_line('existing%.txt$')
 
@@ -840,9 +843,9 @@ do
     touch(tmp .. '/alpha/duplicate.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
-    util.set_cursor_pos('beta')
+    set_cursor_pos('beta')
     core.expand()
 
     local old_input = prompt.input
@@ -871,7 +874,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert_eq(vim.fn.maparg('A', 'n', false, true).desc, 'Add file under directory')
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -897,7 +900,7 @@ do
     assert(vim.loop.fs_chmod(tmp .. '/secret', tonumber('000', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('secret')
+    set_cursor_pos('secret')
     core.expand()
     assert(find_line_index(lines(), '%(not permitted%)$'),
         'expanding an unreadable directory should show the not-permitted placeholder')
@@ -915,7 +918,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
     core.expand()
     set_cursor_line('%(empty%)$')
 
@@ -945,7 +948,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    util.set_cursor_pos('anchor%.txt')
+    set_cursor_pos('anchor%.txt')
     local cursor = api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]
 
@@ -980,7 +983,7 @@ do
     local alpha = state.cwd
     local parent = fs.get_parent_dir(alpha)
 
-    util.set_cursor_pos('one')
+    set_cursor_pos('one')
     core.expand()
     assert(state.expanded_dirs[alpha .. '/one'], 'setup should expand a nested subtree')
     assert(find_line_index(lines(), 'file%.txt$'), 'setup should show the expanded nested file')
@@ -1010,9 +1013,9 @@ do
     assert_eq(vim.fn.maparg('gp', 'n', false, true).desc, 'Go to parent directory')
     assert_eq(vim.fn.maparg('gp', 'x', false, true).desc, 'Go to parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste')
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
-    util.set_cursor_pos('one')
+    set_cursor_pos('one')
     core.expand()
 
     set_cursor_line('file%.txt$')
@@ -1052,9 +1055,9 @@ do
     local state = store.get()
     local root = fs.realpath(tmp)
     assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Close directory')
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
-    util.set_cursor_pos('one')
+    set_cursor_pos('one')
     core.expand()
 
     set_cursor_line('^alpha/$')
@@ -1082,7 +1085,7 @@ do
     touch(tmp .. '/b')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('b')
+    set_cursor_pos('b')
     local cursor = api.nvim_win_get_cursor(0)
     local row = store.get().rows[cursor[1]]
 
@@ -1206,7 +1209,7 @@ do
     touch(tmp .. '/single.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('single%.txt')
+    set_cursor_pos('single%.txt')
     local origin_win = api.nvim_get_current_win()
     local cursor = api.nvim_win_get_cursor(origin_win)
     local row = store.get().rows[cursor[1]]
@@ -1373,7 +1376,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    util.set_cursor_pos('trashed%.txt')
+    set_cursor_pos('trashed%.txt')
     core.trash()
 
     local confirm_win = api.nvim_get_current_win()
@@ -1395,7 +1398,7 @@ do
     touch(tmp .. '/deleted.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('deleted%.txt')
+    set_cursor_pos('deleted%.txt')
     core.delete()
 
     local confirm_win = api.nvim_get_current_win()
@@ -1511,7 +1514,7 @@ do
     core.toggle_copy()
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
-    util.set_cursor_pos('dest')
+    set_cursor_pos('dest')
     core.paste()
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
@@ -1538,7 +1541,7 @@ do
     local state = store.get()
     set_cursor_line('alpha%.txt$')
     core.toggle_copy()
-    util.set_cursor_pos('dest')
+    set_cursor_pos('dest')
     core.expand()
     set_cursor_line('beta%.txt$')
     core.paste()
@@ -1594,7 +1597,7 @@ do
     local state = store.get()
     set_cursor_line('^alpha%.txt$')
     core.toggle_copy()
-    util.set_cursor_pos('dest')
+    set_cursor_pos('dest')
     core.expand()
     set_cursor_line('alpha%.txt$')
     core.paste_parent()
@@ -1671,13 +1674,13 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
-    util.set_cursor_pos('a')
+    set_cursor_pos('a')
     core.toggle_cut()
-    util.set_cursor_pos('b')
+    set_cursor_pos('b')
     core.toggle_copy()
     assert_eq(marked_path_count(state), 2)
 
-    util.set_cursor_pos('dest')
+    set_cursor_pos('dest')
     core.expand()
     core.paste()
 
@@ -1700,7 +1703,7 @@ do
     local state = store.get()
     assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename file')
     assert_eq(vim.fn.maparg('R', 'n', false, true).desc, 'Rename file with empty prompt')
-    util.set_cursor_pos('alpha%.txt')
+    set_cursor_pos('alpha%.txt')
     local cursor = api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]
 
@@ -1752,11 +1755,11 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    util.set_cursor_pos('dir')
+    set_cursor_pos('dir')
     core.expand()
     set_cursor_line('child/$')
     core.expand()
-    util.set_cursor_pos('dir')
+    set_cursor_pos('dir')
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -2418,7 +2421,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
-    util.set_cursor_pos('a')
+    set_cursor_pos('a')
     core.toggle_cut()
     assert_eq(marked_path_count(state), 1)
     core.clear_marks()
@@ -2467,7 +2470,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    util.set_cursor_pos('dir')
+    set_cursor_pos('dir')
     core.expand()
     set_cursor_line('archive%.tar%.gz$')
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
@@ -2814,14 +2817,13 @@ do
     touch(tmp .. '/top.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
     set_cursor_line('nested/$')
     core.expand()
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.next_sibling()
     assert_eq(current_line(), 'beta/', 'next sibling should jump to the next root sibling')
     core.next_sibling()
@@ -2893,7 +2895,7 @@ do
     local state = store.get()
     local root = state.cwd
 
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
     core.expand_recursive()
     assert(vim.tbl_contains(lines(), '├ a/'), 'custom tree indentation should apply to child directories')
     assert(vim.tbl_contains(lines(), '│ └ b/'), 'custom tree indentation should apply to nested directories')
@@ -2905,7 +2907,7 @@ do
     assert(state.expanded_dirs[root .. '/root/a/b'], 'recursive expand should expand nested descendants')
     assert(state.expanded_dirs[root .. '/root/empty'], 'recursive expand should expand empty descendants')
 
-    util.set_cursor_pos('root')
+    set_cursor_pos('root')
     core.collapse_recursive()
     assert(not state.expanded_dirs[root .. '/root'], 'recursive collapse should clear selected directory')
     assert(not state.expanded_dirs[root .. '/root/a'], 'recursive collapse should clear descendants')
@@ -2936,7 +2938,7 @@ do
     local state = store.get()
     local root = state.cwd
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
     assert(vim.tbl_contains(lines(), '├── one/'), 'first expand should show alpha children')
     assert(vim.tbl_contains(lines(), '└── two/'), 'first expand should show all alpha children')
@@ -2960,7 +2962,7 @@ do
     core.toggle_copy()
     assert_eq(state.marked_paths[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.collapse()
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should keep the hovered directory open')
     assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
@@ -2983,7 +2985,7 @@ do
     assert(state.expanded_dirs[root .. '/alpha'], 'collapsing a directory with no visible descendants should leave ancestors expanded')
     assert_match(current_line(), 'one/$', 'collapsing a directory with no visible descendants should keep the cursor')
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.collapse()
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should remove the deepest remaining descendant level first')
     assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
@@ -3017,12 +3019,12 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
 
-    util.set_cursor_pos('empty')
+    set_cursor_pos('empty')
     core.expand()
     assert(vim.tbl_contains(lines(), '└── (empty)'), 'empty directories should render a placeholder')
     assert(has_highlight(state, 'DoraTree'), 'empty placeholder should be highlighted as tree text')
 
-    util.set_cursor_pos('empty')
+    set_cursor_pos('empty')
     core.collapse()
     assert(not vim.tbl_contains(lines(), '└── (empty)'), 'collapsing empty directory should hide placeholder')
 
@@ -3045,7 +3047,7 @@ do
         return old_list(path)
     end
 
-    util.set_cursor_pos('unreadable')
+    set_cursor_pos('unreadable')
     local ok, msg = pcall(core.expand)
     fs.list = old_list
     assert(ok, msg)
@@ -3076,9 +3078,9 @@ do
     assert_eq(vim.fn.maparg('f', 'n', false, true).desc, 'Filter visible files')
     assert_eq(vim.fn.maparg('F', 'n', false, true).desc, 'Clear filter')
 
-    util.set_cursor_pos('alpha')
+    set_cursor_pos('alpha')
     core.expand()
-    util.set_cursor_pos('gamma')
+    set_cursor_pos('gamma')
     core.expand()
 
     api.nvim_win_set_cursor(origin_win, {#state.rows, 0})
@@ -3352,7 +3354,7 @@ do
     touch(tmp .. '/sub/seed.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    util.set_cursor_pos('sub')
+    set_cursor_pos('sub')
     core.expand()
     assert(find_line_index(lines(), 'seed%.txt$'), 'setup should show the expanded directory contents')
 
