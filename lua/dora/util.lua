@@ -162,17 +162,11 @@ function M.clear_prompt()
     vim.cmd 'norm! :'
 end
 
--- Always '/', even on Windows: internal paths are built with
--- vim.fs.joinpath()/normalize()/relpath(), which emit '/' on every platform,
--- and paths from the OS go through fs.normalize_sep(). Windows APIs accept
--- '/' as a separator.
-M.sep = '/'
-
 ---@param path string
 ---@return string
 function M.display_path(path)
     local home = os.getenv'HOME'
-    if home and home ~= '' and (path == home or vim.startswith(path, home .. M.sep)) then
+    if home and home ~= '' and (path == home or vim.startswith(path, home .. '/')) then
         return '~' .. path:sub(#home + 1)
     end
     return path
@@ -184,7 +178,7 @@ function M.set_cursor_pos(filename, or_top)
     local line = or_top and 1 or nil
     if filename then
         local found = find_line(function(l)
-            return l == filename or l == filename .. M.sep
+            return l == filename or l == filename .. '/'
         end)
         if found then
             line = found

@@ -67,7 +67,7 @@ local function item(path, cwd)
     local file_start_col = math.max(0, #display - #basename)
     local file_end_col = #display
     if hl == 'DoraDirectory' then
-        display = display .. util.sep
+        display = display .. '/'
     end
     display = icon_prefix .. display
     return {
