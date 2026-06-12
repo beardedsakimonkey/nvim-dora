@@ -429,6 +429,7 @@ function render(state)
     end
     for i, file in ipairs(rows) do
         local path = file.path
+        ---@cast path string  -- only placeholder rows lack a path, and they don't reach the fs calls below
         local virttext, hl
         if file.type == 'directory' then
             virttext, hl = nil, 'DoraDirectory'
@@ -1556,7 +1557,7 @@ function M.collapse()
     local state = store.get()
     local row = current_row(state)
     local path, target_depth = collapse_target(state, row)
-    if not path or not target_depth then
+    if not row or not row.path or not path or not target_depth then
         return
     end
     local changed = collapse_deepest_visible_dirs(state, path, target_depth)
@@ -1861,6 +1862,7 @@ function M.yank_filename(reg)
         return
     end
     local row = current_row(state)
+    ---@cast row -nil  -- current_path() returned a path, so there is a row
     local filename = fs.basename(path)
     util.copy_value(filename, reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename', {
         line = api.nvim_win_get_cursor(0)[1],
@@ -1884,6 +1886,7 @@ function M.yank_basename(reg)
     local basename = vim.fn.fnamemodify(filename, ':r')
     local message = reg == '+' and 'Yanked file basename to clipboard' or 'Yanked file basename'
     local row = current_row(state)
+    ---@cast row -nil  -- current_path() returned a path, so there is a row
     util.copy_value(basename, reg, message, {
         line = api.nvim_win_get_cursor(0)[1],
         start_col = row.name_end_col - #row.name,
@@ -2260,7 +2263,7 @@ function M.initialize(dir, from_au)
     local alt_buf = (not from_au and has_altbuf) and vim.fn.bufnr'#' or nil
     local win = api.nvim_get_current_win()
     local cwd = getcwd(dir)
-    local origin_filename = vim.fn.expand'%:p:t'
+    local origin_filename = vim.fn.expand'%:p:t' ---@type string?
     origin_filename = origin_filename ~= '' and origin_filename or nil
     local sync = config.sync_local_cwd
     local cwd_restore = sync and save_cwd() or nil

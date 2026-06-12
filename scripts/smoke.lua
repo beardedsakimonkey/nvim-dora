@@ -1,6 +1,7 @@
 local api = vim.api
 
 local orig_notify = vim.notify
+---@diagnostic disable-next-line: duplicate-set-field
 vim.notify = function(msg, log_level, ...)
     if log_level == vim.log.levels.INFO then
         return
@@ -185,6 +186,7 @@ local function has_sign_highlight(state, hl_group)
     local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
     for _, mark in ipairs(marks) do
         local details = mark[4]
+        ---@cast details -nil  -- always present with {details = true}
         if details.sign_text and vim.startswith(details.sign_text, '▌') and details.sign_hl_group == hl_group then
             return true
         end
@@ -271,6 +273,7 @@ do
     local has_path, has_file, has_dir, has_dir_suffix, has_more = false, false, false, false, false
     for _, mark in ipairs(marks) do
         local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil  -- always present with {details = true}
         has_path = has_path
             or details.hl_group == 'DoraDeletePath'
         has_file = has_file
@@ -368,6 +371,7 @@ do
     local has_icon, has_file = false, false
     for _, mark in ipairs(marks) do
         local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil  -- always present with {details = true}
         has_icon = has_icon
             or row == 0 and col == 1 and details.end_col == 6 and details.hl_group == 'DoraIcon'
         has_file = has_file
@@ -1341,7 +1345,7 @@ do
     core.quit()
     vim.o.directory = old_directory
     for _, path in ipairs({'split.txt', 'vsplit.txt', 'tab.txt'}) do
-        pcall(vim.cmd, 'bdelete! ' .. vim.fn.fnameescape(real_tmp .. '/' .. path))
+        pcall(vim.cmd --[[@as function]], 'bdelete! ' .. vim.fn.fnameescape(real_tmp .. '/' .. path))
     end
     assert_eq(vim.fn.delete(swap_dir, 'rf'), 0)
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1352,6 +1356,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/trashed.txt')
     local old_trash = fs.trash
+    ---@diagnostic disable-next-line: duplicate-set-field
     fs.trash = function(path)
         vim.g.dora_smoke_trashed_path = path
         assert_eq(vim.fn.delete(path), 0)
@@ -1402,6 +1407,7 @@ do
     touch(tmp .. '/c')
     local trashed_paths = {}
     local old_trash = fs.trash
+    ---@diagnostic disable-next-line: duplicate-set-field
     fs.trash = function(path)
         trashed_paths[#trashed_paths+1] = path
         assert_eq(vim.fn.delete(path), 0)
@@ -1469,6 +1475,7 @@ end
 do
     local old_notify = vim.notify
     local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg, level)
         notifications[#notifications+1] = {msg = msg, level = level}
     end
@@ -1538,6 +1545,7 @@ end
 do
     local old_notify = vim.notify
     local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg, level)
         notifications[#notifications+1] = {msg = msg, level = level}
     end
@@ -1770,9 +1778,10 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
-    local has_home_link = false
+    local has_home_link = false ---@type boolean?
     for _, mark in ipairs(marks) do
         local details = mark[4]
+        ---@cast details -nil  -- always present with {details = true}
         local virt_text = details.virt_text
         has_home_link = has_home_link
             or virt_text and virt_text[1] and virt_text[1][1] == '@ → ~'
@@ -1867,7 +1876,7 @@ do
     assert_eq(vim.fn.bufexists(dora_buf), 0, 'visual open should close Dora')
 
     for _, path in ipairs({'dir/child.txt', 'a.txt', 'b.txt'}) do
-        pcall(vim.cmd, 'bdelete! ' .. vim.fn.fnameescape(root .. '/' .. path))
+        pcall(vim.cmd --[[@as function]], 'bdelete! ' .. vim.fn.fnameescape(root .. '/' .. path))
     end
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
@@ -1918,6 +1927,7 @@ do
     local old_open = keymaps.open_hint_window
     local captured_prefix
     local captured_rows
+    ---@diagnostic disable-next-line: duplicate-set-field
     keymaps.open_hint_window = function(prefix, rows)
         captured_prefix = prefix
         captured_rows = rows
@@ -1944,6 +1954,7 @@ do
 
     local old_notify = vim.notify
     local notification
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg)
         notification = msg
     end
@@ -2146,6 +2157,7 @@ do
         zx = {function() vim.g.dora_smoke_hint_keymap = 'zx' end, desc='Xray'},
     }
     config.show_keymap_hints = true
+    ---@diagnostic disable-next-line: duplicate-set-field
     keymaps.open_hint_window = function(prefix, rows)
         captured_prefix = prefix
         captured_rows = rows
@@ -2194,9 +2206,11 @@ do
     }
     config.show_keymap_hints = true
     local captured_rows
+    ---@diagnostic disable-next-line: duplicate-set-field
     core.reload = function()
         vim.g.dora_smoke_named_keymap = 'reload'
     end
+    ---@diagnostic disable-next-line: duplicate-set-field
     keymaps.open_hint_window = function(prefix, rows)
         captured_rows = rows
         return old_open(prefix, rows)
@@ -2231,6 +2245,7 @@ do
         x = {'reload', desc='Custom reload'},
     }
     config.show_keymap_hints = false
+    ---@diagnostic disable-next-line: duplicate-set-field
     core.reload = function()
         vim.g.dora_smoke_named_direct_keymap = 'reload'
     end
@@ -2409,6 +2424,7 @@ do
     local old_unnamed_type = vim.fn.getregtype('"')
     local old_notify = vim.notify
     local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg, level)
         notifications[#notifications+1] = {msg = msg, level = level}
     end
@@ -2541,6 +2557,7 @@ do
     local old_notify = vim.notify
     local old_open = vim.ui.open
     local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.notify = function(msg, level)
         notifications[#notifications+1] = {msg = msg, level = level}
     end
@@ -2556,6 +2573,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local expected_path = fs.realpath(tmp) .. '/a'
     set_cursor_line('a$')
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.ui.open = function(path)
         vim.g.dora_smoke_open_external_path = path
     end
@@ -2564,6 +2582,7 @@ do
     assert_eq(notifications[#notifications].msg, 'dora: Opening a')
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.ui.open = function()
         error('boom')
     end
@@ -2572,6 +2591,7 @@ do
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
     local opened_paths = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.ui.open = function(path)
         opened_paths[#opened_paths+1] = path
         if vim.endswith(path, '/b') then
@@ -2634,7 +2654,7 @@ do
     local stat = assert(vim.loop.fs_lstat(tmp .. '/alpha.txt'))
     assert(info_text:find(stat.uid .. ':' .. stat.gid, 1, true), 'info should retain numeric owner and group IDs')
     if vim.loop.os_uname().sysname == 'Darwin' or vim.loop.os_uname().sysname == 'Linux' then
-        local passwd = vim.loop.os_get_passwd()
+        local passwd = assert(vim.loop.os_get_passwd())
         assert(info_text:find(passwd.username, 1, true), 'info should resolve the owner name')
     end
     assert(not find_line_index(info_lines, '^Executable%s+'), 'info should omit executable status')
