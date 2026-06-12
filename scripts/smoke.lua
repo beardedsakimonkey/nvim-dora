@@ -2141,20 +2141,20 @@ end
 
 do
     local buf, win = keymaps.open_hint_window('y', {
-        {lhs='yN', desc='Yank file name to clipboard'},
-        {lhs='yn', desc='Yank file name'},
-        {lhs='yB', desc='Yank file basename to clipboard'},
-        {lhs='yb', desc='Yank file basename'},
+        {lhs='yF', desc='Yank filename to clipboard'},
+        {lhs='yf', desc='Yank filename'},
+        {lhs='yN', desc='Yank name without extension to clipboard'},
+        {lhs='yn', desc='Yank name without extension'},
         {lhs='yY', desc='Yank full path to clipboard'},
         {lhs='yy', desc='Yank full path'},
         {lhs='yD', desc='Yank directory path to clipboard'},
         {lhs='yd', desc='Yank directory path'},
     })
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
-    assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
-    assert_match(hint_lines[2], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
-    assert_match(hint_lines[3], '^  yn%s+→%s+Yank file name%s+yN%s+→%s+Yank file name to clipboard$')
-    assert_match(hint_lines[4], '^  yb%s+→%s+Yank file basename%s+yB%s+→%s+Yank file basename to clipboard$')
+    assert_match(hint_lines[1], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
+    assert_match(hint_lines[2], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
+    assert_match(hint_lines[3], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
+    assert_match(hint_lines[4], '^  yn%s+→%s+Yank name without extension%s+yN%s+→%s+Yank name without extension to clipboard$')
     window.close(buf, win)
 end
 
@@ -2484,9 +2484,12 @@ do
         return marks[1][3], marks[1][4].end_col
     end
 
-    local yank_filename_map = vim.fn.maparg('yn', 'n', false, true)
-    assert_eq(yank_filename_map.desc, 'Yank file name')
+    local yank_filename_map = vim.fn.maparg('yf', 'n', false, true)
+    assert_eq(yank_filename_map.desc, 'Yank filename')
     assert_eq(type(yank_filename_map.callback), 'function')
+    assert_eq(vim.fn.maparg('yn', 'n', false, true).desc, 'Yank name without extension')
+    assert_eq(vim.fn.maparg('yb', 'n'), '', 'yb should remain available for users')
+    assert_eq(vim.fn.maparg('yB', 'n'), '', 'yB should remain available for users')
     local yank_cursor = api.nvim_win_get_cursor(0)
     yank_filename_map.callback()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
@@ -2538,17 +2541,17 @@ do
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, 'dora: Yanked filename to clipboard: archive.tar.gz')
 
-    core.yank_basename()
+    core.yank_name()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked name without extension: archive.tar')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
     start_col, end_col = yank_highlight_range()
-    assert_eq(start_col, filename_col, 'basename yank should start at the filename')
-    assert_eq(end_col, filename_col + #'archive.tar', 'basename yank should exclude the final extension')
+    assert_eq(start_col, filename_col, 'name yank should start at the filename')
+    assert_eq(end_col, filename_col + #'archive.tar', 'name yank should exclude the final extension')
 
-    core.yank_basename_clipboard()
+    core.yank_name_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked file basename to clipboard: archive.tar')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked name without extension to clipboard: archive.tar')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

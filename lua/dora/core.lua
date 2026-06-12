@@ -1872,7 +1872,7 @@ function M.yank_filename_clipboard()
 end
 
 ---@param reg? string
-function M.yank_basename(reg)
+function M.yank_name(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1880,18 +1880,18 @@ function M.yank_basename(reg)
         return
     end
     local filename = fs.basename(path)
-    local basename = vim.fn.fnamemodify(filename, ':r')
-    local message = reg == '+' and 'Yanked file basename to clipboard' or 'Yanked file basename'
+    local name = vim.fn.fnamemodify(filename, ':r')
+    local message = reg == '+' and 'Yanked name without extension to clipboard' or 'Yanked name without extension'
     local row = current_row(state)
     ---@cast row -nil  -- current_path() returned a path, so there is a row
-    util.copy_value(basename, reg, message, {
+    util.copy_value(name, reg, message, {
         line = api.nvim_win_get_cursor(0)[1],
         start_col = row.name_end_col - #row.name,
     })
 end
 
-function M.yank_basename_clipboard()
-    M.yank_basename('+')
+function M.yank_name_clipboard()
+    M.yank_name('+')
 end
 
 ---@param state DoraState
