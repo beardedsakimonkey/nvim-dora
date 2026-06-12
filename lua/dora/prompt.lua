@@ -153,6 +153,10 @@ function M.input(opts, cb)
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('VimResized', {
         callback = function() self:relayout() end,
     })
+    self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('WinLeave', {
+        buffer = self.input_buf,
+        callback = function() self:cancel() end,
+    })
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('WinClosed', {
         callback = function(args)
             if tonumber(args.match) == self.input_win then
