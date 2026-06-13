@@ -428,6 +428,54 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/icon.txt')
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function() return '▸', 'DoraIcon' end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('icon.txt')
+    local origin_win = api.nvim_get_current_win()
+    local cursor = api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    local icon_pos = vim.fn.screenpos(origin_win, cursor[1], row.icon_start_col + 1)
+    local name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+
+    core.rename()
+    local prompt_win = api.nvim_get_current_win()
+    local prompt_buf = api.nvim_get_current_buf()
+    assert_eq(api.nvim_buf_get_lines(prompt_buf, 0, 1, false)[1], 'icon.txt',
+        'rename prompt should keep the icon out of the editable text')
+    local virt_icon
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(prompt_buf, -1, 0, -1, {details = true})) do
+        local details = mark[4]
+        if details.virt_text and details.virt_text_pos == 'inline' then
+            virt_icon = details.virt_text[1][1]
+        end
+    end
+    assert_eq(virt_icon, '▸ ', 'rename prompt should render the icon as virtual text')
+    -- screenpos on the first byte reports its inline virt text start, so the
+    -- icon alignment pins the first cell and the second byte pins the text
+    local input_pos = vim.fn.screenpos(prompt_win, 1, 1)
+    assert_eq(input_pos.row, icon_pos.row, 'icon rename prompt should superimpose onto the renamed row')
+    assert_eq(input_pos.col, icon_pos.col, 'icon rename prompt icon should align with the row icon')
+    local second_pos = vim.fn.screenpos(prompt_win, 1, 2)
+    assert_eq(second_pos.col, name_pos.col + 1, 'icon rename prompt text should align with the filename')
+
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+    core.quit()
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
 
     delete_win.delete({tmp .. '/enter.txt'}, function(confirmed)
