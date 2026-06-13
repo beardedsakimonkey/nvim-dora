@@ -63,17 +63,6 @@ local SECTIONS = {
 ---@field desc? string
 ---@field section? string
 
----@param width integer
----@param height integer
----@return table
-local function layout(width, height)
-    return window.layout({
-        title = 'Help',
-        width = width,
-        height = height,
-    })
-end
-
 ---@param mappings? table<string, DoraKeymapSpec>
 ---@return table<string, DoraHelpRow[]>
 local function keymap_sections(mappings)
@@ -198,17 +187,6 @@ function M.open(config, bookmark_rows)
         return
     end
 
-    local key_width = 1
-    local desc_width = 1
-    for _, row in ipairs(help_rows) do
-        if row.lhs then
-            key_width = math.max(key_width, #row.lhs)
-            desc_width = math.max(desc_width, #row.desc)
-        end
-    end
-
-    local width = math.max(32, math.min(72, key_width + desc_width + 6))
-    local height = #help_rows
     local origin_win = api.nvim_get_current_win()
     local buf = api.nvim_create_buf(false, true)
     local ns = api.nvim_create_namespace('dora/help_win.' .. buf)
@@ -219,9 +197,24 @@ function M.open(config, bookmark_rows)
     render(buf, ns, help_rows)
     vim.bo[buf].modifiable = false
 
-    local win = api.nvim_open_win(buf, true, layout(width, height))
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
+    -- The URI form keeps vim from resolving the name as a path
+    local name = 'dora://help'
+    local i = 0
+    while vim.fn.bufexists(name) ~= 0 do
+        i = i + 1
+        name = 'dora://help [' .. i .. ']'
+    end
+    api.nvim_buf_set_name(buf, name)
+
+    -- A split rather than a float, so dora stays usable while help is open
+    local win = api.nvim_open_win(buf, true, {
+        split = 'right',
+        win = origin_win,
+    })
     vim.wo[win].cursorline = false
+    vim.wo[win].number = false
+    vim.wo[win].relativenumber = false
+    vim.wo[win].signcolumn = 'no'
 
     local function close()
         window.close(buf, win)

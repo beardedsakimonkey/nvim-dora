@@ -2859,11 +2859,18 @@ do
     core.help()
     local help_win = api.nvim_get_current_win()
     local help_buf = api.nvim_get_current_buf()
-    assert(help_win ~= origin_win, 'help should open in a floating window')
+    assert(help_win ~= origin_win, 'help should open in a separate window')
     local help_lines = api.nvim_buf_get_lines(help_buf, 0, -1, false)
     local help_cfg = api.nvim_win_get_config(help_win)
-    assert_eq(help_cfg.height, math.min(#help_lines, math.max(1, vim.o.lines - 4)))
+    assert_eq(help_cfg.relative, '', 'help should open in a split, not a float')
+    assert(api.nvim_win_get_position(help_win)[2] > api.nvim_win_get_position(origin_win)[2],
+        'help should open in a vertical split to the right of dora')
+    assert(api.nvim_win_is_valid(origin_win), 'help should keep the dora window open')
     assert_eq(vim.wo[help_win].cursorline, false, 'help should disable cursorline')
+    assert_eq(api.nvim_buf_get_name(help_buf), 'dora://help', 'help buffer should have a readable name')
+    api.nvim_set_current_win(origin_win)
+    assert(api.nvim_win_is_valid(help_win), 'help should stay open while using dora')
+    api.nvim_set_current_win(help_win)
     local expected_sections = {
         'General', 'Navigation', 'Open', 'File Operations',
         'View', 'Yank', 'Sort',
