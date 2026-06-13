@@ -19,13 +19,20 @@ function M.border()
     return vim.o.winborder == '' and 'rounded' or nil
 end
 
+---@class DoraFloatAnchor
+---@field win integer
+---@field line integer
+---@field col integer
+---@field superimpose? boolean Place the window content directly over the anchor cell instead of below it
+---@field col_offset? integer Display cells of window content to the left of the anchor cell
+
 ---@class DoraFloatLayoutOptions
 ---@field title? string
 ---@field title_pos? 'left'|'center'|'right'
 ---@field width integer
 ---@field height integer
 ---@field min_width? integer
----@field anchor? {win: integer, line: integer, col: integer}
+---@field anchor? DoraFloatAnchor
 
 ---@param opts DoraFloatLayoutOptions
 ---@return table
@@ -39,10 +46,19 @@ function M.layout(opts)
         and vim.fn.screenpos(anchor.win, anchor.line, anchor.col + 1)
         or nil
     local row, col, width
-    if pos and pos.row ~= 0 and pos.col ~= 0 then
+    if anchor and pos and pos.row ~= 0 and pos.col ~= 0 then
         width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
-        row = math.max(0, pos.row)
-        col = math.min(math.max(0, pos.col - 1), math.max(0, vim.o.columns - width - 2))
+        if anchor.superimpose then
+            -- row/col address the bordered area, whose content starts one
+            -- cell down and right. Negative positions clip the border (and
+            -- any content left of the anchor) rather than break alignment.
+            row = pos.row - 2
+            col = math.min(pos.col - 2 - (anchor.col_offset or 0),
+                math.max(0, vim.o.columns - width - 2))
+        else
+            row = math.max(0, pos.row)
+            col = math.min(math.max(0, pos.col - 1), math.max(0, vim.o.columns - width - 2))
+        end
     else
         width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 4))
         row = math.max(0, math.floor((vim.o.lines - height - 2) / 2))

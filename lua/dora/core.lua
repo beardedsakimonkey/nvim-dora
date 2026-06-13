@@ -743,16 +743,18 @@ local function current_path(state)
 end
 
 ---@param row DoraTreeRow?
----@return {win: integer, line: integer, col: integer}?
-local function current_name_anchor(row)
+---@param opts? {line?: integer, superimpose?: boolean}
+---@return DoraFloatAnchor?
+local function current_name_anchor(row, opts)
     if not row or not row.name_start_col then
         return nil
     end
     local win = api.nvim_get_current_win()
     return {
         win = win,
-        line = api.nvim_win_get_cursor(win)[1],
+        line = opts and opts.line or api.nvim_win_get_cursor(win)[1],
         col = row.name_start_col,
+        superimpose = opts and opts.superimpose,
     }
 end
 
@@ -1785,7 +1787,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
         paste_entries(state, entries, dest_dir)
         return
     end
-    delete_win.delete(overwrite_paths, state.cwd, function(confirmed)
+    delete_win.delete(overwrite_paths, function(confirmed)
         if confirmed and api.nvim_buf_is_valid(state.buf) then
             paste_entries(state, entries, dest_dir)
         end
@@ -1898,9 +1900,9 @@ end
 ---@param paths string[]
 ---@param operation fun(path: string)
 ---@param action string
----@param anchor? {win: integer, line: integer, col: integer}
+---@param anchor? DoraFloatAnchor
 local function remove_paths(state, paths, operation, action, anchor)
-    delete_win.delete(paths, state.cwd, function(confirmed)
+    delete_win.delete(paths, function(confirmed)
         if not confirmed or not api.nvim_buf_is_valid(state.buf) then
             return
         end
@@ -1952,13 +1954,23 @@ end
 ---@param action string
 local function remove_visual_paths(operation, action)
     local state = store.get()
-    local row = current_row(state)
     local paths, msg = selected_non_overlapping_paths(state)
     if not paths then
         util.err(msg)
         return
     end
-    remove_paths(state, paths, operation, action, current_name_anchor(row))
+    -- Anchor the confirmation to the first selected row (paths[1] by
+    -- construction) so its lines align with the rows they remove
+    local anchor
+    local start_line, end_line = visual_line_range()
+    for line = start_line, end_line do
+        local row = state.rows and state.rows[line] or nil
+        if row and row.path then
+            anchor = current_name_anchor(row, {line = line})
+            break
+        end
+    end
+    remove_paths(state, paths, operation, action, anchor)
 end
 
 function M.trash()
@@ -1991,7 +2003,7 @@ local function rename(prefill)
         cwd = fs.get_parent_dir(path),
         initial_prompt = prefill and fs.basename(path) or '',
         width = PROMPT_WIDTH,
-        anchor = current_name_anchor(row),
+        anchor = current_name_anchor(row, {superimpose = true}),
         validate = function(input)
             return fs.validate_rename(input, path)
         end,
@@ -2012,7 +2024,7 @@ local function rename(prefill)
             set_cursor_path(state, dest)
         end
         if fs.exists(dest) then
-            delete_win.delete({dest}, state.cwd, function(confirmed)
+            delete_win.delete({dest}, function(confirmed)
                 if confirmed and api.nvim_buf_is_valid(state.buf) then
                     perform_rename()
                 end

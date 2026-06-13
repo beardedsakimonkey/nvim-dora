@@ -4,7 +4,6 @@ local uv = vim.loop
 local window = require'dora.window'
 local fs = require'dora.fs'
 local icons = require'dora.icons'
-local util = require'dora.util'
 local config = require'dora'.config
 
 local M = {}
@@ -25,7 +24,7 @@ local RIGHT_PADDING = 1
 ---@field file_hl string
 
 ---@class DoraDeleteOptions
----@field anchor? {win: integer, line: integer, col: integer}
+---@field anchor? DoraFloatAnchor
 ---@field action? string
 
 ---@param path string
@@ -45,27 +44,13 @@ local function file_hl(path)
 end
 
 ---@param path string
----@param cwd string
----@return string
-local function relative_display_path(path, cwd)
-    local relative = vim.fs.relpath(cwd, path)
-    if relative and relative ~= '..' and not relative:match('^%.%.[/\\]') then
-        return relative
-    end
-    return util.display_path(path)
-end
-
----@param path string
----@param cwd string
 ---@return DoraDeleteConfirmItem
-local function item(path, cwd)
-    local display = relative_display_path(path, cwd)
+local function item(path)
     local basename = fs.basename(path)
     local hl = file_hl(path)
     local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path)
     local icon_prefix = icon and icon .. ' ' or ''
-    local file_start_col = math.max(0, #display - #basename)
-    local file_end_col = #display
+    local display = basename
     if hl == 'DoraDirectory' then
         display = display .. '/'
     end
@@ -75,19 +60,18 @@ local function item(path, cwd)
         icon_start_col = icon and 0 or nil,
         icon_end_col = icon and #icon or nil,
         icon_hl = icon_hl or 'DoraIcon',
-        file_start_col = #icon_prefix + file_start_col,
-        file_end_col = #icon_prefix + file_end_col,
+        file_start_col = #icon_prefix,
+        file_end_col = #icon_prefix + #basename,
         file_hl = hl,
     }
 end
 
 ---@param paths string[]
----@param cwd string
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, cwd)
+local function items(paths)
     local ret = {}
     for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
-        ret[#ret+1] = item(paths[i], cwd)
+        ret[#ret+1] = item(paths[i])
     end
     return ret
 end
@@ -162,7 +146,7 @@ local function get_width(confirm_title, rendered_lines)
 end
 
 ---@param win integer
----@return {win: integer, line: integer, col: integer}
+---@return DoraFloatAnchor
 local function cursor_anchor(win)
     local cursor = api.nvim_win_get_cursor(win)
     return {
@@ -172,22 +156,37 @@ local function cursor_anchor(win)
     }
 end
 
+-- Superimposes the first item's basename onto the anchor cell, so the lines
+-- align with the rows they remove
+---@param anchor DoraFloatAnchor
+---@param confirm_items DoraDeleteConfirmItem[]
+---@return DoraFloatAnchor
+local function superimpose_anchor(anchor, confirm_items)
+    local first = confirm_items[1]
+    if not first then
+        return anchor
+    end
+    local prefix = (LINE_PREFIX .. first.display):sub(1, LINE_PREFIX_LEN + first.file_start_col)
+    return vim.tbl_extend('force', anchor, {
+        superimpose = true,
+        col_offset = vim.fn.strdisplaywidth(prefix),
+    })
+end
+
 ---@param paths string[]
----@param cwd string
 ---@param cb fun(confirmed: boolean)
 ---@param opts? DoraDeleteOptions
-function M.delete(paths, cwd, cb, opts)
+function M.delete(paths, cb, opts)
     if #paths == 0 then
         cb(false)
         return
     end
     opts = opts or {}
-    local confirm_items = items(paths, cwd)
+    local confirm_items = items(paths)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow)
     local confirm_title = get_title(#paths, opts.action)
     local origin_win = api.nvim_get_current_win()
-    local anchor = opts.anchor or cursor_anchor(origin_win)
     local guicursor = vim.o.guicursor
     local autocmds = {}
     local closed = false
@@ -198,7 +197,7 @@ function M.delete(paths, cwd, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, cwd)
+        confirm_items = items(paths)
         rendered_lines = lines(confirm_items, overflow)
         vim.bo[buf].modifiable = true
         render(buf, ns, confirm_items, overflow)
@@ -213,7 +212,8 @@ function M.delete(paths, cwd, cb, opts)
             title = confirm_title,
             width = get_width(confirm_title, rendered_lines),
             height = #rendered_lines,
-            anchor = anchor,
+            anchor = opts.anchor and superimpose_anchor(opts.anchor, confirm_items)
+                or cursor_anchor(origin_win),
         })
     end
 

@@ -8,7 +8,7 @@ local M = {}
 ---@field initial_prompt? string
 ---@field cwd string
 ---@field width? integer
----@field anchor? {win: integer, line: integer, col: integer}
+---@field anchor? DoraFloatAnchor
 ---@field validate fun(input: string): any
 
 ---@param opts DoraPromptOptions
