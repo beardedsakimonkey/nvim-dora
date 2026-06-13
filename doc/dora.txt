@@ -97,8 +97,6 @@ Here are the defaults:
         sort_order = 'name',
         -- Number of columns used for each level of tree indentation (minimum 2)
         tree_indent = 4,
-        -- Whether prompt windows should close when leaving insert mode
-        insert_only_prompts = false,
         -- Key mappings
         keymaps = {
             -- General
@@ -246,9 +244,18 @@ time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set `dora.config.sort_order`
 to choose the initial order.
 
-Set `dora.config.insert_only_prompts = true` to keep add, rename, symlink, and
-shell prompts in insert mode. With this enabled, pressing `<Esc>` once cancels
-the prompt instead of entering normal mode.
+Dora prompt buffers use the `dora-prompt` filetype. Use a `FileType` autocmd to
+customize them. For example, to make `<Esc>` close a prompt directly from
+insert mode:
+
+>lua
+    vim.api.nvim_create_autocmd("FileType", {
+        pattern = "dora-prompt",
+        callback = function(args)
+            vim.keymap.set("i", "<Esc>", "<Cmd>close<CR>", {buffer = args.buf})
+        end,
+    })
+<
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
