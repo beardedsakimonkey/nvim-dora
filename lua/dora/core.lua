@@ -427,7 +427,8 @@ function render(state)
             virttext, hl = nil, 'DoraTree'
         elseif file.type == 'link' then
             local link = uv.fs_readlink(path)
-            virttext = '@ → ' .. (link and util.display_path(link) or '???')
+            local target = link and fs.display_symlink_target(path, link) or nil
+            virttext = '@ → ' .. (target and util.display_path(target) or '???')
             hl = 'DoraSymlink'
         elseif uv.fs_access(path, 'X') then
             virttext, hl = '*', 'DoraExecutable'

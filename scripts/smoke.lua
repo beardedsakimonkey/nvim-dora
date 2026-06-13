@@ -1960,22 +1960,29 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
-    local home = assert(os.getenv'HOME')
-    assert(vim.loop.fs_symlink(home, tmp .. '/home-link'))
+    assert(vim.loop.fs_mkdir(tmp .. '/targets', tonumber('755', 8)))
+    touch(tmp .. '/targets/file.txt')
+    local real_tmp = fs.realpath(tmp)
+    assert(vim.loop.fs_symlink(real_tmp .. '/targets/file.txt', tmp .. '/absolute-link'))
+    assert(vim.loop.fs_symlink('./targets/file.txt', tmp .. '/relative-link'))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local marks = api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})
-    local has_home_link = false ---@type boolean?
+    local has_absolute_link = false ---@type boolean?
+    local has_relative_link = false ---@type boolean?
     for _, mark in ipairs(marks) do
         local details = mark[4]
         ---@cast details -nil  -- always present with {details = true}
         local virt_text = details.virt_text
-        has_home_link = has_home_link
-            or virt_text and virt_text[1] and virt_text[1][1] == '@ → ~'
+        has_absolute_link = has_absolute_link
+            or virt_text and virt_text[1] and virt_text[1][1] == '@ → targets/file.txt'
                 and details.hl_mode == 'combine'
+        has_relative_link = has_relative_link
+            or virt_text and virt_text[1] and virt_text[1][1] == '@ → ./targets/file.txt'
     end
-    assert(has_home_link, 'symlink virtual text should abbreviate home directory and combine highlights')
+    assert(has_absolute_link, 'absolute symlink targets should render relative to the symlink')
+    assert(has_relative_link, 'relative symlink targets should remain unchanged')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
