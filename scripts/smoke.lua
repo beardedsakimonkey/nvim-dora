@@ -1151,7 +1151,9 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha/one/two', tonumber('755', 8)))
     touch(tmp .. '/alpha/one/file.txt')
+    touch(tmp .. '/alpha/one/two/deep.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
@@ -1173,6 +1175,12 @@ do
     core.parent_dir()
     assert_match(current_line(), 'alpha/$', 'parent jump should move from a nested directory to its parent directory')
     assert(state.expanded_dirs[root .. '/alpha'], 'parent jump should not collapse visited parent directories')
+
+    set_cursor_pos('two')
+    core.expand()
+    set_cursor_line('deep%.txt$')
+    api.nvim_feedkeys('3gp', 'xt', false)
+    assert_match(current_line(), 'alpha/$', 'counted parent jump should move up the requested number of parents')
 
     set_cursor_line('file%.txt$')
     api.nvim_feedkeys('Vgp', 'xt', false)
@@ -3222,6 +3230,12 @@ do
     assert_match(current_line(), 'deep%.txt$', 'first sibling should stay on an only child sibling')
     core.last_sibling()
     assert_match(current_line(), 'deep%.txt$', 'last sibling should stay on an only child sibling')
+
+    set_cursor_pos('alpha')
+    api.nvim_feedkeys('2J', 'xt', false)
+    assert_eq(current_line(), 'top.txt', 'counted next sibling should move the requested number of siblings')
+    api.nvim_feedkeys('2K', 'xt', false)
+    assert_eq(current_line(), 'alpha/', 'counted previous sibling should move the requested number of siblings')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
