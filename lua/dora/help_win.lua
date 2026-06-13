@@ -31,6 +31,7 @@ local SECTIONS = {
         actions = {
             'create', 'create_under', 'create_symlink', 'rename', 'rename_empty', 'trash', 'delete',
             'toggle_cut', 'toggle_copy', 'paste', 'paste_parent', 'clear_marks', 'shell_cmd',
+            'prev_change', 'next_change',
         },
     },
     {
