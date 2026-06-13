@@ -210,6 +210,24 @@ mapping:
 dora.config.keymaps.q = {"quit", desc="Close Dora"}
 ```
 
+Function keymaps are called with a context table describing where the mapping
+was triggered:
+
+- `cwd` (string): directory dora is currently browsing
+- `path` (string?): absolute path of the entry under the cursor
+- `type` (string?): `"file"`, `"directory"`, or `"link"`
+
+`path` and `type` are omitted on rows without a file, such as the placeholder
+shown for empty directories. For example, to change the window's local working
+directory to the browsed directory:
+
+```lua
+dora.config.keymaps.gl = {
+    function(ctx) vim.cmd.lcd(ctx.cwd) end,
+    desc = ":lcd to browsed directory",
+}
+```
+
 Dora also shows a small hint window for two-character normal mode mappings.
 For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
 Set `dora.config.show_keymap_hints = false` to disable these prefix hints.

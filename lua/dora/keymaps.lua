@@ -115,11 +115,23 @@ function M.resolve(rhs)
     return rhs, desc
 end
 
+---@return DoraKeymapContext
+local function keymap_context()
+    local state = require'dora.store'.get()
+    local row = state.rows and state.rows[api.nvim_win_get_cursor(0)[1]] or nil
+    local ctx = {cwd = state.cwd}
+    if row and row.path then
+        ctx.path = row.path
+        ctx.type = row.type
+    end
+    return ctx
+end
+
 ---@param action DoraKeymapAction
 ---@return function|string
 local function map_keymap_action(action)
     if type(action) ~= 'string' then
-        return action
+        return function() action(keymap_context()) end
     end
     local core_action = require'dora.core'[action]
     if type(core_action) == 'function' then
@@ -131,7 +143,7 @@ end
 ---@param action DoraKeymapAction
 local function dispatch_keymap_action(action)
     if type(action) == 'function' then
-        action()
+        action(keymap_context())
         return
     end
     local core_action = require'dora.core'[action]

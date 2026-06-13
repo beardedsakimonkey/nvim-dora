@@ -2,7 +2,13 @@ local M = {}
 
 ---@alias DoraFileType 'file'|'directory'|'link'
 ---@alias DoraOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
----@alias DoraKeymapAction string|function
+
+---@class DoraKeymapContext
+---@field cwd string Directory dora is currently browsing
+---@field path? string Absolute path of the entry under the cursor
+---@field type? DoraFileType Type of the entry under the cursor
+
+---@alias DoraKeymapAction string|fun(ctx: DoraKeymapContext)
 ---@alias DoraKeymapSpec DoraKeymapAction|{[1]: DoraKeymapAction, desc?: string}
 ---@alias DoraIconConfig boolean|'nvim-web-devicons'|'mini.icons'
 ---@alias DoraSortOrder 'name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc'

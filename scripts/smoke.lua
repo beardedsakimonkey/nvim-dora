@@ -2788,6 +2788,45 @@ do
 end
 
 do
+    local old_keymaps = config.keymaps
+    local ctx
+    config.keymaps = {
+        e = {function(c) ctx = c end, desc = 'Capture context'},
+    }
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
+    touch(tmp .. '/top.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local root = fs.realpath(tmp)
+
+    set_cursor_pos('alpha')
+    api.nvim_feedkeys('e', 'xt', false)
+    assert_eq(ctx.cwd, root, 'function keymaps should receive the browsed directory')
+    assert_eq(ctx.path, root .. '/alpha', 'function keymaps should receive the cursor entry path')
+    assert_eq(ctx.type, 'directory', 'function keymaps should receive the cursor entry type')
+
+    set_cursor_pos('top.txt')
+    api.nvim_feedkeys('e', 'xt', false)
+    assert_eq(ctx.path, root .. '/top.txt', 'function keymap context should follow the cursor')
+    assert_eq(ctx.type, 'file', 'function keymap context should report file rows')
+
+    set_cursor_pos('alpha')
+    core.expand()
+    set_cursor_pos('(empty)')
+    api.nvim_feedkeys('e', 'xt', false)
+    assert_eq(ctx.cwd, root, 'function keymap context should include cwd on placeholder rows')
+    assert_eq(ctx.path, nil, 'function keymap context should omit path on placeholder rows')
+    assert_eq(ctx.type, nil, 'function keymap context should omit type on placeholder rows')
+
+    core.quit()
+    config.keymaps = old_keymaps
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
 
