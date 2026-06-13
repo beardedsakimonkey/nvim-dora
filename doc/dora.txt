@@ -99,6 +99,8 @@ Here are the defaults:
         tree_indent = 4,
         -- Whether to sync the window's current directory with dora's current path
         sync_local_cwd = false,
+        -- Whether prompt windows should close when leaving insert mode
+        insert_only_prompts = false,
         -- Key mappings
         keymaps = {
             -- General
@@ -245,6 +247,10 @@ before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
 time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set `dora.config.sort_order`
 to choose the initial order.
+
+Set `dora.config.insert_only_prompts = true` to keep add, rename, symlink, and
+shell prompts in insert mode. With this enabled, pressing `<Esc>` once cancels
+the prompt instead of entering normal mode.
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.

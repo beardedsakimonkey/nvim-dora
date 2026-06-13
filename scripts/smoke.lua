@@ -38,12 +38,14 @@ do
     local old_keymaps = dora.config.keymaps
     local old_show_hidden_files = dora.config.show_hidden_files
     local old_tree_indent = dora.config.tree_indent
+    local old_insert_only_prompts = dora.config.insert_only_prompts
     local old_q = dora.config.keymaps.q
     local old_smoke_key = dora.config.keymaps.__dora_smoke_setup
 
     dora.setup({
         show_hidden_files = false,
         tree_indent = 2,
+        insert_only_prompts = true,
         keymaps = {
             q = {'quit'},
             __dora_smoke_setup = 'help',
@@ -54,6 +56,7 @@ do
     assert_eq(dora.config.keymaps, old_keymaps, 'setup should preserve the keymaps table')
     assert_eq(config.show_hidden_files, false, 'setup should update config values in-place')
     assert_eq(config.tree_indent, 2, 'setup should update tree indentation')
+    assert_eq(config.insert_only_prompts, true, 'setup should update insert-only prompt behavior')
     assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
     assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
     local _, q_desc = keymaps.resolve(config.keymaps.q)
@@ -61,6 +64,7 @@ do
 
     dora.config.show_hidden_files = old_show_hidden_files
     dora.config.tree_indent = old_tree_indent
+    dora.config.insert_only_prompts = old_insert_only_prompts
     dora.config.keymaps.q = old_q
     dora.config.keymaps.__dora_smoke_setup = old_smoke_key
 end
@@ -652,6 +656,30 @@ do
 end
 
 do
+    local callback_count = 0
+    local p = prompt.input({
+        prompt = 'Insert only',
+        cwd = cwd,
+        insert_only = true,
+        validate = function(input)
+            return input
+        end,
+    }, function(input)
+        callback_count = callback_count + 1
+        assert_eq(input, nil, 'insert-only escape should cancel the prompt')
+    end)
+    ---@cast p DoraPrompt
+
+    assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function',
+        'insert-only prompts should map insert-mode escape')
+    api.nvim_feedkeys(api.nvim_replace_termcodes('i<Esc>', true, false, true), 'xt', false)
+    assert(vim.wait(1000, function()
+        return p.closed == true
+    end), 'insert-mode escape should close an insert-only prompt')
+    assert_eq(callback_count, 1, 'insert-only escape should invoke the callback once')
+end
+
+do
     local p = prompt.input({
         prompt = 'Cancel',
         cwd = cwd,
@@ -699,6 +727,40 @@ do
     touch(tmp .. '/blocked')
     assert(not pcall(fs.validate_create, 'blocked/child.txt', tmp), 'create should reject paths below files')
 
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    local old_insert_only_prompts = config.insert_only_prompts
+    local old_input = prompt.input
+    local seen = {}
+    config.insert_only_prompts = true
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('alpha.txt')
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        seen[opts.prompt] = opts.insert_only
+        cb(nil)
+    end
+
+    core.create()
+    core.rename()
+    core.create_symlink()
+    core.shell_cmd()
+
+    prompt.input = old_input
+    config.insert_only_prompts = old_insert_only_prompts
+    assert_eq(seen['Add file or folder'], true, 'create should use insert-only prompts when configured')
+    assert_eq(seen['Rename to'], true, 'rename should use insert-only prompts when configured')
+    assert_eq(seen['Add symlink'], true, 'symlink should use insert-only prompts when configured')
+    assert_eq(seen['Shell command'], true, 'shell should use insert-only prompts when configured')
+
+    core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 

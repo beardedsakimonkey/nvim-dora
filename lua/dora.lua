@@ -29,6 +29,7 @@ local M = {}
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
 ---@field sync_local_cwd boolean
+---@field insert_only_prompts boolean
 
 ---@type DoraConfig
 M.config = {
@@ -47,6 +48,8 @@ M.config = {
     tree_indent = 4,
     -- Whether to sync the window's current directory with dora's current path
     sync_local_cwd = false,
+    -- Whether prompt windows should close when leaving insert mode
+    insert_only_prompts = false,
     -- Key mappings
     keymaps = {
         -- General
