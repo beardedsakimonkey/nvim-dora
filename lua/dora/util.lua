@@ -76,6 +76,13 @@ function M.create_buf(cwd)
     end
     assert(buf ~= 0)
     api.nvim_buf_set_var(buf, 'is_dora', true)
+    -- Wipe the buffer when its window closes, even if the user bypasses dora's
+    -- own quit/open commands (e.g. with :q or <C-w>c). Otherwise the buffer
+    -- lingers hidden under its cwd name and forces the next session opened from
+    -- the same path to get an id'd name, even though no dora window is live.
+    -- cleanup() and the BufWipeout autocmd tolerate the buffer already being
+    -- wiped, so this is safe alongside dora's explicit teardown paths.
+    api.nvim_set_option_value('bufhidden', 'wipe', {buf = buf})
     -- Triggers BufEnter
     api.nvim_set_current_buf(buf)
     -- Triggers ftplugin, so must get called after setting the current buffer
