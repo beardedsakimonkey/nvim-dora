@@ -255,7 +255,7 @@ do
     local origin_cursor = api.nvim_win_get_cursor(origin_win)
     local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], origin_cursor[2] + 1)
 
-    delete_win.delete(paths, tmp, function(confirmed)
+    delete_win.delete(paths, function(confirmed)
         vim.g.dora_smoke_confirm_delete = confirmed
     end)
     local confirm_win = api.nvim_get_current_win()
@@ -270,7 +270,7 @@ do
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], ' foo.js')
     assert_eq(confirm_lines[2], ' dir/')
-    assert_eq(confirm_lines[3], ' dir/bar.lua')
+    assert_eq(confirm_lines[3], ' bar.lua')
     assert_eq(confirm_lines[11], ' ... and 2 more')
 
     local marks = api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
@@ -319,7 +319,7 @@ do
     local anchor_col = math.max(0, vim.o.columns - 12)
     local anchor_pos = vim.fn.screenpos(anchor_win, 1, anchor_col + 1)
 
-    delete_win.delete({tmp .. '/' .. rel_path}, tmp, function() end, {
+    delete_win.delete({tmp .. '/' .. rel_path}, function() end, {
         anchor = {win = anchor_win, line = 1, col = anchor_col},
     })
     local confirm_win = api.nvim_get_current_win()
@@ -329,11 +329,11 @@ do
     local view = api.nvim_win_call(confirm_win, function()
         return vim.fn.winsaveview()
     end)
-    local expected_width = math.min(96, math.max(20, vim.o.columns - 2))
-    local expected_col = math.min(math.max(0, anchor_pos.col - 1), math.max(0, vim.o.columns - expected_width - 2))
+    local expected_width = math.max(32, math.min(96, vim.fn.strdisplaywidth(' ' .. long_file) + 1))
+    local expected_col = math.min(anchor_pos.col - 2 - #' ', math.max(0, vim.o.columns - expected_width - 2))
 
-    assert_eq(confirm_lines[1], ' ' .. rel_path)
-    assert_eq(confirm_cfg.width, expected_width, 'delete confirmation should expand anchored windows for long paths')
+    assert_eq(confirm_lines[1], ' ' .. long_file)
+    assert_eq(confirm_cfg.width, expected_width, 'delete confirmation should expand anchored windows for long names')
     assert_eq(confirm_cfg.col, expected_col, 'delete confirmation should shift left to fit expanded windows')
     assert(confirm_cfg.col < anchor_pos.col - 1, 'delete confirmation should start left of the anchor when needed')
     assert_eq(view.leftcol, 0, 'delete confirmation should not rely on horizontal scroll')
@@ -366,7 +366,7 @@ do
         end,
     }
 
-    delete_win.delete({tmp .. '/icon.txt'}, tmp, function() end)
+    delete_win.delete({tmp .. '/icon.txt'}, function() end)
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
     assert_eq(confirm_lines[1], ' [del] icon.txt', 'delete confirmation should render file icons when enabled')
@@ -393,9 +393,44 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/icon.txt')
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function() return '▸', 'DoraIcon' end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('icon.txt')
+    local origin_win = api.nvim_get_current_win()
+    local cursor = api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    assert_eq(row.name_start_col, #'▸ ', 'icon rows should offset the name column')
+    local name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+    core.delete()
+
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    assert_eq(confirm_lines[1], ' ▸ icon.txt')
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ▸ ' + 1)
+    assert_eq(first_item_pos.row, name_pos.row, 'icon delete confirmation should superimpose onto the deleted row')
+    assert_eq(first_item_pos.col, name_pos.col, 'icon delete confirmation should align the filename with the deleted row')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    core.quit()
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
 
-    delete_win.delete({tmp .. '/enter.txt'}, tmp, function(confirmed)
+    delete_win.delete({tmp .. '/enter.txt'}, function(confirmed)
         vim.g.dora_smoke_enter_confirm_delete = confirmed
     end)
 
@@ -1219,10 +1254,10 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
-    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    assert_eq(confirm_cfg.row, pos.row)
-    assert_eq(confirm_cfg.col, pos.col - 1)
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    assert_eq(first_item_pos.row, pos.row, 'delete confirmation should superimpose onto the deleted row')
+    assert_eq(first_item_pos.col, pos.col, 'delete confirmation should align the filename with the deleted row')
     assert_match(win_title(confirm_win), 'Delete%?')
     assert_eq(confirm_lines[1], ' single.txt')
 
@@ -1287,6 +1322,35 @@ do
     assert_match(current_line(), 'dest%.txt$',
         'confirming rename overwrite should move the cursor to the destination')
 
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/nested', tonumber('755', 8)))
+    touch(tmp .. '/nested/inner.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('nested')
+    core.expand()
+    set_cursor_pos('inner.txt')
+    local origin_win = api.nvim_get_current_win()
+    local cursor = api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    local name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+
+    core.rename()
+    local prompt_win = api.nvim_get_current_win()
+    assert(prompt_win ~= origin_win, 'rename should open a prompt window')
+    assert_eq(api.nvim_buf_get_lines(0, 0, 1, false)[1], 'inner.txt')
+    local input_pos = vim.fn.screenpos(prompt_win, 1, 1)
+    assert_eq(input_pos.row, name_pos.row, 'rename prompt should superimpose onto the renamed row')
+    assert_eq(input_pos.col, name_pos.col, 'rename prompt text should align with the filename')
+
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+    assert_eq(api.nvim_get_current_win(), origin_win, 'cancelling rename should restore the origin window')
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
@@ -1430,16 +1494,16 @@ do
     local state = store.get()
     set_cursor_line('a$')
     local origin_win = api.nvim_get_current_win()
-    local target_line = find_line_index(lines(), 'b$')
+    local target_line = find_line_index(lines(), 'a$')
     local target_row = state.rows[target_line]
     local pos = vim.fn.screenpos(origin_win, target_line, target_row.name_start_col + 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()
-    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Trash 2 files%?')
-    assert_eq(confirm_cfg.row, pos.row, 'visual trash confirmation should anchor to the visual cursor')
-    assert_eq(confirm_cfg.col, pos.col - 1, 'visual trash confirmation should anchor to the visual cursor')
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    assert_eq(first_item_pos.row, pos.row, 'visual trash confirmation should superimpose onto the first selected row')
+    assert_eq(first_item_pos.col, pos.col, 'visual trash confirmation should superimpose onto the first selected row')
     api.nvim_feedkeys('y', 'xt', false)
 
     assert_eq(#trashed_paths, 2, 'visual trash should trash each selected file')
@@ -1465,16 +1529,16 @@ do
     local state = store.get()
     set_cursor_line('alpha$')
     local origin_win = api.nvim_get_current_win()
-    local target_line = find_line_index(lines(), 'beta$')
+    local target_line = find_line_index(lines(), 'alpha$')
     local target_row = state.rows[target_line]
     local pos = vim.fn.screenpos(origin_win, target_line, target_row.name_start_col + 1)
     api.nvim_feedkeys(api.nvim_replace_termcodes('VjD', true, false, true), 'xt', false)
 
     local confirm_win = api.nvim_get_current_win()
-    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Delete 2 files%?')
-    assert_eq(confirm_cfg.row, pos.row, 'visual delete confirmation should anchor to the visual cursor')
-    assert_eq(confirm_cfg.col, pos.col - 1, 'visual delete confirmation should anchor to the visual cursor')
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    assert_eq(first_item_pos.row, pos.row, 'visual delete confirmation should superimpose onto the first selected row')
+    assert_eq(first_item_pos.col, pos.col, 'visual delete confirmation should superimpose onto the first selected row')
     api.nvim_feedkeys('y', 'xt', false)
 
     assert(not fs.exists(tmp .. '/alpha'), 'visual delete should remove selected file alpha')
@@ -1605,7 +1669,7 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Overwrite%?')
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' dest/alpha.txt')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' alpha.txt')
     api.nvim_feedkeys('n', 'xt', false)
 
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'old',
@@ -1719,6 +1783,7 @@ do
         assert_eq(opts.anchor.win, api.nvim_get_current_win())
         assert_eq(opts.anchor.line, cursor[1])
         assert_eq(opts.anchor.col, row.name_start_col)
+        assert(opts.anchor.superimpose, 'rename should superimpose the prompt onto the current row')
         assert(not pcall(opts.validate, 'nested/beta.txt'), 'rename prompt should reject relocation')
         cb('beta.txt', opts.validate('beta.txt'))
     end
