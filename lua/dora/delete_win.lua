@@ -253,6 +253,10 @@ function M.delete(paths, cb, opts)
             end
         end,
     })
+    autocmds[#autocmds+1] = api.nvim_create_autocmd('WinLeave', {
+        buffer = buf,
+        callback = function() finish(false) end,
+    })
     autocmds[#autocmds+1] = api.nvim_create_autocmd('WinClosed', {
         callback = function(args)
             if tonumber(args.match) == win then

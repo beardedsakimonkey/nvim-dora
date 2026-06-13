@@ -489,6 +489,32 @@ do
 end
 
 do
+    local origin_win = api.nvim_get_current_win()
+    local old_guicursor = vim.o.guicursor
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/leave.txt')
+
+    vim.g.dora_smoke_leave_confirm_delete = nil
+    delete_win.delete({tmp .. '/leave.txt'}, function(confirmed)
+        vim.g.dora_smoke_leave_confirm_delete = confirmed
+    end)
+    local confirm_win = api.nvim_get_current_win()
+    assert(confirm_win ~= origin_win, 'delete confirmation should take focus')
+
+    api.nvim_set_current_win(origin_win)
+    assert_eq(vim.g.dora_smoke_leave_confirm_delete, false,
+        'leaving the delete confirmation should cancel it')
+    assert(not api.nvim_win_is_valid(confirm_win),
+        'leaving the delete confirmation should close the window')
+    assert_eq(vim.o.guicursor, old_guicursor,
+        'leaving the delete confirmation should restore guicursor')
+    assert_eq(api.nvim_get_current_win(), origin_win)
+
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local old_winborder = vim.o.winborder
     vim.o.winborder = ''
     assert_eq(window.border(), 'rounded', 'window borders should keep Dora rounded fallback without winborder')
