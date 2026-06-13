@@ -84,6 +84,11 @@ while not fs.is_root(root) do
 end
 assert_eq(fs.parent_dir(root), root, 'parent_dir should not go above a Windows drive root')
 assert_eq(fs.strip_trailing_sep(root), root, 'strip_trailing_sep should preserve a Windows drive root')
+assert_eq(
+    fs.display_symlink_target('C:\\project\\links\\link', 'C:\\project\\targets\\file.txt'),
+    'C:\\project\\targets\\file.txt',
+    'Windows symlink targets should remain unchanged'
+)
 
 local notifications = {}
 local old_notify = vim.notify

@@ -116,6 +116,30 @@ function M.normalize_path(path, cwd)
     return vim.fs.normalize(vim.fs.joinpath(cwd, path), {expand_env = false})
 end
 
+---@param path string Symlink path
+---@param target string Target returned by readlink()
+---@return string
+function M.display_symlink_target(path, target)
+    if iswin or not vim.startswith(target, '/') then
+        return target
+    end
+    -- Find the nearest parent shared by the symlink and its absolute target.
+    local base = M.parent_dir(path)
+    local relative = vim.fs.relpath(base, target)
+    local prefix = ''
+    for parent in vim.fs.parents(base) do
+        if relative then
+            break
+        end
+        prefix = prefix .. '../'
+        relative = vim.fs.relpath(parent, target)
+    end
+    if not relative then
+        return target
+    end
+    return relative == '.' and (prefix ~= '' and prefix:sub(1, -2) or '.') or prefix .. relative
+end
+
 -- Paths from the OS (fs_realpath, uv.cwd) are backslash-separated on Windows,
 -- while every path built internally uses '/' (vim.fs.joinpath/normalize), so
 -- convert to '/' for prefix and equality checks to work.
