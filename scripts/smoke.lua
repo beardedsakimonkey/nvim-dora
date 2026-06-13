@@ -2172,9 +2172,9 @@ do
     local navigation_line = find_line_index(help_lines, '^Navigation$')
     assert(navigation_line, 'help should include a navigation section')
     assert(not find_line_index(help_lines, '^Bookmarks$'), 'help should not include a bookmarks section')
-    assert(navigation_line < find_line_index(help_lines, "^%s+m%s+Set bookmark$"),
+    assert(navigation_line < find_line_index(help_lines, "^%s+m%s+%S+%s+Set bookmark$"),
         'help should show bookmark mappings under the navigation title')
-    assert(find_line_index(help_lines, "^%s+'%s+Jump to bookmark$") < find_line_index(help_lines, "^%s+''%s+Jump to previous directory$"),
+    assert(find_line_index(help_lines, "^%s+'%s+%S+%s+Jump to bookmark$") < find_line_index(help_lines, "^%s+''%s+%S+%s+Jump to previous directory$"),
         'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
     assert(help_text:find("'a", 1, true), 'help should include bookmark a')
@@ -3047,17 +3047,17 @@ do
         previous_line = line
     end
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
-    -- Visual-capable rows carry a marker glyph in their own column to the left
-    -- of the key; %S+ matches it without coupling to the exact glyph.
-    local mouse_line = find_line_index(help_lines, '^%s+%S+%s+<2%-LeftMouse>%s+Open$')
-    local enter_line = find_line_index(help_lines, '^%s+%S+%s+<CR>%s+Open$')
-    local open_line = find_line_index(help_lines, '^%s+%S+%s+l%s+Open$')
+    -- Every row carries a mode column ('n'/'nv') between the key and the
+    -- description; %S+ matches it without coupling to the exact text.
+    local mouse_line = find_line_index(help_lines, '^%s+<2%-LeftMouse>%s+%S+%s+Open$')
+    local enter_line = find_line_index(help_lines, '^%s+<CR>%s+%S+%s+Open$')
+    local open_line = find_line_index(help_lines, '^%s+l%s+%S+%s+Open$')
     assert(mouse_line < enter_line and enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
-    assert(find_line_index(help_lines, "^%s+''%s+Jump to previous directory$"),
+    assert(find_line_index(help_lines, "^%s+''%s+%S+%s+Jump to previous directory$"),
         "help should always include the builtin previous-directory bookmark")
     local general_line = find_line_index(help_lines, '^General$') - 1
-    local quit_line = find_line_index(help_lines, '^%s+q%s+Quit$') - 1
+    local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+Quit$') - 1
     local section_highlight, key_highlight = false, false
     for _, mark in ipairs(api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})) do
         if mark[2] == general_line and mark[4].hl_group == 'DoraHelpSection' then
@@ -3087,11 +3087,11 @@ do
     core.help()
     local help_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     local help_text = table.concat(help_lines, '\n')
-    assert(help_text:match("x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
-    assert(find_line_index(help_lines, '^Yank$') < find_line_index(help_lines, '^  n%s+Yank full path$'),
+    assert(help_text:match("x%s+%S+%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>"), 'help should include legacy normal mappings')
+    assert(find_line_index(help_lines, '^Yank$') < find_line_index(help_lines, '^%s+n%s+%S+%s+Yank full path$'),
         'help should categorize remapped built-in actions by action name')
     assert(find_line_index(help_lines, '^Other$'), 'help should group custom mappings under Other')
-    assert(find_line_index(help_lines, "^  x%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^  z%s+Normal Z$'),
+    assert(find_line_index(help_lines, "^%s+x%s+%S+%s+<Cmd>lua vim%.g%.dora_smoke_legacy_keymap = 'normal'<CR>$") < find_line_index(help_lines, '^%s+z%s+%S+%s+Normal Z$'),
         'help should sort custom mappings by key')
     api.nvim_feedkeys('q', 'xt', false)
     core.quit()
