@@ -129,7 +129,7 @@ local function render(buf, ns, confirm_items, overflow)
         local row = #rendered_lines - 1
         api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN, {
             end_col = #rendered_lines[#rendered_lines],
-            hl_group = 'DoraDeleteMore',
+            hl_group = 'DoraMutedText',
         })
     end
 end

@@ -115,6 +115,12 @@ function M.resolve(rhs)
     return rhs, desc
 end
 
+---@param action DoraKeymapAction
+---@return boolean
+function M.has_visual_variant(action)
+    return type(action) == 'string' and VISUAL_KEYMAP_ACTIONS[action] ~= nil
+end
+
 ---@return DoraKeymapContext
 local function keymap_context()
     local state = require'dora.store'.get()
@@ -251,7 +257,7 @@ local function append_hint_cell(line, marks, lnum, row, key_width, desc_width, p
         lnum = lnum,
         col = arrow_col,
         end_col = arrow_col + #HINT_ARROW,
-        hl_group = 'DoraKeymapHintArrow',
+        hl_group = 'DoraMutedText',
     }
     marks[#marks+1] = {
         lnum = lnum,

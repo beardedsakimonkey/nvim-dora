@@ -287,7 +287,7 @@ do
         has_dir_suffix = has_dir_suffix
             or row == 1 and col == 4 and details.end_col == 5 and details.hl_group == 'DoraVirtText'
         has_more = has_more
-            or row == 10 and details.hl_group == 'DoraDeleteMore'
+            or row == 10 and details.hl_group == 'DoraMutedText'
     end
     assert(not has_path, 'delete confirmation should not dim the path portion')
     assert(has_file, 'delete confirmation should highlight file names by type')
@@ -2164,9 +2164,9 @@ do
     local navigation_line = find_line_index(help_lines, '^Navigation$')
     assert(navigation_line, 'help should include a navigation section')
     assert(not find_line_index(help_lines, '^Bookmarks$'), 'help should not include a bookmarks section')
-    assert(navigation_line < find_line_index(help_lines, "^  m%s+Set bookmark$"),
+    assert(navigation_line < find_line_index(help_lines, "^%s+m%s+Set bookmark$"),
         'help should show bookmark mappings under the navigation title')
-    assert(find_line_index(help_lines, "^  '%s+Jump to bookmark$") < find_line_index(help_lines, "^  ''%s+Jump to previous directory$"),
+    assert(find_line_index(help_lines, "^%s+'%s+Jump to bookmark$") < find_line_index(help_lines, "^%s+''%s+Jump to previous directory$"),
         'help should show saved bookmark targets after bookmark mappings')
     assert(help_text:find("''", 1, true), "help should include the builtin previous-directory bookmark")
     assert(help_text:find("'a", 1, true), 'help should include bookmark a')
@@ -2288,7 +2288,7 @@ do
     for _, mark in ipairs(marks) do
         local hl = mark[4].hl_group
         has_key = has_key or hl == 'DoraInfoLabel'
-        has_arrow = has_arrow or hl == 'DoraKeymapHintArrow'
+        has_arrow = has_arrow or hl == 'DoraMutedText'
         has_desc = has_desc or hl == 'DoraInfoValue'
     end
     assert(has_key, 'keymap hints should highlight keys')
@@ -2926,15 +2926,17 @@ do
         previous_line = line
     end
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
-    local mouse_line = find_line_index(help_lines, '^  <2%-LeftMouse>%s+Open$')
-    local enter_line = find_line_index(help_lines, '^  <CR>%s+Open$')
-    local open_line = find_line_index(help_lines, '^  l%s+Open$')
+    -- Visual-capable rows carry a marker glyph in their own column to the left
+    -- of the key; %S+ matches it without coupling to the exact glyph.
+    local mouse_line = find_line_index(help_lines, '^%s+%S+%s+<2%-LeftMouse>%s+Open$')
+    local enter_line = find_line_index(help_lines, '^%s+%S+%s+<CR>%s+Open$')
+    local open_line = find_line_index(help_lines, '^%s+%S+%s+l%s+Open$')
     assert(mouse_line < enter_line and enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
-    assert(find_line_index(help_lines, "^  ''%s+Jump to previous directory$"),
+    assert(find_line_index(help_lines, "^%s+''%s+Jump to previous directory$"),
         "help should always include the builtin previous-directory bookmark")
     local general_line = find_line_index(help_lines, '^General$') - 1
-    local quit_line = find_line_index(help_lines, '^  q%s+Quit$') - 1
+    local quit_line = find_line_index(help_lines, '^%s+q%s+Quit$') - 1
     local section_highlight, key_highlight = false, false
     for _, mark in ipairs(api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})) do
         if mark[2] == general_line and mark[4].hl_group == 'DoraHelpSection' then
