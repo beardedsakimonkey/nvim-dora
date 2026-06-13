@@ -1034,7 +1034,11 @@ end
 local function cleanup(state)
     close_filter(state)
     clear_listings(state)
-    api.nvim_buf_delete(state.buf, {force=true})
+    -- The buffer may already be gone: with bufhidden=wipe, switching the dora
+    -- window away (to origin_buf/alt_buf) wipes it before we get here.
+    if api.nvim_buf_is_valid(state.buf) then
+        api.nvim_buf_delete(state.buf, {force=true})
+    end
     store.remove(state.buf)
 end
 
