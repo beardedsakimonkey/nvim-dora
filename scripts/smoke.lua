@@ -2897,6 +2897,119 @@ do
 end
 
 do
+    -- Change history is recorded by path, so prev_change/next_change survive
+    -- the collapses and deletions that would scramble a line-based changelist.
+    local history = require'dora.history'
+
+    local h = history.new()
+    history.record(h, '/a')
+    history.record(h, '/b')
+    history.record(h, '/a')
+    assert_eq(#h.entries, 2, 'record should move a repeated path instead of duplicating it')
+    assert_eq(h.entries[1].path, '/b')
+    assert_eq(h.entries[2].path, '/a')
+    assert_eq(h.index, 3, 'record should rest after the newest entry')
+    assert_eq(history.step(h, h.index, -1), 2, 'first step back should reach the newest entry')
+    assert_eq(history.step(h, 2, -1), 1)
+    assert_eq(history.step(h, 1, -1), nil, 'step back should stop at the oldest entry')
+    assert_eq(history.step(h, 1, 1), 2)
+    assert_eq(history.step(h, 2, 1), nil, 'step forward should stop at the newest entry')
+    history.remove(h, 2)
+    assert_eq(#h.entries, 1)
+    assert_eq(h.index, 2, 'removing before the cursor should shift it back')
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.fn.mkdir(tmp .. '/dir/sub', 'p') == 1)
+    touch(tmp .. '/dir/sub/seed.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('dir')
+    core.expand()
+    set_cursor_line('sub/$')
+    core.expand()
+    set_cursor_line('seed%.txt$')
+
+    local old_input = prompt.input
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        cb('dir/sub/made.txt', opts.validate('dir/sub/made.txt'))
+    end
+    core.create()
+    assert(fs.exists(tmp .. '/dir/sub/made.txt'))
+    assert_match(current_line(), 'made%.txt$')
+
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        cb('renamed.txt', opts.validate('renamed.txt'))
+    end
+    core.rename()
+    prompt.input = old_input
+    assert(fs.exists(tmp .. '/dir/sub/renamed.txt'))
+
+    -- Collapse the whole subtree, then jump back to the rename: prev_change has
+    -- to re-expand the ancestors it can no longer see.
+    set_cursor_pos('dir')
+    core.collapse()
+    assert(not find_line_index(lines(), 'renamed%.txt$'), 'collapse should hide the renamed file')
+    core.prev_change()
+    assert_match(current_line(), 'renamed%.txt$', 'prev_change should re-expand collapsed ancestors to reveal the rename')
+
+    -- The create entry still points at made.txt, which the rename moved away, so
+    -- the jump falls back to the surviving parent directory.
+    core.prev_change()
+    assert_match(current_line(), 'sub/$', 'prev_change should fall back to the parent when the recorded path is gone')
+
+    core.next_change()
+    assert_match(current_line(), 'renamed%.txt$', 'next_change should return to the newer change')
+
+    -- Deleting records the nearest surviving sibling (seed.txt) as the target.
+    set_cursor_line('renamed%.txt$')
+    core.delete()
+    api.nvim_feedkeys('\r', 'xt', false)
+    assert(not fs.exists(tmp .. '/dir/sub/renamed.txt'), 'delete should remove the file')
+
+    set_cursor_pos('dir')
+    core.collapse()
+    core.prev_change()
+    assert_match(current_line(), 'seed%.txt$', 'prev_change should land on the surviving sibling after a delete')
+
+    -- Deleting the last child leaves no sibling, so it falls back to the parent.
+    set_cursor_line('seed%.txt$')
+    core.delete()
+    api.nvim_feedkeys('\r', 'xt', false)
+    assert(not fs.exists(tmp .. '/dir/sub/seed.txt'))
+    core.prev_change()
+    assert_match(current_line(), 'sub/$', 'prev_change should fall back to the parent when no sibling survives')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A top-level deletion lands on a sibling row, which the rootless parent
+    -- (the cwd) could never provide.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a.txt')
+    touch(tmp .. '/b.txt')
+    touch(tmp .. '/c.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('b%.txt$')
+    core.delete()
+    api.nvim_feedkeys('\r', 'xt', false)
+    assert(not fs.exists(tmp .. '/b.txt'), 'delete should remove the top-level file')
+
+    set_cursor_line('a%.txt$')
+    core.prev_change()
+    assert_match(current_line(), 'c%.txt$', 'prev_change should land on the next top-level sibling after a delete')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local origin_win = api.nvim_get_current_win()
     core.help()

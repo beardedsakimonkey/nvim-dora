@@ -93,6 +93,8 @@ M.config = {
         P = 'paste_parent',
         ['<Esc>'] = 'clear_marks',
         ['.'] = 'shell_cmd',
+        ['g;'] = 'prev_change',
+        ['g,'] = 'next_change',
 
         -- View
         f = 'filter',
