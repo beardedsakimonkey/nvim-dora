@@ -28,7 +28,6 @@ local M = {}
 ---@field icons DoraIconConfig
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
----@field insert_only_prompts boolean
 
 ---@type DoraConfig
 M.config = {
@@ -45,8 +44,6 @@ M.config = {
     sort_order = 'name',
     -- Number of columns used for each level of tree indentation (minimum 2)
     tree_indent = 4,
-    -- Whether prompt windows should close when leaving insert mode
-    insert_only_prompts = false,
     -- Key mappings
     keymaps = {
         -- General
