@@ -3,23 +3,42 @@ local window = require'dora.window'
 
 local M = {}
 
+local NS = api.nvim_create_namespace('dora/prompt')
+
 ---@class DoraPromptOptions
 ---@field prompt? string
 ---@field initial_prompt? string
 ---@field cwd string
 ---@field width? integer
 ---@field anchor? DoraFloatAnchor
+---@field icon? string Icon shown as virtual text before the input
+---@field icon_hl? string
 ---@field validate fun(input: string): any
+
+---@param opts DoraPromptOptions
+---@return string?
+local function icon_prefix(opts)
+    return opts.icon and opts.icon .. ' ' or nil
+end
 
 ---@param opts DoraPromptOptions
 ---@param width integer
 ---@return table
 local function win_layout(opts, width)
+    local anchor = opts.anchor
+    local prefix = icon_prefix(opts)
+    if anchor and prefix then
+        -- The icon renders before the input, so shift the window left to
+        -- keep the input superimposed on the anchor
+        anchor = vim.tbl_extend('force', anchor, {
+            col_offset = (anchor.col_offset or 0) + vim.fn.strdisplaywidth(prefix),
+        })
+    end
     return window.layout({
         title = opts.prompt,
         width = width,
         height = 1,
-        anchor = opts.anchor,
+        anchor = anchor,
     })
 end
 
@@ -131,6 +150,10 @@ function M.input(opts, cb)
     if #self.initial_prompt > 0 then
         self.width = math.max(self.width, #self.initial_prompt + 4)
     end
+    local prefix = icon_prefix(opts)
+    if prefix then
+        self.width = self.width + vim.fn.strdisplaywidth(prefix)
+    end
     self.input_buf = api.nvim_create_buf(false, true)
     vim.bo[self.input_buf].buftype = 'nofile'
     vim.bo[self.input_buf].bufhidden = 'wipe'
@@ -139,6 +162,13 @@ function M.input(opts, cb)
     vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
 
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.initial_prompt})
+    if prefix then
+        api.nvim_buf_set_extmark(self.input_buf, NS, 0, 0, {
+            virt_text = {{prefix, opts.icon_hl or 'DoraIcon'}},
+            virt_text_pos = 'inline',
+            right_gravity = false,
+        })
+    end
     api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
 
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)

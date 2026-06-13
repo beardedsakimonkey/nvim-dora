@@ -2004,6 +2004,8 @@ local function rename(prefill)
         initial_prompt = prefill and fs.basename(path) or '',
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(row, {superimpose = true}),
+        icon = row and row.icon or nil,
+        icon_hl = row and row.icon_hl or nil,
         validate = function(input)
             return fs.validate_rename(input, path)
         end,
