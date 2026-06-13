@@ -2006,6 +2006,7 @@ local function rename(prefill)
         anchor = current_name_anchor(row, {superimpose = true}),
         icon = row and row.icon or nil,
         icon_hl = row and row.icon_hl or nil,
+        insert_only = config.insert_only_prompts,
         validate = function(input)
             return fs.validate_rename(input, path)
         end,
@@ -2058,6 +2059,7 @@ local function create(under_directory)
         width = PROMPT_WIDTH,
         initial_prompt = create_parent_default(state, row, under_directory),
         anchor = current_name_anchor(row),
+        insert_only = config.insert_only_prompts,
         validate = function(input)
             return fs.validate_create(input, state.cwd)
         end,
@@ -2112,6 +2114,7 @@ function M.create_symlink()
         width = PROMPT_WIDTH,
         initial_prompt = dir,
         anchor = current_name_anchor(row),
+        insert_only = config.insert_only_prompts,
         validate = function(input)
             return fs.validate_symlink(input, state.cwd)
         end,
@@ -2152,6 +2155,7 @@ function M.shell_cmd()
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(current_row(state)),
+        insert_only = config.insert_only_prompts,
         validate = function() return true end,
     }, function(input)
         if not input or not api.nvim_buf_is_valid(state.buf) then

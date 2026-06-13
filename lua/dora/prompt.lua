@@ -13,6 +13,7 @@ local NS = api.nvim_create_namespace('dora/prompt')
 ---@field anchor? DoraFloatAnchor
 ---@field icon? string Icon shown as virtual text before the input
 ---@field icon_hl? string
+---@field insert_only? boolean
 ---@field validate fun(input: string): any
 
 ---@param opts DoraPromptOptions
@@ -113,6 +114,9 @@ function Prompt:confirm()
 end
 
 function Prompt:cancel()
+    if self.closed then
+        return
+    end
     self:close()
     self.cb(nil)
 end
@@ -171,6 +175,9 @@ function M.input(opts, cb)
     end
     api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
 
+    if opts.insert_only then
+        keymap(self.input_buf, 'i', '<Esc>', function() self:cancel() end)
+    end
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
     keymap(self.input_buf, 'n', 'q',     function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
@@ -194,6 +201,12 @@ function M.input(opts, cb)
             end
         end,
     })
+    if opts.insert_only then
+        self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('InsertLeave', {
+            buffer = self.input_buf,
+            callback = function() self:cancel() end,
+        })
+    end
 
     vim.cmd'startinsert!'
     return self
