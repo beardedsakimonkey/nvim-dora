@@ -28,7 +28,6 @@ local EMPTY_LABEL = '(empty)'
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local TREE_VERTICAL = '│'
 
----@alias DoraCwdScope 'window'|'tab'|'global'
 ---@alias DoraPasteOperation 'copy'|'cut'
 
 ---@class DoraTreeSegment
@@ -58,18 +57,12 @@ local TREE_VERTICAL = '│'
 ---@field filter_match_start_col? integer
 ---@field filter_match_end_col? integer
 
----@class DoraCwdRestore
----@field cwd string
----@field scope DoraCwdScope
-
 ---@class DoraState
 ---@field buf integer
 ---@field win integer
 ---@field origin_buf integer
 ---@field alt_buf? integer
 ---@field cwd string
----@field sync_local_cwd boolean
----@field cwd_restore? DoraCwdRestore
 ---@field ns integer
 ---@field cursor_ns integer
 ---@field show_hidden_files boolean
@@ -1044,63 +1037,6 @@ local function cleanup(state)
     store.remove(state.buf)
 end
 
----@return DoraCwdScope
-local function get_cwd_scope()
-    if vim.fn.haslocaldir(0, 0) == 1 then
-        return 'window'
-    elseif vim.fn.haslocaldir(-1, 0) == 1 then
-        return 'tab'
-    else
-        return 'global'
-    end
-end
-
----@return DoraCwdRestore
-local function save_cwd()
-    return {
-        cwd = vim.fn.getcwd(0, 0),
-        scope = get_cwd_scope(),
-    }
-end
-
----@param scope DoraCwdScope
----@return 'lcd'|'tcd'|'cd'
-local function cd_cmd(scope)
-    return ({
-        window = 'lcd',
-        tab = 'tcd',
-        global = 'cd',
-    })[scope]
-end
-
----@param scope DoraCwdScope
----@param cwd string
-local function set_cwd(scope, cwd)
-    vim.cmd(('sil %s %s'):format(cd_cmd(scope), vim.fn.fnameescape(cwd)))
-end
-
----@param state DoraState
-local function sync_local_cwd(state)
-    if state.sync_local_cwd then
-        local ok, msg = pcall(set_cwd, 'window', state.cwd)
-        if not ok then
-            util.warn(msg)
-        end
-    end
-end
-
----@param state DoraState
-local function restore_cwd(state)
-    if state.cwd_restore then
-        local restore = assert(state.cwd_restore)
-        local ok, msg = pcall(set_cwd, restore.scope, restore.cwd)
-        state.cwd_restore = nil
-        if not ok then
-            util.warn(msg)
-        end
-    end
-end
-
 ---@param state DoraState
 local function remember_hovered_file(state)
     local row = current_row(state)
@@ -1123,7 +1059,6 @@ local function change_cwd(state, path, cursor_pattern, or_top)
         -- current buffer as a collision, so renaming to the same cwd would
         -- append a spurious ' [1]' suffix.
         util.update_buf_name(state.cwd)
-        sync_local_cwd(state)
     end
     render(state)
     set_cursor_pos(state, cursor_pattern, or_top)
@@ -1132,7 +1067,6 @@ end
 function M.quit()
     local state = store.get()
     save_previous_directory(state)
-    restore_cwd(state)
     if state.alt_buf then
         util.set_current_buf(state.alt_buf)
     end
@@ -1369,7 +1303,6 @@ function M.open(cmd)
             end
         else
             save_previous_directory(state)
-            restore_cwd(state)
             util.set_current_buf(state.origin_buf)  -- update the altfile
             vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
             cleanup(state)
@@ -1412,7 +1345,6 @@ local function open_selected_files(cmd, stay)
         return
     end
     save_previous_directory(state)
-    restore_cwd(state)
     util.set_current_buf(state.origin_buf)  -- update the altfile
     for _, path in ipairs(paths) do
         vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
@@ -2280,8 +2212,6 @@ function M.initialize(dir, from_au)
     local cwd = getcwd(dir)
     local origin_filename = vim.fn.expand'%:p:t' ---@type string?
     origin_filename = origin_filename ~= '' and origin_filename or nil
-    local sync = config.sync_local_cwd
-    local cwd_restore = sync and save_cwd() or nil
     local buf = util.create_buf(cwd)
     local ns = api.nvim_create_namespace('dora.' .. buf)
     local cursor_ns = api.nvim_create_namespace('dora/cursor.' .. buf)
@@ -2291,8 +2221,6 @@ function M.initialize(dir, from_au)
         origin_buf = origin_buf,
         alt_buf = alt_buf,
         cwd = cwd,
-        sync_local_cwd = sync,
-        cwd_restore = cwd_restore,
         ns = ns,
         cursor_ns = cursor_ns,
         show_hidden_files = config.show_hidden_files,
@@ -2312,7 +2240,6 @@ function M.initialize(dir, from_au)
     keymaps.setup(buf, config)
     store.set(buf, state)
     setup_autocmds(buf)
-    sync_local_cwd(state)
     render(state)
     set_cursor_pos(state, origin_filename)
 end
