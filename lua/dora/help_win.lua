@@ -59,10 +59,6 @@ local SECTIONS = {
     },
 }
 
--- Mathematical "v", shown in its own dimmed column to flag mappings that also
--- work on a visual selection, without the noise of a full mode column.
-local VISUAL_MARKER = '𝒗'
-
 ---@class DoraHelpRow
 ---@field lhs? string
 ---@field desc? string
@@ -146,13 +142,9 @@ end
 ---@param help_rows DoraHelpRow[]
 local function render(buf, ns, help_rows)
     local key_width = 1
-    local any_visual = false
     for _, row in ipairs(help_rows) do
         if row.lhs then
             key_width = math.max(key_width, #row.lhs)
-            if row.visual then
-                any_visual = true
-            end
         end
     end
 
@@ -164,22 +156,19 @@ local function render(buf, ns, help_rows)
             lines[i] = row.section
             marks[#marks+1] = {lnum=lnum, col=0, end_col=#row.section, hl='DoraHelpSection'}
         elseif row.lhs then
-            -- Drop one space of indent when the marker column is present, so
-            -- the glyph sits one column closer to the left edge.
-            local line = any_visual and ' ' or '  '
-            -- Reserve the marker column to the left of every key so keys stay
-            -- aligned; only visual-capable rows get the glyph.
-            if any_visual then
-                local marker_col = #line
-                line = line .. (row.visual and VISUAL_MARKER or ' ') .. '  '
-                if row.visual then
-                    marks[#marks+1] = {lnum=lnum, col=marker_col, end_col=marker_col + #VISUAL_MARKER, hl='DoraMutedText'}
-                end
-            end
+            -- Keymap column
+            local line = '  '
             local key = ('%-' .. key_width .. 's'):format(row.lhs)
             local key_col = #line
             line = line .. key
             marks[#marks+1] = {lnum=lnum, col=key_col, end_col=key_col + #key, hl='DoraInfoLabel'}
+            -- Mode column
+            line = line .. '  '
+            local mode = row.visual and 'nv' or 'n'
+            local mode_col = #line
+            line = line .. ('%-2s'):format(mode)
+            marks[#marks+1] = {lnum=lnum, col=mode_col, end_col=mode_col + #mode, hl='DoraMutedText'}
+            -- Description column
             line = line .. '  '
             local desc_col = #line
             line = line .. row.desc
