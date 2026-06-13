@@ -30,6 +30,8 @@ Dora aims to make filesystem navigation and common file operations efficient:
   file being acted on.
 - Files can be marked directly for cut or copy operations, then pasted at the
   destination.
+- Dora remembers the selected entry in each visited directory and restores the
+  cursor to it when navigating back.
 - Expanded directories persist for the lifetime of the Neovim session, and
   the last directory and cursor position survive closing Dora. Reopen it and
   press `''` to return to where you left off.
@@ -220,10 +222,17 @@ shown for empty directories. For example, to change the window's local working
 directory to the browsed directory:
 
 ```lua
-dora.config.keymaps.gl = {
-    function(ctx) vim.cmd.lcd(ctx.cwd) end,
-    desc = ":lcd to browsed directory",
-}
+dora.setup({
+    keymaps = {
+        gl = {
+            ---@param ctx {cwd: string, path: string?, type: "file"|"directory"|"link"?}
+            function(ctx)
+                vim.cmd.lcd(ctx.cwd)
+            end,
+            desc = ":lcd to browsed directory",
+        },
+    },
+})
 ```
 
 Dora also shows a small hint window for two-character normal mode mappings.
