@@ -794,10 +794,14 @@ local function move_sibling(step)
     if not row or not row.parent_path then
         return
     end
-    local target = sibling_line(state, line, step)
-    if target then
-        move_to_line(state, target)
+    for _ = 1, vim.v.count1 do
+        local target = sibling_line(state, line, step)
+        if not target then
+            break
+        end
+        line = target
     end
+    move_to_line(state, line)
 end
 
 ---@param step integer 1 for last, -1 for first
@@ -1233,11 +1237,17 @@ end
 
 function M.parent_dir()
     local state = store.get()
-    local row = current_row(state)
-    if not row or not row.parent_path then
-        return
+    for _ = 1, vim.v.count1 do
+        local row = current_row(state)
+        if not row or not row.parent_path then
+            return
+        end
+        local cursor = api.nvim_win_get_cursor(0)
+        set_cursor_path(state, row.parent_path)
+        if vim.deep_equal(api.nvim_win_get_cursor(0), cursor) then
+            return
+        end
     end
-    set_cursor_path(state, row.parent_path)
 end
 
 function M.next_sibling()

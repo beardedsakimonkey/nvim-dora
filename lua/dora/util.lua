@@ -10,26 +10,6 @@ local function buf_has_var(buf, var_name)
     return ok and ret or false
 end
 
--- Problem: We'd like dora buffers to be completely unique (dora instances in
--- two different windows should be isolated), and also have a buffer name that
--- we can `:cd %` to.
---
--- If we use the absolute path as the buffer name, buffers won't be unique. That
--- is, if we have two windows opened to the same path, they will share the
--- same buffer, and so actions performed in one would affect the other.
---
--- One idea to work around this is to suffix buffer names that would otherwise
--- be unique with a number of repeated "/." in order to be unique. However,
--- vim's implementation of buffer renaming tries to fully resolve the name if
--- it's a path, so it will end up reusing the existing buffer.
---
--- However, vim doesn't perform this resolution if the buffer name is a URI,
--- such as "file:///Users/blah", so we could use the suffix trick with that.
--- But, alas, `:cd`ing to a URI isn't supported.
---
--- So, the best we can do is name a buffer by its path if it isn't currently
--- loaded, or otherwise name it by its path with an appended id, which makes it
--- unique but not `:cd`able.
 ---@param cwd string
 ---@return string
 local function create_buf_name(cwd)
