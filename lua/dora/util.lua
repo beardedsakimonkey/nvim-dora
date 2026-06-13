@@ -56,9 +56,22 @@ function M.create_buf(cwd)
     local buf
     if existing_buf ~= -1 then
         if buf_has_var(existing_buf, 'is_dora') then
-            -- If buffer exists and it's a dora buffer, create a new buffer
-            buf = api.nvim_create_buf(false, true)
-            api.nvim_buf_set_name(buf, create_buf_name(cwd))
+            if #vim.fn.win_findbuf(existing_buf) > 0 then
+                -- A live dora session is already showing this path in another
+                -- window. Give the new buffer a unique (but not `:cd`able) name
+                -- so the two windows stay isolated.
+                buf = api.nvim_create_buf(false, true)
+                api.nvim_buf_set_name(buf, create_buf_name(cwd))
+            else
+                -- The existing dora buffer is an orphan left behind by a closed
+                -- session (e.g. its window was `:q`d, which hides rather than
+                -- deletes the buffer). Wipe it so the new session can take the
+                -- clean, `:cd`able name instead of a needlessly id'd one. The
+                -- wipe fires BufWipeout, which tears down the stale session.
+                pcall(api.nvim_buf_delete, existing_buf, {force=true})
+                buf = api.nvim_create_buf(false, true)
+                api.nvim_buf_set_name(buf, cwd)
+            end
         else
             -- If buffer exists and it's not a dora buffer, reuse it. This can
             -- happen when launching nvim with a directory arg.
