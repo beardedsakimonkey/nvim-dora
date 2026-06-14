@@ -1783,11 +1783,17 @@ do
     set_cursor_pos('dest')
     core.expand()
     set_cursor_line('alpha%.txt$')
+    local origin_win = api.nvim_get_current_win()
+    local cursor = api.nvim_win_get_cursor(origin_win)
+    local cursor_pos = vim.fn.screenpos(origin_win, cursor[1], cursor[2] + 1)
     core.paste_parent()
 
     local confirm_win = api.nvim_get_current_win()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Overwrite%?')
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' alpha.txt')
+    assert_eq(confirm_cfg.row, cursor_pos.row,
+        'paste confirmation should anchor below the cursorline')
     api.nvim_feedkeys('n', 'xt', false)
 
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'old',

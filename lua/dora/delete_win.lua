@@ -162,6 +162,9 @@ end
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@return DoraFloatAnchor
 local function superimpose_anchor(anchor, confirm_items)
+    if anchor.superimpose == false then
+        return anchor
+    end
     local first = confirm_items[1]
     if not first then
         return anchor
