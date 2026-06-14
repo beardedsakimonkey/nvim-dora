@@ -1862,7 +1862,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
             paste_entries(state, entries, dest_dir)
         end
     end, {
-        anchor = current_name_anchor(row),
+        anchor = current_name_anchor(row, {superimpose = false}),
         action = 'Overwrite',
     })
 end
