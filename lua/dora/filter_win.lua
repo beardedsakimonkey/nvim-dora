@@ -97,7 +97,7 @@ function FilterWindow:set_display(text)
 end
 
 function FilterWindow:relayout()
-    if window.valid_win(self.win) then
+    if window.valid_win(self.win) and window.valid_win(self.opts.origin_win) then
         api.nvim_win_set_config(self.win, self:layout())
     end
 end
@@ -209,11 +209,24 @@ function M.open(opts)
     })
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('WinClosed', {
         callback = function(args)
-            if not self.closed and tonumber(args.match) == self.win then
-                self.closed = true
-                self:clear_autocmds()
-                vim.schedule(self.opts.on_close)
+            if self.closed then
+                return
             end
+            local closed_win = tonumber(args.match)
+            -- The filter float is anchored to (and meaningless without) the
+            -- origin window, so tear it down whether the float itself or its
+            -- origin window — e.g. `:q`ing dora — is what closed.
+            if closed_win ~= self.win and closed_win ~= self.opts.origin_win then
+                return
+            end
+            self.closed = true
+            self:clear_autocmds()
+            vim.schedule(function()
+                -- A no-op when the float is what closed; closes the orphaned
+                -- float when the origin window closed out from under it.
+                window.close(self.buf, self.win)
+                self.opts.on_close()
+            end)
         end,
     })
 
