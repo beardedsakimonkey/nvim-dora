@@ -1864,12 +1864,14 @@ local function paste_to_directory(state, row, dest_dir, entries)
         return
     end
     local paste_paths = {}
+    local overwrites = {}
     for _, entry in ipairs(entries) do
         paste_paths[#paste_paths+1] = entry.path
+        local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
+        if fs.exists(entry_dest) and not fs.same_file(entry.path, entry_dest) then
+            overwrites[entry.path] = true
+        end
     end
-    local dest_label = dest_dir == state.cwd
-        and fs.basename(state.cwd) .. '/'
-        or relative_child_path(state, dest_dir) .. '/'
     delete_win.delete(paste_paths, function(confirmed)
         if confirmed and api.nvim_buf_is_valid(state.buf) then
             paste_entries(state, entries, dest_dir)
@@ -1877,8 +1879,9 @@ local function paste_to_directory(state, row, dest_dir, entries)
     end, {
         anchor = current_name_anchor(row, {superimpose = false}),
         action = 'Paste',
-        dest = dest_label,
+        dest = dest_dir,
         base = state.cwd,
+        overwrites = overwrites,
     })
 end
 
