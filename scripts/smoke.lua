@@ -2358,13 +2358,13 @@ do
         {lhs='yn', desc='Yank name without extension'},
         {lhs='yY', desc='Yank full path to clipboard'},
         {lhs='yy', desc='Yank full path'},
-        {lhs='yD', desc='Yank directory path to clipboard'},
-        {lhs='yd', desc='Yank directory path'},
+        {lhs='yD', desc='Yank parent directory to clipboard'},
+        {lhs='yd', desc='Yank parent directory'},
     })
     local hint_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
     assert_match(hint_lines[1], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
     assert_match(hint_lines[2], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
-    assert_match(hint_lines[3], '^  yd%s+→%s+Yank directory path%s+yD%s+→%s+Yank directory path to clipboard$')
+    assert_match(hint_lines[3], '^  yd%s+→%s+Yank parent directory%s+yD%s+→%s+Yank parent directory to clipboard$')
     assert_match(hint_lines[4], '^  yn%s+→%s+Yank name without extension%s+yN%s+→%s+Yank name without extension to clipboard$')
     window.close(buf, win)
 end
@@ -2735,11 +2735,11 @@ do
 
     core.yank_dir_path()
     assert_eq(vim.fn.getreg('"'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked directory path: ' .. fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked parent directory: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_dir_path_clipboard()
     assert_eq(vim.fn.getreg('+'), fs.realpath(tmp) .. '/dir')
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked directory path to clipboard: ' .. fs.realpath(tmp) .. '/dir')
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked parent directory to clipboard: ' .. fs.realpath(tmp) .. '/dir')
 
     core.yank_filename()
     assert_eq(vim.fn.getreg('"'), 'archive.tar.gz')
