@@ -27,6 +27,42 @@ local function format_size(bytes)
     return string.format('%.1f PiB (%d bytes)', size / 1024, bytes)
 end
 
+---@param sec integer
+---@return string
+local function format_relative(sec)
+    local diff = os.time() - sec
+    local future = diff < 0
+    diff = math.abs(diff)
+    if diff < 60 then
+        return future and 'in a moment' or 'just now'
+    end
+    local units = {
+        {60, 'minute'},
+        {60, 'hour'},
+        {24, 'day'},
+        {7, 'week'},
+        {365 / 7 / 12, 'month'},
+        {12, 'year'},
+    }
+    local value = diff
+    local label = 'second'
+    for _, unit in ipairs(units) do
+        if value < unit[1] then
+            break
+        end
+        value = value / unit[1]
+        label = unit[2]
+    end
+    value = math.floor(value)
+    local plural = value == 1 and '' or 's'
+    if label == 'day' and value == 1 then
+        return future and 'tomorrow' or 'yesterday'
+    end
+    return future
+        and ('in %d %s%s'):format(value, label, plural)
+        or ('%d %s%s ago'):format(value, label, plural)
+end
+
 ---@param timestamp table?
 ---@return string
 local function format_time(timestamp)
@@ -34,7 +70,10 @@ local function format_time(timestamp)
         return 'unknown'
     end
     local formatted = os.date('%Y-%m-%d %H:%M:%S', timestamp.sec)
-    return type(formatted) == 'string' and formatted or 'unknown'
+    if type(formatted) ~= 'string' then
+        return 'unknown'
+    end
+    return ('%s (%s)'):format(formatted, format_relative(timestamp.sec))
 end
 
 ---@param mode integer
