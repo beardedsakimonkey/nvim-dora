@@ -805,7 +805,7 @@ do
         local path = opts.validate('foo/bar/a')
         cb('foo/bar/a', path)
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/foo/bar/a'), 'create should create a nested file path')
@@ -837,7 +837,7 @@ do
         local input = opts.initial_prompt .. 'foo/bar'
         cb(input, opts.validate(input))
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/nvim-dora/foo/bar'), 'create should create nested paths inside expanded directories')
@@ -861,7 +861,7 @@ do
         local path = opts.validate('foo/bar/')
         cb('foo/bar/', path)
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.is_dir(tmp .. '/foo/bar'), 'create should create nested directory paths')
@@ -911,7 +911,7 @@ do
         local input = opts.initial_prompt .. 'file.txt'
         cb(input, opts.validate(input))
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/file.txt'), 'create should create beside the hovered directory')
@@ -940,7 +940,7 @@ do
         local input = opts.initial_prompt .. 'sibling.txt'
         cb(input, opts.validate(input))
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/child/sibling.txt'), 'create should create beside the hovered file')
@@ -1001,7 +1001,7 @@ do
         local input = 'duplicate.txt'
         cb(input, opts.validate(input))
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/duplicate.txt'), 'create should create beside the root-level directory')
@@ -1019,7 +1019,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('A', 'n', false, true).desc, 'Add file under directory')
+    assert_eq(vim.fn.maparg('a', 'n', false, true).desc, 'Add file under directory')
     set_cursor_pos('root')
 
     local old_input = prompt.input
@@ -1029,7 +1029,7 @@ do
         local input = opts.initial_prompt .. 'child.txt'
         cb(input, opts.validate(input))
     end
-    core.create_under()
+    core.add_under()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/child.txt'), 'create_under should create inside the hovered directory')
@@ -1077,7 +1077,7 @@ do
         local input = opts.initial_prompt .. 'file.txt'
         cb(input, opts.validate(input))
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/root/file.txt'), 'create on a placeholder should create inside its directory')
@@ -1108,7 +1108,7 @@ do
         assert_eq(opts.anchor.col, row.name_start_col)
         cb(nil)
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     core.quit()
@@ -1252,7 +1252,7 @@ do
         assert_eq(opts.anchor.col, row.name_start_col)
         cb(nil)
     end
-    core.create()
+    core.add()
     prompt.input = old_input
 
     core.quit()
@@ -1713,7 +1713,7 @@ do
     assert_eq(state.marked_paths[state.cwd .. '/alpha.txt'], 'copy', 'copy should replace an existing cut mark')
 
     set_cursor_pos('dest')
-    core.paste()
+    core.paste_under()
 
     local paste_win = api.nvim_get_current_win()
     assert_match(win_title(paste_win), 'Paste%?')
@@ -1750,7 +1750,7 @@ do
     set_cursor_pos('dest')
     core.expand()
     set_cursor_line('beta%.txt$')
-    core.paste()
+    core.paste_under()
     api.nvim_feedkeys('y', 'xt', false)
 
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste over a plain file should copy into its parent directory')
@@ -1774,7 +1774,7 @@ do
     set_cursor_line('a%.c$')
     core.toggle_copy()
     set_cursor_pos('dest')
-    core.paste()
+    core.paste_under()
 
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' sub/a.c',
         'paste confirmation should list source files relative to the root')
@@ -1803,7 +1803,7 @@ do
     assert_eq(state.cwd, root .. '/sub', 'opening a directory should descend into it')
 
     set_cursor_line('b%.txt$')
-    core.paste()
+    core.paste_under()
 
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' ' .. root .. '/a.c',
         'paste confirmation should list marks above the root as absolute paths')
@@ -1838,7 +1838,7 @@ do
     assert_eq(vim.fn.delete(tmp .. '/alpha.txt'), 0)
     reload_map.callback()
     assert_eq(marked_path_count(state), 0, 'reload should clear marks for files deleted externally')
-    core.paste()
+    core.paste_under()
     assert_eq(notifications[#notifications].msg, 'dora: Nothing to paste')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
@@ -1864,7 +1864,7 @@ do
     local origin_win = api.nvim_get_current_win()
     local cursor = api.nvim_win_get_cursor(origin_win)
     local cursor_pos = vim.fn.screenpos(origin_win, cursor[1], cursor[2] + 1)
-    core.paste_parent()
+    core.paste()
 
     local confirm_win = api.nvim_get_current_win()
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
@@ -1883,7 +1883,7 @@ do
     assert_eq(marked_path_count(state), 1,
         'declining overwrite should preserve paste marks')
 
-    core.paste_parent()
+    core.paste()
     assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
     api.nvim_feedkeys('y', 'xt', false)
 
@@ -1912,7 +1912,7 @@ do
     set_cursor_pos('foo')
     core.toggle_copy()
     set_cursor_pos('dest')
-    core.paste()
+    core.paste_under()
 
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' foo/ (overwrites)',
         'pasting a directory onto an existing one should be flagged as an overwrite')
@@ -1982,7 +1982,7 @@ do
 
     set_cursor_pos('dest')
     core.expand()
-    core.paste()
+    core.paste_under()
     api.nvim_feedkeys('y', 'xt', false)
 
     assert(not fs.exists(tmp .. '/a'), 'mixed paste should remove cut source a')
@@ -3061,7 +3061,7 @@ do
     prompt.input = function(opts, cb)
         cb('dir/sub/made.txt', opts.validate('dir/sub/made.txt'))
     end
-    core.create()
+    core.add()
     assert(fs.exists(tmp .. '/dir/sub/made.txt'))
     assert_match(current_line(), 'made%.txt$')
 
