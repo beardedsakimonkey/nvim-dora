@@ -3718,6 +3718,36 @@ do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local left_win = api.nvim_get_current_win()
+    local left_buf = api.nvim_get_current_buf()
+    local left_state = store.get()
+
+    vim.cmd('vsplit ' .. vim.fn.fnameescape(tmp .. '/sub'))
+    local right_win = api.nvim_get_current_win()
+    local right_buf = api.nvim_get_current_buf()
+    local right_state = store.get()
+
+    assert(right_win ~= left_win, 'vsplit should create a second window')
+    assert(right_buf ~= left_buf, 'vsplit directory from dora should create a separate Dora buffer')
+    assert(right_state ~= left_state, 'vsplit directory from dora should create a separate Dora session')
+    assert_eq(api.nvim_win_get_buf(left_win), left_buf, 'vsplit directory from dora should leave the original window unchanged')
+    assert_eq(api.nvim_win_get_buf(right_win), right_buf, 'vsplit directory from dora should use the new buffer in the split')
+    assert_eq(left_state.cwd, fs.realpath(tmp), 'vsplit directory from dora should not retarget the original session')
+    assert_eq(right_state.cwd, fs.realpath(tmp .. '/sub'), 'vsplit directory from dora should browse the requested directory')
+
+    core.quit()
+    api.nvim_win_close(right_win, true)
+    api.nvim_set_current_win(left_win)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
     touch(tmp .. '/sub/seed.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))

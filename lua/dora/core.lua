@@ -2332,10 +2332,12 @@ function M.initialize(dir, from_au)
         and vim.fn.bufnr'#'
         or api.nvim_get_current_buf()
 
-    -- If we're in (or came from) an existing dora session, navigate it to the
-    -- new directory instead of stacking another dora buffer.
+    -- Same-window directory edits from Dora should navigate the existing
+    -- session. Split-created directory edits should become separate sessions.
+    local win = api.nvim_get_current_win()
     local prior_ok, prior_state = pcall(store.get, origin_buf)
-    if prior_ok then
+    local reuse_prior = prior_ok and (not from_au or prior_state.win == win)
+    if reuse_prior then
         local dir_buf = from_au and api.nvim_get_current_buf() or nil
         util.set_current_buf(origin_buf)
         if dir_buf and dir_buf ~= origin_buf and api.nvim_buf_is_valid(dir_buf) then
@@ -2347,7 +2349,6 @@ function M.initialize(dir, from_au)
         return
     end
     local alt_buf = (not from_au and has_altbuf) and vim.fn.bufnr'#' or nil
-    local win = api.nvim_get_current_win()
     local cwd = getcwd(dir)
     local origin_filename = vim.fn.expand'%:p:t' ---@type string?
     origin_filename = origin_filename ~= '' and origin_filename or nil
