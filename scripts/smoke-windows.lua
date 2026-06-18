@@ -22,6 +22,13 @@ local function touch(path, contents)
     assert(uv.fs_close(fd))
 end
 
+-- Paste copies asynchronously; pump the loop until it finishes before asserting.
+local function wait_for_paste()
+    assert(vim.wait(5000, function()
+        return not store.get().paste_in_progress
+    end), 'paste did not finish')
+end
+
 -- Find a row by its path relative to the listing root, so that a name
 -- appearing in several expanded directories can't match the wrong row.
 local function row_line(relative_path)
@@ -59,6 +66,7 @@ set_cursor('alpha.txt')
 core.toggle_copy()
 set_cursor('dest')
 core.paste()
+wait_for_paste()
 assert(fs.exists(vim.fs.joinpath(dest, 'alpha.txt')), 'paste should copy files on Windows')
 core.quit()
 

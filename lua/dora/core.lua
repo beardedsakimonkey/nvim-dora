@@ -29,6 +29,33 @@ local EMPTY_LABEL = '(empty)'
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local TREE_VERTICAL = '│'
 
+local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+
+-- Shows an updating, non-blocking progress line on the command line while an
+-- async paste runs, and returns a function that stops it and clears the line.
+-- A timer drives the animation so the spinner keeps moving even while a single
+-- large file copies (which produces no per-file progress callbacks).
+---@param progress DoraPasteProgress
+---@return fun()
+local function start_paste_spinner(progress)
+    -- Nothing to render to without an attached UI (e.g. headless tests).
+    local timer = #api.nvim_list_uis() > 0 and uv.new_timer()
+    if not timer then
+        return function() end
+    end
+    local frame = 1
+    timer:start(0, 100, vim.schedule_wrap(function()
+        api.nvim_echo({{('dora: %s Pasting… %d items, %.1f MiB'):format(
+            SPINNER_FRAMES[frame], progress.files, progress.bytes / 1024 / 1024)}}, false, {})
+        frame = frame % #SPINNER_FRAMES + 1
+    end))
+    return function()
+        timer:stop()
+        timer:close()
+        api.nvim_echo({{''}}, false, {})
+    end
+end
+
 ---@alias DoraPasteOperation 'copy'|'cut'
 
 ---@class DoraTreeSegment
@@ -78,6 +105,7 @@ local TREE_VERTICAL = '│'
 ---@field filter_window? DoraFilterWindow
 ---@field filter_editing boolean
 ---@field marked_paths table<string, DoraPasteOperation>
+---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
 ---@field bookmarks DoraBookmarks
 ---@field change_history DoraChangeHistory
 
@@ -1804,31 +1832,49 @@ end
 ---@param entries DoraMarkedPathEntry[]
 ---@param dest_dir string
 local function paste_entries(state, entries, dest_dir)
-    local first_dest
-    local ok, msg = pcall(function()
-        assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
-        for _, entry in ipairs(entries) do
-            local dest = fs.copy_or_move(entry.operation == 'cut', entry.path, dest_dir, state.cwd)
-            first_dest = first_dest or dest
-        end
-    end)
-    if not ok then
-        util.err(msg)
+    if state.paste_in_progress then
+        util.err('A paste is already in progress')
         return
     end
-    clear_marked_paths(state)
-    -- Expand the destination so the pasted rows are visible.
-    if dest_dir ~= state.cwd then
-        state.expanded_dirs[dest_dir] = true
+    if not fs.is_dir(dest_dir) then
+        util.err(('%q is not a directory'):format(dest_dir))
+        return
     end
-    if first_dest then
-        record_change(state, first_dest)
+    local ops = {}
+    for _, entry in ipairs(entries) do
+        ops[#ops + 1] = {is_move = entry.operation == 'cut', src = entry.path}
     end
-    clear_listings(state)
-    render(state)
-    set_cursor_path(state, first_dest)
-    local item_label = #entries == 1 and 'item' or 'items'
-    util.info(('Pasted %d %s to %s'):format(#entries, item_label, util.display_path(dest_dir)))
+    -- The copy runs off the main loop; keep the editor responsive and show a
+    -- live spinner until it finishes.
+    local progress = {files = 0, bytes = 0}
+    local stop_spinner = start_paste_spinner(progress)
+    state.paste_in_progress = true
+    fs.paste_async(ops, dest_dir, state.cwd, progress, function(ok, result)
+        state.paste_in_progress = false
+        stop_spinner()
+        if not ok then
+            util.err(result)
+            return
+        end
+        local first_dest = result
+        clear_marked_paths(state)
+        -- Expand the destination so the pasted rows are visible.
+        if dest_dir ~= state.cwd then
+            state.expanded_dirs[dest_dir] = true
+        end
+        if first_dest then
+            record_change(state, first_dest)
+        end
+        -- The user may have closed the dora window while the copy ran.
+        if not api.nvim_buf_is_valid(state.buf) then
+            return
+        end
+        clear_listings(state)
+        render(state)
+        set_cursor_path(state, first_dest)
+        local item_label = #entries == 1 and 'item' or 'items'
+        util.info(('Pasted %d %s to %s'):format(#entries, item_label, util.display_path(dest_dir)))
+    end)
 end
 
 ---@param state DoraState
