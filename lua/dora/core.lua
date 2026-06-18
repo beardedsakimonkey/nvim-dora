@@ -94,6 +94,7 @@ end
 
 local render
 local scroll_filter_results_to_top
+local keep_filter_spacer
 
 ---@class DoraListingEntry
 ---@field raw DoraFile[]? unfiltered listing; nil when the listing failed
@@ -503,6 +504,12 @@ function render(state)
         end
     end
     update_tree_cursor_highlight(state)
+    -- Rewriting the buffer drops the window's topfill, which is what reveals the
+    -- filter float's spacer line. Restore it here (a no-op unless scrolled to the
+    -- top, where the spacer lives) so render callers don't each have to.
+    if state.filter_editing or state.filter_window then
+        keep_filter_spacer(state.win)
+    end
 end
 
 ---@param state DoraState
@@ -1113,6 +1120,11 @@ local function setup_autocmds(buf)
             local ok, state = pcall(store.get, args.buf)
             if ok then
                 update_tree_cursor_highlight(state)
+                -- Native motions like `gg` scroll to the top and reset the
+                -- topfill spacer the filter float sits over, so restore it.
+                if state.filter_window then
+                    keep_filter_spacer(state.win)
+                end
             end
         end,
     })
@@ -1304,7 +1316,7 @@ end
 -- moving the user's scroll position. The spacer only exists above the first
 -- line, so there is nothing to restore unless results are scrolled to the top.
 ---@param win integer
-local function keep_filter_spacer(win)
+function keep_filter_spacer(win)
     if not api.nvim_win_is_valid(win) then
         return
     end
@@ -1773,9 +1785,6 @@ local function toggle_marked_path(operation)
         state.marked_paths[path] = operation
     end
     render(state)
-    if state.filter_window then
-        keep_filter_spacer(state.win)
-    end
 end
 
 function M.toggle_cut()
@@ -1808,9 +1817,6 @@ local function toggle_marked_paths_visual(operation)
     end
     exit_visual_mode()
     render(state)
-    if state.filter_window then
-        keep_filter_spacer(state.win)
-    end
 end
 
 function M.toggle_cut_visual()
@@ -1825,9 +1831,6 @@ function M.clear_paste_operation()
     local state = store.get()
     clear_marked_paths(state)
     render(state)
-    if state.filter_window then
-        keep_filter_spacer(state.win)
-    end
 end
 
 ---@param state DoraState
