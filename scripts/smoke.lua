@@ -3565,6 +3565,10 @@ do
     core.toggle_copy()
     assert_eq(state.marked_paths[fs.realpath(tmp) .. '/alpha/match.txt'], 'copy',
         'actions on filtered rows should use their real paths')
+    local toggled_view = api.nvim_win_call(origin_win, function()
+        return vim.fn.winsaveview()
+    end)
+    assert_eq(toggled_view.topfill, 1, 'toggling a paste mark should keep the virtual spacer visible')
     core.next_sibling()
     assert_eq(current_line(), 'gamma/match.txt', 'filtered navigation should treat results as peers')
     core.last_sibling()

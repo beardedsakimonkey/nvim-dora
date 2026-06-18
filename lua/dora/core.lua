@@ -1293,6 +1293,23 @@ local function scroll_filter_results_to_top(win)
     reveal_filter_spacer(win)
 end
 
+-- Re-show the spacer's filler line after a re-render cleared it, without
+-- moving the user's scroll position. The spacer only exists above the first
+-- line, so there is nothing to restore unless results are scrolled to the top.
+---@param win integer
+local function keep_filter_spacer(win)
+    if not api.nvim_win_is_valid(win) then
+        return
+    end
+    api.nvim_win_call(win, function()
+        local view = vim.fn.winsaveview()
+        if view.topline == 1 then
+            view.topfill = 1
+            vim.fn.winrestview(view)
+        end
+    end)
+end
+
 function M.filter()
     local state = store.get()
     local row = current_row(state)
@@ -1749,6 +1766,9 @@ local function toggle_marked_path(operation)
         state.marked_paths[path] = operation
     end
     render(state)
+    if state.filter_window then
+        keep_filter_spacer(state.win)
+    end
 end
 
 function M.toggle_cut()
@@ -1781,6 +1801,9 @@ local function toggle_marked_paths_visual(operation)
     end
     exit_visual_mode()
     render(state)
+    if state.filter_window then
+        keep_filter_spacer(state.win)
+    end
 end
 
 function M.toggle_cut_visual()
@@ -1796,7 +1819,7 @@ function M.clear_paste_operation()
     clear_marked_paths(state)
     render(state)
     if state.filter_window then
-        reveal_filter_spacer(state.win)
+        keep_filter_spacer(state.win)
     end
 end
 
