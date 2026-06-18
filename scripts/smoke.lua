@@ -1408,6 +1408,21 @@ do
     assert(not pcall(fs.rename, tmp .. '/source-dir', tmp .. '/other-dir'),
         'directory rename execution should reject an existing directory destination')
 
+    -- Case-only renames (README -> readme) must work even though the source and
+    -- destination resolve to the same entry on case-insensitive filesystems.
+    write_file(tmp .. '/Case.txt', 'x')
+    assert(vim.loop.fs_mkdir(tmp .. '/CaseDir', tonumber('755', 8)))
+    assert_eq(fs.validate_rename('case.txt', tmp .. '/Case.txt'), tmp .. '/case.txt',
+        'rename should allow changing only the case of a filename')
+    assert_eq(fs.validate_rename('casedir', tmp .. '/CaseDir'), tmp .. '/casedir',
+        'rename should allow changing only the case of a directory name')
+    assert(pcall(fs.rename, tmp .. '/Case.txt', tmp .. '/case.txt'),
+        'rename execution should change only the case of a filename')
+    assert(fs.exists(tmp .. '/case.txt'), 'case-only file rename should land on the new casing')
+    assert(pcall(fs.rename, tmp .. '/CaseDir', tmp .. '/casedir'),
+        'rename execution should change only the case of a directory name')
+    assert(fs.exists(tmp .. '/casedir'), 'case-only directory rename should land on the new casing')
+
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_line('source%.txt$')
