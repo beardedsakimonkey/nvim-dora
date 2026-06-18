@@ -93,6 +93,7 @@ local function is_permission_error(msg)
 end
 
 local render
+local scroll_filter_results_to_top
 
 ---@class DoraListingEntry
 ---@field raw DoraFile[]? unfiltered listing; nil when the listing failed
@@ -1182,7 +1183,6 @@ local function change_cwd(state, path, cursor_pattern, or_top)
     if state.cwd ~= path then
         local row = current_row(state)
         bookmarks.record_previous_directory(state.bookmarks, state.cwd, row and row.path or nil)
-        close_filter(state)
         state.cwd = path
         -- Only rename when the cwd changed; create_buf_name() counts the
         -- current buffer as a collision, so renaming to the same cwd would
@@ -1190,7 +1190,14 @@ local function change_cwd(state, path, cursor_pattern, or_top)
         util.update_buf_name(state.cwd)
     end
     render(state)
-    set_cursor_pos(state, cursor_pattern, or_top)
+    -- A committed filter persists across navigation, re-applying to the new
+    -- directory. Show its results from the top so the first match isn't hidden
+    -- behind the filter window.
+    if active_filter(state) then
+        scroll_filter_results_to_top(state.win)
+    else
+        set_cursor_pos(state, cursor_pattern, or_top)
+    end
 end
 
 function M.quit()
@@ -1285,7 +1292,7 @@ local function reveal_filter_spacer(win)
 end
 
 ---@param win integer
-local function scroll_filter_results_to_top(win)
+function scroll_filter_results_to_top(win)
     if not api.nvim_win_is_valid(win) then
         return
     end
