@@ -59,6 +59,7 @@ set_cursor('alpha.txt')
 core.toggle_copy()
 set_cursor('dest')
 core.paste()
+api.nvim_feedkeys('y', 'xt', false)
 assert(fs.exists(vim.fs.joinpath(dest, 'alpha.txt')), 'paste should copy files on Windows')
 core.quit()
 

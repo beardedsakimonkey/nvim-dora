@@ -1715,6 +1715,14 @@ do
     set_cursor_pos('dest')
     core.paste()
 
+    local paste_win = api.nvim_get_current_win()
+    assert_match(win_title(paste_win), 'Paste%?')
+    local paste_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    assert_eq(paste_lines[1], ' alpha.txt', 'paste confirmation should list the source file')
+    assert_eq(paste_lines[2], '  ↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(paste_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
+    api.nvim_feedkeys('y', 'xt', false)
+
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
     assert_eq(marked_path_count(state), 0)
@@ -1743,10 +1751,65 @@ do
     core.expand()
     set_cursor_line('beta%.txt$')
     core.paste()
+    api.nvim_feedkeys('y', 'xt', false)
 
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste over a plain file should copy into its parent directory')
     assert_eq(marked_path_count(state), 0)
     assert_match(current_line(), 'alpha%.txt$', 'paste should move cursor to the pasted file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/sub/a.c')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('sub')
+    core.expand()
+    set_cursor_line('a%.c$')
+    core.toggle_copy()
+    set_cursor_pos('dest')
+    core.paste()
+
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' sub/a.c',
+        'paste confirmation should list source files relative to the root')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert(fs.exists(tmp .. '/dest/a.c'), 'paste should copy the nested source file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/a.c')
+    touch(tmp .. '/sub/b.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local root = state.cwd
+    set_cursor_line('a%.c$')
+    core.toggle_copy()
+    set_cursor_pos('sub')
+    core.open()
+    assert_eq(state.cwd, root .. '/sub', 'opening a directory should descend into it')
+
+    set_cursor_line('b%.txt$')
+    core.paste()
+
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' ' .. root .. '/a.c',
+        'paste confirmation should list marks above the root as absolute paths')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert(fs.exists(root .. '/sub/a.c'), 'paste should copy a mark from above the root')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1805,8 +1868,11 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
-    assert_match(win_title(confirm_win), 'Overwrite%?')
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' alpha.txt')
+    assert_match(win_title(confirm_win), 'Paste%?')
+    local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    assert_eq(confirm_lines[1], ' alpha.txt')
+    assert_eq(confirm_lines[2], '  ↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(confirm_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
     assert_eq(confirm_cfg.row, cursor_pos.row,
         'paste confirmation should anchor below the cursorline')
     api.nvim_feedkeys('n', 'xt', false)
@@ -1817,7 +1883,7 @@ do
         'declining overwrite should preserve paste marks')
 
     core.paste_parent()
-    assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
+    assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
     api.nvim_feedkeys('y', 'xt', false)
 
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'new',
@@ -1887,6 +1953,7 @@ do
     set_cursor_pos('dest')
     core.expand()
     core.paste()
+    api.nvim_feedkeys('y', 'xt', false)
 
     assert(not fs.exists(tmp .. '/a'), 'mixed paste should remove cut source a')
     assert(fs.exists(tmp .. '/b'), 'mixed paste should leave copied source b')

@@ -1859,34 +1859,26 @@ end
 ---@param dest_dir string
 ---@param entries DoraMarkedPathEntry[]
 local function paste_to_directory(state, row, dest_dir, entries)
-    local overwrite_paths = {}
-    local seen_overwrite_paths = {}
-    local ok, msg = pcall(function()
-        assert(fs.is_dir(dest_dir), ('%q is not a directory'):format(dest_dir))
-        for _, entry in ipairs(entries) do
-            local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
-            local dest_stat = uv.fs_lstat(entry_dest)
-            if dest_stat and dest_stat.type ~= 'directory' and not seen_overwrite_paths[entry_dest] then
-                overwrite_paths[#overwrite_paths+1] = entry_dest
-                seen_overwrite_paths[entry_dest] = true
-            end
-        end
-    end)
-    if not ok then
-        util.err(msg)
+    if not fs.is_dir(dest_dir) then
+        util.err(('%q is not a directory'):format(dest_dir))
         return
     end
-    if #overwrite_paths == 0 then
-        paste_entries(state, entries, dest_dir)
-        return
+    local paste_paths = {}
+    for _, entry in ipairs(entries) do
+        paste_paths[#paste_paths+1] = entry.path
     end
-    delete_win.delete(overwrite_paths, function(confirmed)
+    local dest_label = dest_dir == state.cwd
+        and fs.basename(state.cwd) .. '/'
+        or relative_child_path(state, dest_dir) .. '/'
+    delete_win.delete(paste_paths, function(confirmed)
         if confirmed and api.nvim_buf_is_valid(state.buf) then
             paste_entries(state, entries, dest_dir)
         end
     end, {
         anchor = current_name_anchor(row, {superimpose = false}),
-        action = 'Overwrite',
+        action = 'Paste',
+        dest = dest_label,
+        base = state.cwd,
     })
 end
 

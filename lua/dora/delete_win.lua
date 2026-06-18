@@ -19,6 +19,8 @@ local RIGHT_PADDING = 1
 ---@field icon_start_col? integer
 ---@field icon_end_col? integer
 ---@field icon_hl? string
+---@field dir_start_col? integer
+---@field dir_end_col? integer
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
@@ -26,6 +28,8 @@ local RIGHT_PADDING = 1
 ---@class DoraDeleteOptions
 ---@field anchor? DoraFloatAnchor
 ---@field action? string
+---@field dest? string Destination path shown beneath the file list
+---@field base? string Show listed paths relative to this directory
 
 ---@param path string
 ---@return string
@@ -43,14 +47,27 @@ local function file_hl(path)
     return 'DoraFile'
 end
 
+-- Byte length of the leading directory portion of a path, before its final
+-- component. Trailing separators are ignored.
 ---@param path string
+---@return integer
+local function dir_prefix_len(path)
+    return #fs.strip_trailing_sep(path) - #fs.basename(path)
+end
+
+---@param path string
+---@param base? string
 ---@return DoraDeleteConfirmItem
-local function item(path)
+local function item(path, base)
     local basename = fs.basename(path)
+    -- Show the path relative to base, falling back to the absolute path for
+    -- marks outside it (e.g. above the current root).
+    local relative = base and (vim.fs.relpath(base, path) or path) or basename
+    local dir_len = dir_prefix_len(relative)
     local hl = file_hl(path)
     local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path)
     local icon_prefix = icon and icon .. ' ' or ''
-    local display = basename
+    local display = relative
     if hl == 'DoraDirectory' then
         display = display .. '/'
     end
@@ -60,18 +77,21 @@ local function item(path)
         icon_start_col = icon and 0 or nil,
         icon_end_col = icon and #icon or nil,
         icon_hl = icon_hl or 'DoraIcon',
-        file_start_col = #icon_prefix,
-        file_end_col = #icon_prefix + #basename,
+        dir_start_col = dir_len > 0 and #icon_prefix or nil,
+        dir_end_col = dir_len > 0 and #icon_prefix + dir_len or nil,
+        file_start_col = #icon_prefix + dir_len,
+        file_end_col = #icon_prefix + dir_len + #basename,
         file_hl = hl,
     }
 end
 
 ---@param paths string[]
+---@param base? string
 ---@return DoraDeleteConfirmItem[]
-local function items(paths)
+local function items(paths, base)
     local ret = {}
     for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
-        ret[#ret+1] = item(paths[i])
+        ret[#ret+1] = item(paths[i], base)
     end
     return ret
 end
@@ -89,8 +109,10 @@ end
 
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
----@return string[]
-local function lines(confirm_items, overflow)
+---@param dest? string
+---@return string[] rendered_lines
+---@return integer? dest_row 0-indexed row of the destination path
+local function lines(confirm_items, overflow, dest)
     local ret = {}
     for _, confirm_item in ipairs(confirm_items) do
         ret[#ret+1] = LINE_PREFIX .. confirm_item.display
@@ -98,15 +120,22 @@ local function lines(confirm_items, overflow)
     if overflow > 0 then
         ret[#ret+1] = string.format('%s... and %d more', LINE_PREFIX, overflow)
     end
-    return ret
+    local dest_row
+    if dest then
+        ret[#ret+1] = LINE_PREFIX .. ' ↓'
+        dest_row = #ret
+        ret[#ret+1] = LINE_PREFIX .. dest
+    end
+    return ret, dest_row
 end
 
 ---@param buf integer
 ---@param ns integer
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
-local function render(buf, ns, confirm_items, overflow)
-    local rendered_lines = lines(confirm_items, overflow)
+---@param dest? string
+local function render(buf, ns, confirm_items, overflow, dest)
+    local rendered_lines, dest_row = lines(confirm_items, overflow, dest)
     api.nvim_buf_set_lines(buf, 0, -1, false, rendered_lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
     for i, confirm_item in ipairs(confirm_items) do
@@ -114,6 +143,13 @@ local function render(buf, ns, confirm_items, overflow)
             api.nvim_buf_set_extmark(buf, ns, i - 1, LINE_PREFIX_LEN + confirm_item.icon_start_col, {
                 end_col = LINE_PREFIX_LEN + confirm_item.icon_end_col,
                 hl_group = confirm_item.icon_hl,
+                priority = 10000,
+            })
+        end
+        if confirm_item.dir_start_col then
+            api.nvim_buf_set_extmark(buf, ns, i - 1, LINE_PREFIX_LEN + confirm_item.dir_start_col, {
+                end_col = LINE_PREFIX_LEN + confirm_item.dir_end_col,
+                hl_group = 'DoraFilterPath',
                 priority = 10000,
             })
         end
@@ -126,10 +162,23 @@ local function render(buf, ns, confirm_items, overflow)
         })
     end
     if overflow > 0 then
-        local row = #rendered_lines - 1
+        local row = #confirm_items
         api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN, {
-            end_col = #rendered_lines[#rendered_lines],
+            end_col = #rendered_lines[row + 1],
             hl_group = 'DoraMutedText',
+        })
+    end
+    if dest then
+        local prefix_len = dir_prefix_len(dest)
+        if prefix_len > 0 then
+            api.nvim_buf_set_extmark(buf, ns, dest_row, LINE_PREFIX_LEN, {
+                end_col = LINE_PREFIX_LEN + prefix_len,
+                hl_group = 'DoraFilterPath',
+            })
+        end
+        api.nvim_buf_set_extmark(buf, ns, dest_row, LINE_PREFIX_LEN + prefix_len, {
+            end_col = #rendered_lines[dest_row + 1],
+            hl_group = 'DoraDirectory',
         })
     end
 end
@@ -185,9 +234,11 @@ function M.delete(paths, cb, opts)
         return
     end
     opts = opts or {}
-    local confirm_items = items(paths)
+    local dest = opts.dest
+    local base = opts.base
+    local confirm_items = items(paths, base)
     local overflow = math.max(0, #paths - #confirm_items)
-    local rendered_lines = lines(confirm_items, overflow)
+    local rendered_lines = lines(confirm_items, overflow, dest)
     local confirm_title = get_title(#paths, opts.action)
     local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
@@ -200,10 +251,10 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths)
-        rendered_lines = lines(confirm_items, overflow)
+        confirm_items = items(paths, base)
+        rendered_lines = lines(confirm_items, overflow, dest)
         vim.bo[buf].modifiable = true
-        render(buf, ns, confirm_items, overflow)
+        render(buf, ns, confirm_items, overflow, dest)
         vim.bo[buf].modifiable = false
     end
 
