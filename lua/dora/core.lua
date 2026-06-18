@@ -2098,7 +2098,7 @@ local function rename(prefill)
             render(state)
             set_cursor_path(state, dest)
         end
-        if fs.exists(dest) then
+        if fs.exists(dest) and not fs.same_file(path, dest) then
             delete_win.delete({dest}, function(confirmed)
                 if confirmed and api.nvim_buf_is_valid(state.buf) then
                     perform_rename()

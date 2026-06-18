@@ -86,6 +86,18 @@ function M.exists(path)
     return uv.fs_lstat(path) ~= nil
 end
 
+-- Whether two paths resolve to the same filesystem object. On case-insensitive
+-- filesystems this is true for case-only variants (e.g. README and readme),
+-- which lets a case-only rename be distinguished from overwriting a sibling.
+---@param a string
+---@param b string
+---@return boolean
+function M.same_file(a, b)
+    local sa = uv.fs_lstat(a)
+    local sb = uv.fs_lstat(b)
+    return sa ~= nil and sb ~= nil and sa.ino == sb.ino and sa.dev == sb.dev
+end
+
 ---@param dir string
 ---@param basename string
 ---@return string
@@ -370,7 +382,7 @@ function M.validate_rename(input, src)
     local path = vim.fs.joinpath(parent, input)
     assert(src ~= path, '`src` equals `dest`')
     local dest_stat = uv.fs_lstat(path)
-    if dest_stat then
+    if dest_stat and not M.same_file(src, path) then
         local src_stat = uv.fs_lstat(src)
         assert(src_stat and src_stat.type == 'file' and dest_stat.type == 'file',
             ('%q already exists'):format(path))
@@ -401,7 +413,7 @@ function M.rename(src, dest)
     assert(M.exists(parent), ('%q does not exist'):format(parent))
     assert(M.is_dir(parent), ('%q is not a directory'):format(parent))
     local dest_stat = uv.fs_lstat(dest)
-    if dest_stat then
+    if dest_stat and not M.same_file(src, dest) then
         assert(src_stat.type == 'file' and dest_stat.type == 'file',
             ('%q already exists'):format(dest))
     end
