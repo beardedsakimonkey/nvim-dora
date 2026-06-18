@@ -1915,7 +1915,7 @@ function M.yank_dir_path(reg)
         util.err(msg)
         return
     end
-    util.copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Yanked directory path to clipboard' or 'Yanked directory path')
+    util.copy_value(fs.get_parent_dir(path), reg, reg == '+' and 'Yanked parent directory to clipboard' or 'Yanked parent directory')
 end
 
 function M.yank_dir_path_clipboard()
