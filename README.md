@@ -125,8 +125,8 @@ require('dora').setup {
         gx = 'open_external',
 
         -- File operations
-        a = 'create',
-        A = 'create_under',
+        a = 'add_under',
+        A = 'add',
         S = 'create_symlink',
         r = 'rename',
         R = 'rename_empty',
@@ -134,8 +134,8 @@ require('dora').setup {
         D = 'delete',
         x = 'toggle_cut',
         c = 'toggle_copy',
-        p = 'paste',
-        P = 'paste_parent',
+        p = 'paste_under',
+        P = 'paste',
         ['<Esc>'] = 'clear_marks',
         ['.'] = 'shell_cmd',
         ['g;'] = 'prev_change',

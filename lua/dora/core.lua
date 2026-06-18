@@ -1909,11 +1909,11 @@ local function paste_at(resolve_dest)
     paste_to_directory(state, row, dest_dir, entries)
 end
 
-function M.paste()
+function M.paste_under()
     paste_at(function(row) return row.type == 'directory' and row.path or row.parent_path end)
 end
 
-function M.paste_parent()
+function M.paste()
     paste_at(function(row) return row.parent_path end)
 end
 
@@ -2186,11 +2186,11 @@ local function create(under_directory)
     end)
 end
 
-function M.create()
+function M.add()
     create(false)
 end
 
-function M.create_under()
+function M.add_under()
     create(true)
 end
 
