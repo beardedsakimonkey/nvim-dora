@@ -25,6 +25,7 @@ vim.cmd 'hi default link DoraInfoLabel           Label'
 vim.cmd 'hi default link DoraInfoValue           Special'
 vim.cmd 'hi default link DoraHelpSection         Title'
 vim.cmd 'hi default link DoraMutedText           NonText'
+vim.cmd 'hi default link DoraOverwrite           DiagnosticWarn'
 vim.cmd 'hi default link DoraKeymapHintMnemonic  Underlined'
 
 local function set_prompt_border_hls()

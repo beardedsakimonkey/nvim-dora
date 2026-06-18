@@ -1870,7 +1870,8 @@ do
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Paste%?')
     local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(confirm_lines[1], ' alpha.txt')
+    assert_eq(confirm_lines[1], ' alpha.txt (overwrites)',
+        'paste confirmation should flag sources that replace an existing file')
     assert_eq(confirm_lines[2], '  ↓', 'paste confirmation should show a down-arrow separator')
     assert_eq(confirm_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
     assert_eq(confirm_cfg.row, cursor_pos.row,
@@ -1893,6 +1894,35 @@ do
         'successful overwrite should clear paste marks')
     assert_match(current_line(), 'alpha%.txt$',
         'successful overwrite should keep the cursor on the pasted file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/foo', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest/foo', tonumber('755', 8)))
+    write_file(tmp .. '/foo/new.txt', 'new')
+    write_file(tmp .. '/dest/foo/old.txt', 'old')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('foo')
+    core.toggle_copy()
+    set_cursor_pos('dest')
+    core.paste()
+
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' foo/ (overwrites)',
+        'pasting a directory onto an existing one should be flagged as an overwrite')
+    api.nvim_feedkeys('y', 'xt', false)
+
+    assert(fs.exists(tmp .. '/dest/foo/new.txt'),
+        'confirming should copy the pasted directory contents')
+    assert(not fs.exists(tmp .. '/dest/foo/old.txt'),
+        'confirming a directory overwrite should replace the existing directory')
+    assert(fs.exists(tmp .. '/foo'), 'copying should preserve the source directory')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

@@ -288,6 +288,7 @@ hi default link DoraInfoLabel           Label
 hi default link DoraInfoValue           Special
 hi default link DoraHelpSection         Title
 hi default link DoraMutedText           NonText
+hi default link DoraOverwrite           DiagnosticWarn
 hi default link DoraKeymapHintMnemonic  Underlined
 ```
 <!-- dora-highlights:end -->

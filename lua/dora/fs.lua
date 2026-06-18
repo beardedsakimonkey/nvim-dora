@@ -445,7 +445,15 @@ end
 ---@return string dest
 function M.copy_or_move(is_move, src, dest, cwd)
     dest = M.resolve_copy_or_move_dest(src, dest, cwd)
-    -- Note: Moving from a file to a file should overwrite the file
+    -- Replace an existing destination when a directory is involved so the paste
+    -- overwrites instead of erroring on mkdir/rename. A file replacing a file is
+    -- already overwritten in place by copyfile/rename. resolve_copy_or_move_dest
+    -- rejects src == dest, and same_file guards aliases, so we never delete the
+    -- source itself.
+    if M.exists(dest) and not M.same_file(src, dest)
+        and (M.is_dir(src) or M.is_dir(dest)) then
+        M.delete(dest)
+    end
     local op = is_move and move or copy_any
     op(src, dest)
     return dest
