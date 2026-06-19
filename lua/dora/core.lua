@@ -1,7 +1,6 @@
 local fs = require'dora.fs'
 local icons = require'dora.icons'
 local bookmarks = require'dora.bookmarks'
-local history = require'dora.history'
 local help_win = require'dora.help_win'
 local delete_win = require'dora.delete_win'
 local filter_win = require'dora.filter_win'
@@ -79,7 +78,6 @@ local TREE_VERTICAL = '│'
 ---@field filter_editing boolean
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field bookmarks DoraBookmarks
----@field change_history DoraChangeHistory
 
 -- Render ----------------------------------------------------------------------
 
@@ -535,128 +533,6 @@ local function set_cursor_path(state, path)
         end
     end
     return false
-end
-
--- Expand every ancestor directory of `path` within the current root so its row
--- becomes visible, then place the cursor on it.
----@param state DoraState
----@param path string
----@return boolean revealed
-local function reveal_path(state, path)
-    if set_cursor_path(state, path) then
-        return true
-    end
-    local root = state.cwd
-    local changed = false
-    local dir = fs.parent_dir(path)
-    while dir ~= root and vim.startswith(dir, root .. '/') do
-        if not state.expanded_dirs[dir] then
-            state.expanded_dirs[dir] = true
-            changed = true
-        end
-        local parent = fs.parent_dir(dir)
-        if parent == dir then
-            break
-        end
-        dir = parent
-    end
-    if changed then
-        render(state)
-    end
-    return set_cursor_path(state, path)
-end
-
--- Reveal a recorded change. If the path itself is gone (a deletion, or a file
--- removed after it was recorded), walk up to the nearest surviving ancestor so
--- the cursor still lands where the change happened. Returns false when nothing
--- within the current root can be reached, signalling a stale entry.
----@param state DoraState
----@param path string
----@return boolean jumped
-local function jump_to_change(state, path)
-    local target = path
-    while vim.startswith(target, state.cwd .. '/') do
-        if fs.exists(target) and reveal_path(state, target) then
-            return true
-        end
-        local parent = fs.parent_dir(target)
-        if parent == target then
-            break
-        end
-        target = parent
-    end
-    return false
-end
-
----@param dir integer -1 for the previous (older) change, +1 for the next
-local function navigate_change(dir)
-    local state = store.get()
-    local h = state.change_history
-    local from = h.index
-    while true do
-        local i = history.step(h, from, dir)
-        if not i then
-            util.info(dir < 0 and 'No earlier change' or 'No later change')
-            return
-        end
-        if jump_to_change(state, h.entries[i].path) then
-            h.index = i
-            return
-        end
-        history.remove(h, i)
-        from = dir < 0 and i or (i - 1)
-    end
-end
-
--- Record a filesystem change so prev_change/next_change can return to it.
--- Deletions pass a surviving parent directory since the changed path is gone.
----@param state DoraState
----@param path string
-local function record_change(state, path)
-    history.record(state.change_history, fs.strip_trailing_sep(path))
-end
-
--- Where to send the cursor after deleting `paths`: the nearest surviving
--- sibling of the topmost removed row -- the row the cursor naturally rests on
--- once the deletion is rendered -- preferring the next sibling, then the
--- previous, and finally the containing directory when nothing at that level
--- survives. Reads the pre-deletion rows, so it must run before the re-render.
----@param state DoraState
----@param paths string[]
----@return string
-local function deletion_landing(state, paths)
-    local removed = {}
-    for _, path in ipairs(paths) do
-        removed[path] = true
-    end
-    local rows = state.rows or {}
-    local first
-    for i, row in ipairs(rows) do
-        if row.path and removed[row.path] then
-            first = i
-            break
-        end
-    end
-    if first then
-        local parent_path = rows[first].parent_path
-        for _, step in ipairs({1, -1}) do
-            for i = first + step, step > 0 and #rows or 1, step do
-                local row = rows[i]
-                if row.path and row.parent_path == parent_path and not removed[row.path] then
-                    return row.path
-                end
-            end
-        end
-    end
-    return fs.parent_dir(paths[1])
-end
-
-function M.prev_change()
-    navigate_change(-1)
-end
-
-function M.next_change()
-    navigate_change(1)
 end
 
 ---@param state DoraState
@@ -1855,9 +1731,6 @@ local function paste_entries(state, entries, dest_dir)
     if dest_dir ~= state.cwd then
         state.expanded_dirs[dest_dir] = true
     end
-    if first_dest then
-        record_change(state, first_dest)
-    end
     clear_listings(state)
     render(state)
     set_cursor_path(state, first_dest)
@@ -2013,7 +1886,6 @@ local function remove_paths(state, paths, operation, action, anchor)
                     for _, removed_path in ipairs(removed_paths) do
                         clear_marked_paths_under(state, removed_path)
                     end
-                    record_change(state, deletion_landing(state, removed_paths))
                     clear_listings(state)
                     render(state)
                 end
@@ -2028,7 +1900,6 @@ local function remove_paths(state, paths, operation, action, anchor)
             for _, removed_path in ipairs(removed_paths) do
                 clear_marked_paths_under(state, removed_path)
             end
-            record_change(state, deletion_landing(state, removed_paths))
             clear_listings(state)
             render(state)
         end
@@ -2122,7 +1993,6 @@ local function rename(prefill)
             end
             rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)
-            record_change(state, dest)
             clear_listings(state)
             render(state)
             set_cursor_path(state, dest)
@@ -2175,7 +2045,6 @@ local function create(under_directory)
                 util.err(msg)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
-                record_change(state, cursor_path)
                 clear_listings(state)
                 render(state)
                 while cursor_path ~= state.cwd and not set_cursor_path(state, cursor_path) do
@@ -2227,7 +2096,6 @@ function M.create_symlink()
             util.err(err)
             return
         end
-        record_change(state, dest)
         clear_listings(state)
         render(state)
         set_cursor_path(state, dest)
@@ -2405,7 +2273,6 @@ function M.initialize(dir, from_au)
         filter_editing = false,
         marked_paths = {},  -- map<path, DoraPasteOperation>
         bookmarks = bookmarks.new(load_previous_directory(win)),
-        change_history = history.new(),
     }
     keymaps.setup(buf, config)
     store.set(buf, state)
