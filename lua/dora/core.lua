@@ -782,6 +782,8 @@ local function current_path(state)
     return row.path
 end
 
+-- Anchors a float to the start of the hovered entry: the icon when icons are
+-- enabled, otherwise the filename.
 ---@param row DoraTreeRow?
 ---@param opts? {line?: integer, superimpose?: boolean}
 ---@return DoraFloatAnchor?
@@ -793,7 +795,7 @@ local function current_name_anchor(row, opts)
     return {
         win = win,
         line = opts and opts.line or api.nvim_win_get_cursor(win)[1],
-        col = row.name_start_col,
+        col = row.icon_start_col or row.name_start_col,
         superimpose = opts and opts.superimpose,
     }
 end

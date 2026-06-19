@@ -241,7 +241,8 @@ local function superimpose_anchor(anchor, confirm_items)
     if not first then
         return anchor
     end
-    local prefix = (LINE_PREFIX .. first.display):sub(1, LINE_PREFIX_LEN + first.file_start_col)
+    local icon_len = first.icon_end_col and first.icon_end_col + 1 or 0
+    local prefix = LINE_PREFIX .. first.display:sub(icon_len + 1, first.file_start_col)
     return vim.tbl_extend('force', anchor, {
         superimpose = true,
         col_offset = vim.fn.strdisplaywidth(prefix),
