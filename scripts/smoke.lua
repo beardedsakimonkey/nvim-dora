@@ -1827,6 +1827,57 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+-- Pasting in one dora window refreshes every other dora window: marks are
+-- shared across windows, so the window where a file was marked must drop the
+-- now-consumed cut/copy highlight (and a cut's vanished rows) without a manual
+-- reload.
+local function has_mark_sign(buf, ns)
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(buf, ns, 0, -1, {details = true})) do
+        -- Neovim pads sign_text to two cells, so match the glyph as a prefix.
+        if mark[4] and mark[4].sign_text and mark[4].sign_text:find('▌', 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    -- Window 1 owns the mark, so it is the window that renders the highlight.
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local buf1 = api.nvim_get_current_buf()
+    local state1 = store.get(buf1)
+    set_cursor_line('alpha%.txt$')
+    core.toggle_copy()
+    assert(has_mark_sign(buf1, state1.ns), 'marking a file should sign it in the originating window')
+
+    -- Window 2 is a separate dora session on the same directory.
+    vim.cmd('new')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local buf2 = api.nvim_get_current_buf()
+    assert(buf2 ~= buf1, 'a second Dora window should be a separate session')
+
+    set_cursor_pos('dest')
+    core.paste_under()
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy the marked file')
+    -- The source is untouched by a copy, so no directory watcher fires for
+    -- window 1; only the paste's explicit refresh can clear its stale mark.
+    assert(not has_mark_sign(buf1, state1.ns),
+        'pasting in another window should clear the originating window\'s mark')
+
+    core.quit()
+    vim.cmd('bwipeout! ' .. buf1)
+    vim.cmd('silent! only')
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 do
     local old_notify = vim.notify
     local notifications = {}
