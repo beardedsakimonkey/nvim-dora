@@ -14,6 +14,7 @@ local LINE_PREFIX = ' '
 local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
 local OVERWRITE_LABEL = ' (overwrites)'
+local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 
 ---@class DoraDeleteConfirmItem
 ---@field display string
@@ -26,6 +27,7 @@ local OVERWRITE_LABEL = ' (overwrites)'
 ---@field file_end_col integer
 ---@field file_hl string
 ---@field overwrite? boolean
+---@field operation? DoraPasteOperation
 
 ---@class DoraDeleteOptions
 ---@field anchor? DoraFloatAnchor
@@ -33,6 +35,7 @@ local OVERWRITE_LABEL = ' (overwrites)'
 ---@field dest? string Destination directory shown beneath the file list
 ---@field base? string Show listed paths relative to this directory
 ---@field overwrites? table<string, boolean> Source paths that will replace an existing file
+---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 
 ---@param path string
 ---@return string
@@ -61,8 +64,9 @@ end
 ---@param path string
 ---@param base? string
 ---@param overwrites? table<string, boolean>
+---@param operations? table<string, DoraPasteOperation>
 ---@return DoraDeleteConfirmItem
-local function item(path, base, overwrites)
+local function item(path, base, overwrites, operations)
     local basename = fs.basename(path)
     -- Show the path relative to base, falling back to the absolute path for
     -- marks outside it (e.g. above the current root).
@@ -87,17 +91,19 @@ local function item(path, base, overwrites)
         file_end_col = #icon_prefix + dir_len + #basename,
         file_hl = hl,
         overwrite = overwrites and overwrites[path] or nil,
+        operation = operations and operations[path] or nil,
     }
 end
 
 ---@param paths string[]
 ---@param base? string
 ---@param overwrites? table<string, boolean>
+---@param operations? table<string, DoraPasteOperation>
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, overwrites)
+local function items(paths, base, overwrites, operations)
     local ret = {}
     for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
-        ret[#ret+1] = item(paths[i], base, overwrites)
+        ret[#ret+1] = item(paths[i], base, overwrites, operations)
     end
     return ret
 end
@@ -158,9 +164,13 @@ local function render_item(buf, ns, row, confirm_item)
             priority = 10000,
         })
     end
+    -- A cut/copy mark recolors the filename, matching how marked files appear
+    -- in the tree.
+    local name_hl = confirm_item.operation and OPERATION_HL[confirm_item.operation]
+        or confirm_item.file_hl
     api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN + confirm_item.file_start_col, {
         end_col = LINE_PREFIX_LEN + confirm_item.file_end_col,
-        hl_group = confirm_item.file_hl,
+        hl_group = name_hl,
         priority = 10000,
     })
 end
@@ -249,10 +259,11 @@ function M.delete(paths, cb, opts)
     opts = opts or {}
     local base = opts.base
     local overwrites = opts.overwrites
+    local operations = opts.operations
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil) or nil
-    local confirm_items = items(paths, base, overwrites)
+    local confirm_items = items(paths, base, overwrites, operations)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow, dest_item)
     local confirm_title = get_title(#paths, opts.action)
@@ -267,7 +278,7 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, overwrites)
+        confirm_items = items(paths, base, overwrites, operations)
         rendered_lines = lines(confirm_items, overflow, dest_item)
         vim.bo[buf].modifiable = true
         render(buf, ns, confirm_items, overflow, dest_item)
