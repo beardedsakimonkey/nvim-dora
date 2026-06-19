@@ -88,6 +88,14 @@ local function marked_path_count(state)
     return count
 end
 
+-- Paste runs the copy asynchronously, so the editor stays responsive. Pump the
+-- event loop until the in-flight paste finishes before asserting on its result.
+local function wait_for_paste()
+    assert(vim.wait(5000, function()
+        return not store.get().paste_in_progress
+    end), 'paste did not finish')
+end
+
 local function clear_persisted_view_state(win)
     pcall(api.nvim_win_del_var, win or 0, 'dora_previous_directory')
 end
@@ -1722,6 +1730,7 @@ do
     assert_eq(paste_lines[2], ' ↓', 'paste confirmation should show a down-arrow separator')
     assert_eq(paste_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(fs.exists(tmp .. '/alpha.txt'), 'single-file copy should leave the source file')
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste should copy into the hovered directory')
@@ -1752,6 +1761,7 @@ do
     set_cursor_line('beta%.txt$')
     core.paste_under()
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(fs.exists(tmp .. '/dest/alpha.txt'), 'paste over a plain file should copy into its parent directory')
     assert_eq(marked_path_count(state), 0)
@@ -1779,6 +1789,7 @@ do
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' sub/a.c',
         'paste confirmation should list source files relative to the root')
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(fs.exists(tmp .. '/dest/a.c'), 'paste should copy the nested source file')
 
@@ -1808,6 +1819,7 @@ do
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' ' .. root .. '/a.c',
         'paste confirmation should list marks above the root as absolute paths')
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(fs.exists(root .. '/sub/a.c'), 'paste should copy a mark from above the root')
 
@@ -1886,6 +1898,7 @@ do
     core.paste()
     assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'new',
         'confirming overwrite should replace the destination file')
@@ -1917,6 +1930,7 @@ do
     assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' foo/ (overwrites)',
         'pasting a directory onto an existing one should be flagged as an overwrite')
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(fs.exists(tmp .. '/dest/foo/new.txt'),
         'confirming should copy the pasted directory contents')
@@ -1984,12 +1998,45 @@ do
     core.expand()
     core.paste_under()
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
 
     assert(not fs.exists(tmp .. '/a'), 'mixed paste should remove cut source a')
     assert(fs.exists(tmp .. '/b'), 'mixed paste should leave copied source b')
     assert(fs.exists(tmp .. '/dest/a'), 'mixed paste should move cut file a')
     assert(fs.exists(tmp .. '/dest/b'), 'mixed paste should copy file b')
     assert_eq(marked_path_count(state), 0)
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+-- Copying a directory recurses through the async copy, preserving nested files
+-- and symlinks while leaving the source intact.
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/tree', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/tree/nested', tonumber('755', 8)))
+    write_file(tmp .. '/tree/top.txt', 'top')
+    write_file(tmp .. '/tree/nested/leaf.txt', 'leaf')
+    assert(vim.loop.fs_symlink('top.txt', tmp .. '/tree/link'))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('tree')
+    core.toggle_copy()
+    set_cursor_pos('dest')
+    core.paste_under()
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert(fs.is_dir(tmp .. '/tree'), 'directory copy should leave the source directory')
+    assert_eq(vim.fn.readfile(tmp .. '/dest/tree/top.txt')[1], 'top',
+        'directory copy should copy top-level files')
+    assert_eq(vim.fn.readfile(tmp .. '/dest/tree/nested/leaf.txt')[1], 'leaf',
+        'directory copy should recurse into nested directories')
+    assert_eq(vim.loop.fs_readlink(tmp .. '/dest/tree/link'), 'top.txt',
+        'directory copy should recreate symlinks rather than follow them')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -2022,6 +2069,7 @@ do
     set_cursor_pos('dest')
     core.paste_under()
     api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
     assert(fs.exists(root .. '/dest/alpha.txt'),
         'pasting in another window should copy the file marked elsewhere')
     assert(fs.exists(root .. '/alpha.txt'), 'copy should leave the source file')
