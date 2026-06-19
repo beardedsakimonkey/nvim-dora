@@ -138,7 +138,7 @@ local function lines(confirm_items, overflow, dest_item)
     end
     local dest_row
     if dest_item then
-        ret[#ret+1] = LINE_PREFIX .. ' ↓'
+        ret[#ret+1] = LINE_PREFIX .. '↓'
         dest_row = #ret
         ret[#ret+1] = LINE_PREFIX .. dest_item.display
     end
