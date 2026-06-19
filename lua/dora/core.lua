@@ -2120,6 +2120,7 @@ function M.toggle_hidden_files()
     if not row or not row.path or not set_cursor_path(state, row.path) then
         set_cursor_pos(state, row and row.display_name or nil)
     end
+    util.info(state.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
 end
 
 function M.shell_cmd()
@@ -2211,6 +2212,7 @@ function M.reload()
     local state = store.get()
     clear_listings(state)
     render(state)
+    util.info('Reloaded')
 end
 
 -- Initialization --------------------------------------------------------------
