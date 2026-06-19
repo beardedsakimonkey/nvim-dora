@@ -29,7 +29,8 @@ Dora aims to make filesystem navigation and common file operations efficient:
 - Create and rename windows open below the cursor, keeping attention near the
   file being acted on.
 - Files can be marked directly for cut or copy operations, then pasted at the
-  destination.
+  destination. Marks are shared across all Dora windows, so you can mark in one
+  window and paste in another.
 - Dora remembers the selected entry in each visited directory and restores the
   cursor to it when navigating back.
 - Expanded directories persist for the lifetime of the Neovim session, and

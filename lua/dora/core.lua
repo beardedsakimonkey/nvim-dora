@@ -22,6 +22,11 @@ local M = {}
 ---@type table<string, true>
 local global_expanded_dirs = {}
 
+-- Cut/copy marks are shared by all dora buffers so a path marked in one window
+-- can be pasted in another.
+---@type table<string, DoraPasteOperation>
+local global_marked_paths = {}
+
 local PROMPT_WIDTH = 32
 local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
 local EMPTY_LABEL = '(empty)'
@@ -818,7 +823,9 @@ end
 
 ---@param state DoraState
 local function clear_marked_paths(state)
-    state.marked_paths = {}
+    for marked_path in pairs(state.marked_paths) do
+        state.marked_paths[marked_path] = nil
+    end
 end
 
 ---@param state DoraState
@@ -2271,7 +2278,7 @@ function M.initialize(dir, from_au)
         filter_preview = nil,
         filter_window = nil,
         filter_editing = false,
-        marked_paths = {},  -- map<path, DoraPasteOperation>
+        marked_paths = global_marked_paths,
         bookmarks = bookmarks.new(load_previous_directory(win)),
     }
     keymaps.setup(buf, config)
