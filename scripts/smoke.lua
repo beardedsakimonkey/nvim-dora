@@ -1719,7 +1719,7 @@ do
     assert_match(win_title(paste_win), 'Paste%?')
     local paste_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     assert_eq(paste_lines[1], ' alpha.txt', 'paste confirmation should list the source file')
-    assert_eq(paste_lines[2], '  ↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(paste_lines[2], ' ↓', 'paste confirmation should show a down-arrow separator')
     assert_eq(paste_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
     api.nvim_feedkeys('y', 'xt', false)
 
@@ -1872,7 +1872,7 @@ do
     local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
     assert_eq(confirm_lines[1], ' alpha.txt (overwrites)',
         'paste confirmation should flag sources that replace an existing file')
-    assert_eq(confirm_lines[2], '  ↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(confirm_lines[2], ' ↓', 'paste confirmation should show a down-arrow separator')
     assert_eq(confirm_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
     assert_eq(confirm_cfg.row, cursor_pos.row,
         'paste confirmation should anchor below the cursorline')
