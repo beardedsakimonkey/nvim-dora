@@ -25,20 +25,11 @@ end
 ---@param width integer
 ---@return table
 local function win_layout(opts, width)
-    local anchor = opts.anchor
-    local prefix = icon_prefix(opts)
-    if anchor and prefix then
-        -- The icon renders before the input, so shift the window left to
-        -- keep the input superimposed on the anchor
-        anchor = vim.tbl_extend('force', anchor, {
-            col_offset = (anchor.col_offset or 0) + vim.fn.strdisplaywidth(prefix),
-        })
-    end
     return window.layout({
         title = opts.prompt,
         width = width,
         height = 1,
-        anchor = anchor,
+        anchor = opts.anchor,
     })
 end
 
