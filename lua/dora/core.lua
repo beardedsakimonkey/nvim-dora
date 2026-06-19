@@ -1780,6 +1780,16 @@ local function paste_entries(state, entries, dest_dir)
         if dest_dir ~= state.cwd then
             state.expanded_dirs[dest_dir] = true
         end
+        -- Refresh every other dora window too. A cut removes the source rows,
+        -- and both cut and copy clear the marks (shared across all windows);
+        -- without rescanning, other windows keep showing the moved files and
+        -- stale cut/copy highlights until a manual reload.
+        store.each(function(other)
+            if other.buf ~= state.buf and api.nvim_buf_is_valid(other.buf) then
+                clear_listings(other)
+                render(other)
+            end
+        end)
         -- The user may have closed the dora window while the copy ran.
         if not api.nvim_buf_is_valid(state.buf) then
             return

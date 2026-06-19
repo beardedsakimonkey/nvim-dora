@@ -23,4 +23,12 @@ function M.get(buf)
     return state
 end
 
+---Call `fn` for every live dora state, in no particular order.
+---@param fn fun(state: DoraState)
+function M.each(fn)
+    for _, state in pairs(buf_states) do
+        fn(state)
+    end
+end
+
 return M
