@@ -10,7 +10,7 @@ local HINT_ARROW = '→'
 local HINT_COLUMN_GAP = '    '
 local HINT_KEY_ORDERS = {
     [','] = {n=1, m=2, c=3, s=4, e=5},
-    g = {p=1, h=2, x=3, ['.']=4, ['?']=5, [';']=6, [',']=7},
+    g = {p=1, h=2, x=3, ['.']=4, ['?']=5},
     y = {f=1, y=2, d=3, n=4},
 }
 
@@ -45,8 +45,6 @@ local ACTION_DESCRIPTIONS = {
     create_symlink = 'Add symlink to file',
     rename = 'Rename file',
     rename_empty = 'Rename file with empty prompt',
-    prev_change = 'Jump to previous change',
-    next_change = 'Jump to next change',
     set_bookmark = 'Set bookmark',
     jump_bookmark = 'Jump to bookmark',
     toggle_cut = 'Toggle cut mark',
