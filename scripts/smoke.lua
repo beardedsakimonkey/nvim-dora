@@ -1996,6 +1996,47 @@ do
 end
 
 do
+    -- Marks are shared across dora windows so a path marked in one window can
+    -- be pasted from another.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+    local root = fs.realpath(tmp)
+
+    local source_win = api.nvim_get_current_win()
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local source_state = store.get()
+    set_cursor_pos('alpha.txt')
+    core.toggle_copy()
+    assert_eq(source_state.marked_paths[root .. '/alpha.txt'], 'copy',
+        'copy should mark the file in the source window')
+
+    vim.cmd('new')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local dest_state = store.get()
+    assert(dest_state ~= source_state, 'a second dora window should have its own state')
+    assert_eq(dest_state.marked_paths[root .. '/alpha.txt'], 'copy',
+        'marks should be shared with another dora window')
+
+    set_cursor_pos('dest')
+    core.paste_under()
+    api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(root .. '/dest/alpha.txt'),
+        'pasting in another window should copy the file marked elsewhere')
+    assert(fs.exists(root .. '/alpha.txt'), 'copy should leave the source file')
+    assert_eq(marked_path_count(dest_state), 0, 'pasting should clear the shared marks')
+    assert_eq(marked_path_count(source_state), 0,
+        'pasting in one window should clear marks shown in the other')
+
+    core.quit()
+    vim.cmd('close!')
+    api.nvim_set_current_win(source_win)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
