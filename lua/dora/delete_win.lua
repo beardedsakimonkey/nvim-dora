@@ -327,6 +327,14 @@ function M.delete(paths, cb, opts)
         vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})
     end
 
+    autocmds[#autocmds+1] = api.nvim_create_autocmd('CursorMoved', {
+        buffer = buf,
+        callback = function()
+            if window.valid_win(win) then
+                api.nvim_win_set_cursor(win, {1, 0})
+            end
+        end,
+    })
     autocmds[#autocmds+1] = api.nvim_create_autocmd('VimResized', {
         callback = function()
             if window.valid_win(win) then
