@@ -1756,8 +1756,10 @@ local function paste_to_directory(state, row, dest_dir, entries)
     end
     local paste_paths = {}
     local overwrites = {}
+    local operations = {}
     for _, entry in ipairs(entries) do
         paste_paths[#paste_paths+1] = entry.path
+        operations[entry.path] = entry.operation
         local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
         if fs.exists(entry_dest) and not fs.same_file(entry.path, entry_dest) then
             overwrites[entry.path] = true
@@ -1773,6 +1775,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
         dest = dest_dir,
         base = state.cwd,
         overwrites = overwrites,
+        operations = operations,
     })
 end
 
