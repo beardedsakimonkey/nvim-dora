@@ -258,7 +258,8 @@ local function build_tree_rows(state)
             end
             local path = vim.fs.joinpath(dir, file.name)
             local tree_prefix = prefix .. connector
-            local icon, icon_hl = icons.get(config.icons, file, path)
+            local expanded = file.type == 'directory' and state.expanded_dirs[path] or nil
+            local icon, icon_hl = icons.get(config.icons, file, path, expanded)
             local icon_prefix = icon and icon .. ' ' or ''
             local display_name = tree_prefix .. icon_prefix .. file.name
             local directory_suffix_col
@@ -284,7 +285,7 @@ local function build_tree_rows(state)
                 name_end_col = #tree_prefix + #icon_prefix + #file.name,
                 directory_suffix_col = directory_suffix_col,
             }
-            if file.type == 'directory' and state.expanded_dirs[path] then
+            if expanded then
                 add_dir(path, child_prefix, depth + 1, child_continuation_segments)
             end
         end
