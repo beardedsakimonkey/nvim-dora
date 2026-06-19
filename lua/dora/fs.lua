@@ -459,4 +459,173 @@ function M.copy_or_move(is_move, src, dest, cwd)
     return dest
 end
 
+-- Asynchronous copy/move ------------------------------------------------------
+--
+-- The synchronous helpers above block Neovim's main loop for the entire
+-- duration of a copy -- a 1 GiB recursive copy freezes the editor with no
+-- feedback. The functions below do the same work through libuv's asynchronous
+-- fs API, so the byte-copying happens on libuv's threadpool and the editor
+-- stays responsive.
+---@param body fun(): ...
+---@param on_done fun(ok: boolean, ...)
+local function run(body, on_done)
+    local co = coroutine.create(body)
+    local function step(...)
+        local results = {coroutine.resume(co, ...)}
+        if not results[1] then
+            on_done(false, results[2])
+        elseif coroutine.status(co) == 'dead' then
+            on_done(true, unpack(results, 2))
+        else
+            local thunk = results[2]
+            thunk(step)
+        end
+    end
+    step()
+end
+
+-- Suspends the running coroutine until `thunk`'s callback fires, returning the
+-- callback's result.
+---@param thunk fun(cb: fun(err: string?, value: any))
+---@return any
+local function await(thunk)
+    local err, value = coroutine.yield(thunk)
+    if err then
+        error(err, 0)
+    end
+    return value
+end
+
+local function a_lstat(path) return function(cb) uv.fs_lstat(path, cb) end end
+local function a_scandir(path) return function(cb) uv.fs_scandir(path, cb) end end
+local function a_readlink(path) return function(cb) uv.fs_readlink(path, cb) end end
+local function a_mkdir(path, mode) return function(cb) uv.fs_mkdir(path, mode, cb) end end
+local function a_copyfile(src, dest) return function(cb) uv.fs_copyfile(src, dest, nil, cb) end end
+local function a_symlink(target, dest) return function(cb) uv.fs_symlink(target, dest, nil, cb) end end
+local function a_unlink(path) return function(cb) uv.fs_unlink(path, cb) end end
+local function a_rmdir(path) return function(cb) uv.fs_rmdir(path, cb) end end
+
+---@class DoraPasteProgress
+---@field files integer Files and symlinks copied so far
+---@field bytes integer Total bytes of files copied so far
+
+-- Async analogue of copy_any/copy_dir/copy_link/copy_file. Uses lstat (not
+-- stat) so a symlink is recreated as a link rather than followed, matching
+-- copy_any's semantics.
+---@param src string
+---@param dest string
+---@param progress DoraPasteProgress
+local function copy_entry_a(src, dest, progress)
+    local st = await(a_lstat(src))
+    if st.type == 'link' then
+        local target = await(a_readlink(src))
+        await(a_symlink(target, dest))
+        progress.files = progress.files + 1
+    elseif st.type == 'directory' then
+        await(a_mkdir(dest, st.mode))
+        local handle = await(a_scandir(src))
+        while true do
+            local name = uv.fs_scandir_next(handle)
+            if not name then
+                break
+            end
+            copy_entry_a(vim.fs.joinpath(src, name), vim.fs.joinpath(dest, name), progress)
+        end
+    else
+        await(a_copyfile(src, dest))
+        progress.files = progress.files + 1
+        progress.bytes = progress.bytes + (st.size or 0)
+    end
+end
+
+-- Async recursive delete, used to overwrite an existing destination and for the
+-- cross-filesystem move fallback below.
+---@param path string
+local function rm_a(path)
+    local st = await(a_lstat(path))
+    if st.type == 'directory' then
+        local handle = await(a_scandir(path))
+        while true do
+            local name = uv.fs_scandir_next(handle)
+            if not name then
+                break
+            end
+            rm_a(vim.fs.joinpath(path, name))
+        end
+        await(a_rmdir(path))
+    else
+        await(a_unlink(path))
+    end
+end
+
+-- Async analogue of move(). A same-filesystem rename is instant, so it stays a
+-- single synchronous call; only the cross-filesystem (EXDEV) copy+delete
+-- fallback runs asynchronously. Returns a pending buffer rename to apply on the
+-- main loop, mirroring move()'s util.rename_buffers call -- which can't run
+-- here because this executes in a libuv "fast" callback context.
+---@param src string
+---@param dest string
+---@param progress DoraPasteProgress
+---@return {src: string, dest: string}?
+local function move_a(src, dest, progress)
+    local src_is_dir = M.is_dir(src)
+    local ok, err, errname = uv.fs_rename(src, dest)
+    if not ok then
+        if errname ~= 'EXDEV' then
+            error(err, 0)
+        end
+        copy_entry_a(src, dest, progress)
+        rm_a(src)
+    end
+    if not src_is_dir then
+        return {src = src, dest = dest}
+    end
+end
+
+-- Asynchronously copy/move each op into `dest_dir`, mimicking `cp -R` / `mv`
+-- exactly as M.copy_or_move does but off the main loop. `progress` is mutated
+-- in place as work proceeds so callers can render a live indicator.
+---@param ops {is_move: boolean, src: string}[]
+---@param dest_dir string
+---@param cwd string
+---@param progress DoraPasteProgress
+---@param on_done fun(ok: boolean, result: string)
+function M.paste_async(ops, dest_dir, cwd, progress, on_done)
+    run(function()
+        local first_dest
+        local buffer_renames = {}
+        for _, op in ipairs(ops) do
+            local dest = M.resolve_copy_or_move_dest(op.src, dest_dir, cwd)
+            first_dest = first_dest or dest
+            -- Replace an existing destination when a directory is involved so the
+            -- paste overwrites instead of erroring on mkdir/rename, mirroring
+            -- M.copy_or_move.
+            if M.exists(dest) and not M.same_file(op.src, dest)
+                and (M.is_dir(op.src) or M.is_dir(dest)) then
+                rm_a(dest)
+            end
+            if op.is_move then
+                local rename = move_a(op.src, dest, progress)
+                if rename then
+                    buffer_renames[#buffer_renames + 1] = rename
+                end
+            else
+                copy_entry_a(op.src, dest, progress)
+            end
+        end
+        return first_dest, buffer_renames
+    end, function(ok, result, buffer_renames)
+        -- libuv callbacks run in a "fast" context; defer to a normal one so the
+        -- completion handler and util.rename_buffers can touch the editor.
+        vim.schedule(function()
+            if ok then
+                for _, rename in ipairs(buffer_renames) do
+                    util.rename_buffers(rename.src, rename.dest)
+                end
+            end
+            on_done(ok, result)
+        end)
+    end)
+end
+
 return M
