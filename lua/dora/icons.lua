@@ -37,11 +37,12 @@ local function normalize(icon, hl)
 end
 
 ---@param file DoraFile
+---@param expanded? boolean
 ---@return string icon
 ---@return string hl
-local function fallback(file)
+local function fallback(file, expanded)
     if file.type == 'directory' then
-        return '', 'DoraDirectory'
+        return expanded and '' or '', 'DoraDirectory'
     elseif file.type == 'link' then
         return '', 'DoraSymlink'
     end
@@ -50,11 +51,12 @@ end
 
 ---@param file DoraFile
 ---@param path string
+---@param expanded? boolean
 ---@return string icon
 ---@return string hl
-local function web_devicon(file, path)
+local function web_devicon(file, path, expanded)
     if file.type == 'directory' or file.type == 'link' then
-        return fallback(file)
+        return fallback(file, expanded)
     end
 
     local provider = get_devicons()
@@ -92,13 +94,14 @@ end
 ---@param provider DoraIconConfig
 ---@param file DoraFile
 ---@param path string
+---@param expanded? boolean whether an expanded directory icon should be used
 ---@return string? icon
 ---@return string? hl
-function M.get(provider, file, path)
+function M.get(provider, file, path, expanded)
     if provider == false or provider == nil then
         return nil, nil
     elseif provider == true or provider == 'nvim-web-devicons' then
-        return web_devicon(file, path)
+        return web_devicon(file, path, expanded)
     elseif provider == 'mini.icons' then
         return mini_icon(file, path)
     end
