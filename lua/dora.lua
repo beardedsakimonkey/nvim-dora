@@ -97,7 +97,7 @@ M.config = {
         -- View
         f = 'filter',
         F = 'clear_filter',
-        i = 'info',
+        i = 'file_info',
         ['g.'] = 'toggle_hidden_files',
         ['<C-r>'] = 'reload',
 
