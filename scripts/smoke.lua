@@ -3172,7 +3172,7 @@ do
     local origin_text = api.nvim_get_current_line()
     local name_col = assert(origin_text:find('alpha.txt', 1, true)) - 1
     local anchor_pos = vim.fn.screenpos(origin_win, origin_line, name_col + 1)
-    core.info()
+    core.file_info()
     local info_win = api.nvim_get_current_win()
     local info_buf = api.nvim_get_current_buf()
     local info_cfg = api.nvim_win_get_config(info_win)
@@ -3224,7 +3224,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_line('link$')
-    core.info()
+    core.file_info()
     local info_lines = api.nvim_buf_get_lines(0, 0, -1, false)
 
     assert_match(info_lines[3], '^Path%s+')

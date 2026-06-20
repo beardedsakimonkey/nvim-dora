@@ -1356,7 +1356,7 @@ function M.jump_bookmark()
     end
 end
 
-function M.info()
+function M.file_info()
     local state = store.get()
     local row = current_row(state)
     local path, msg = current_path(state)
