@@ -1833,6 +1833,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
         base = state.cwd,
         overwrites = overwrites,
         operations = operations,
+        expanded = state.expanded_dirs,
     })
 end
 
@@ -1973,6 +1974,7 @@ local function remove_paths(state, paths, operation, action, anchor)
     end, {
         anchor = anchor,
         action = action,
+        expanded = state.expanded_dirs,
     })
 end
 
@@ -2072,6 +2074,7 @@ local function rename(prefill)
             end, {
                 anchor = current_name_anchor(row),
                 action = 'Overwrite',
+                expanded = state.expanded_dirs,
             })
         else
             perform_rename()

@@ -36,6 +36,7 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 ---@field base? string Show listed paths relative to this directory
 ---@field overwrites? table<string, boolean> Source paths that will replace an existing file
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
+---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
 
 ---@param path string
 ---@return string
@@ -65,15 +66,17 @@ end
 ---@param base? string
 ---@param overwrites? table<string, boolean>
 ---@param operations? table<string, DoraPasteOperation>
+---@param expanded? table<string, boolean>
 ---@return DoraDeleteConfirmItem
-local function item(path, base, overwrites, operations)
+local function item(path, base, overwrites, operations, expanded)
     local basename = fs.basename(path)
     -- Show the path relative to base, falling back to the absolute path for
     -- marks outside it (e.g. above the current root).
     local relative = base and (vim.fs.relpath(base, path) or path) or basename
     local dir_len = dir_prefix_len(relative)
     local hl = file_hl(path)
-    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path)
+    local is_expanded = expanded and expanded[path] or nil
+    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path, is_expanded)
     local icon_prefix = icon and icon .. ' ' or ''
     local display = icon_prefix .. relative
     local suffix_start_col, suffix_end_col
@@ -103,12 +106,13 @@ end
 ---@param base? string
 ---@param overwrites? table<string, boolean>
 ---@param operations? table<string, DoraPasteOperation>
+---@param expanded? table<string, boolean>
 ---@param limit integer Maximum number of paths to render before overflowing
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, overwrites, operations, limit)
+local function items(paths, base, overwrites, operations, expanded, limit)
     local ret = {}
     for i = 1, math.min(#paths, limit) do
-        ret[#ret+1] = item(paths[i], base, overwrites, operations)
+        ret[#ret+1] = item(paths[i], base, overwrites, operations, expanded)
     end
     return ret
 end
@@ -295,11 +299,12 @@ function M.delete(paths, cb, opts)
     local base = opts.base
     local overwrites = opts.overwrites
     local operations = opts.operations
+    local expanded = opts.expanded
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
-    local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil) or nil
+    local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded) or nil
     local max_paths = path_limit(opts.anchor, #paths)
-    local confirm_items = items(paths, base, overwrites, operations, max_paths)
+    local confirm_items = items(paths, base, overwrites, operations, expanded, max_paths)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow, dest_item)
     local confirm_title = get_title(#paths, opts.action)
@@ -314,7 +319,7 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, overwrites, operations, max_paths)
+        confirm_items = items(paths, base, overwrites, operations, expanded, max_paths)
         rendered_lines = lines(confirm_items, overflow, dest_item)
         vim.bo[buf].modifiable = true
         render(buf, ns, confirm_items, overflow, dest_item)
