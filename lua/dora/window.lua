@@ -34,6 +34,32 @@ end
 ---@field min_width? integer
 ---@field anchor? DoraFloatAnchor
 
+-- Maximum content rows a superimposed float can show when its content begins
+-- at screen row `pos_row`. Neovim keeps an editor-relative float's border above
+-- the command line and clamps a negative (clipped) top row to 0, so a full
+-- bottom border always costs one row that this budget reserves.
+---@param pos_row integer 1-indexed screen row of the float's first content line
+---@return integer
+local function superimpose_rows(pos_row)
+    return math.max(1, vim.o.lines - vim.o.cmdheight - math.max(2, pos_row))
+end
+
+-- Rows available to a superimposed confirmation anchored at `anchor`, so the
+-- caller can show only as many lines as will actually fit. Returns nil when the
+-- anchor would not superimpose (hidden, or opted out with superimpose = false).
+---@param anchor? DoraFloatAnchor
+---@return integer?
+function M.superimpose_capacity(anchor)
+    if not anchor or anchor.superimpose == false or not M.valid_win(anchor.win) then
+        return nil
+    end
+    local pos = vim.fn.screenpos(anchor.win, anchor.line, anchor.col + 1)
+    if pos.row == 0 or pos.col == 0 then
+        return nil
+    end
+    return superimpose_rows(pos.row)
+end
+
 ---@param opts DoraFloatLayoutOptions
 ---@return table
 ---Returns a config for vim.api.nvim_win_set_config(). Anchored to the
@@ -55,6 +81,11 @@ function M.layout(opts)
             row = pos.row - 2
             col = math.min(pos.col - 2 - (anchor.col_offset or 0),
                 math.max(0, vim.o.columns - width - 2))
+            -- The top border is clipped above the viewport, so the content runs
+            -- downward from the anchor. Use the full room below it (minus the
+            -- bottom border) rather than the conservative editor-wide clamp,
+            -- which would drop rows from a selection spanning the viewport.
+            height = math.min(opts.height, superimpose_rows(pos.row))
         else
             row = math.max(0, pos.row)
             col = math.min(math.max(0, pos.col - 1), math.max(0, vim.o.columns - width - 2))

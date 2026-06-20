@@ -1691,6 +1691,80 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    -- More files than the cap that truncates the cursor-anchored list.
+    local count = 15
+    for i = 1, count do
+        touch(tmp .. ('/f%02d'):format(i))
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('f01$')
+    local origin_win = api.nvim_get_current_win()
+    local target_line = find_line_index(lines(), 'f01$')
+    local target_row = state.rows[target_line]
+    local pos = vim.fn.screenpos(origin_win, target_line, target_row.name_start_col + 1)
+    -- Select every file and delete. The confirmation superimposes over the
+    -- selected rows, so it lists them all instead of overflowing.
+    api.nvim_feedkeys(api.nvim_replace_termcodes('V' .. (count - 1) .. 'jD', true, false, true), 'xt', false)
+
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    assert_match(win_title(confirm_win), 'Delete ' .. count .. ' files%?')
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    assert_eq(first_item_pos.row, pos.row, 'superimposed visual delete confirmation should align with the first selected row')
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    assert_eq(#confirm_lines, count, 'superimposed visual delete should list every selected file without truncating')
+    for _, line in ipairs(confirm_lines) do
+        assert(not line:match('and %d+ more'), 'superimposed visual delete should not show an overflow line')
+    end
+    assert_eq(confirm_lines[1], ' f01')
+    assert_eq(confirm_lines[count], ' f' .. count)
+
+    api.nvim_feedkeys('n', 'xt', false)
+    assert(fs.exists(tmp .. '/f01'), 'declining the confirmation should keep files')
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A selection spanning the whole viewport cannot fit one aligned line per
+    -- row plus the float's border, so it overflows rather than silently hiding
+    -- the rows the window can't show.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    for i = 1, 60 do
+        touch(tmp .. ('/f%02d'):format(i))
+    end
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local origin_win = api.nvim_get_current_win()
+    local info = vim.fn.getwininfo(origin_win)[1]
+    api.nvim_win_set_cursor(origin_win, {info.topline, 0})
+    local visible = info.botline - info.topline + 1
+    api.nvim_feedkeys(api.nvim_replace_termcodes('V' .. (visible - 1) .. 'jD', true, false, true), 'xt', false)
+
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    assert_match(win_title(confirm_win), 'Delete ' .. visible .. ' files%?')
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    -- The window must be tall enough to show every rendered line; otherwise the
+    -- bottom rows would be hidden with no indication.
+    assert(api.nvim_win_get_height(confirm_win) >= #confirm_lines,
+        'viewport-filling delete should not hide rows the buffer contains')
+    assert(vim.fn.screenpos(confirm_win, #confirm_lines, 2).row ~= 0,
+        'the last confirmation line should be on screen')
+    assert(confirm_lines[#confirm_lines]:match('^ %.%.%. and %d+ more$'),
+        'viewport-filling delete should overflow into a "... and N more" line')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local old_notify = vim.notify
     local notifications = {}
     ---@diagnostic disable-next-line: duplicate-set-field
