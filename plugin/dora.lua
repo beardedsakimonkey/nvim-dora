@@ -38,11 +38,20 @@ local function set_prompt_border_hls()
     update_hl_fg('DoraPromptBorderValid', 'DiagnosticOk')
     update_hl_fg('DoraPromptBorderInvalid', 'DiagnosticError')
 end
+
+local function set_hidden_cursor_hl()
+    api.nvim_set_hl(0, 'DoraHiddenCursor', {blend = 100, default = true})
+end
+
 set_prompt_border_hls()
+set_hidden_cursor_hl()
 
 api.nvim_create_autocmd('ColorScheme', {
     group = augroup,
-    callback = set_prompt_border_hls,
+    callback = function()
+        set_prompt_border_hls()
+        set_hidden_cursor_hl()
+    end,
 })
 
 api.nvim_create_user_command('Dora', function(o)

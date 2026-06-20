@@ -276,10 +276,10 @@ do
     assert_eq(confirm_cfg.col, origin_pos.col - 1, 'delete confirmation should anchor to the cursor by default')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
-    assert_eq(confirm_lines[1], ' foo.js')
-    assert_eq(confirm_lines[2], ' dir/')
-    assert_eq(confirm_lines[3], ' bar.lua')
-    assert_eq(confirm_lines[11], ' ... and 2 more')
+    assert_eq(confirm_lines[1], 'foo.js')
+    assert_eq(confirm_lines[2], 'dir/')
+    assert_eq(confirm_lines[3], 'bar.lua')
+    assert_eq(confirm_lines[11], '... and 2 more')
 
     local marks = api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
     local has_path, has_file, has_dir, has_dir_suffix, has_more = false, false, false, false, false
@@ -289,11 +289,11 @@ do
         has_path = has_path
             or details.hl_group == 'DoraDeletePath'
         has_file = has_file
-            or row == 0 and col == 1 and details.end_col == 7 and details.hl_group == 'DoraFile'
+            or row == 0 and col == 0 and details.end_col == 6 and details.hl_group == 'DoraFile'
         has_dir = has_dir
-            or row == 1 and col == 1 and details.end_col == 4 and details.hl_group == 'DoraDirectory'
+            or row == 1 and col == 0 and details.end_col == 3 and details.hl_group == 'DoraDirectory'
         has_dir_suffix = has_dir_suffix
-            or row == 1 and col == 4 and details.end_col == 5 and details.hl_group == 'DoraVirtText'
+            or row == 1 and col == 3 and details.end_col == 4 and details.hl_group == 'DoraVirtText'
         has_more = has_more
             or row == 10 and details.hl_group == 'DoraMutedText'
     end
@@ -337,10 +337,10 @@ do
     local view = api.nvim_win_call(confirm_win, function()
         return vim.fn.winsaveview()
     end)
-    local expected_width = math.max(32, math.min(96, vim.fn.strdisplaywidth(' ' .. long_file) + 1))
-    local expected_col = math.min(anchor_pos.col - 2 - #' ', math.max(0, vim.o.columns - expected_width - 2))
+    local expected_width = math.max(32, math.min(96, vim.fn.strdisplaywidth(long_file) + 1))
+    local expected_col = math.min(anchor_pos.col - 2, math.max(0, vim.o.columns - expected_width - 2))
 
-    assert_eq(confirm_lines[1], ' ' .. long_file)
+    assert_eq(confirm_lines[1], long_file)
     assert_eq(confirm_cfg.width, expected_width, 'delete confirmation should expand anchored windows for long names')
     assert_eq(confirm_cfg.col, expected_col, 'delete confirmation should shift left to fit expanded windows')
     assert(confirm_cfg.col < anchor_pos.col - 1, 'delete confirmation should start left of the anchor when needed')
@@ -377,7 +377,7 @@ do
     delete_win.delete({tmp .. '/icon.txt'}, function() end)
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    assert_eq(confirm_lines[1], ' [del] icon.txt', 'delete confirmation should render file icons when enabled')
+    assert_eq(confirm_lines[1], '[del] icon.txt', 'delete confirmation should render file icons when enabled')
 
     local marks = api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
     local has_icon, has_file = false, false
@@ -385,9 +385,9 @@ do
         local row, col, details = mark[2], mark[3], mark[4]
         ---@cast details -nil  -- always present with {details = true}
         has_icon = has_icon
-            or row == 0 and col == 1 and details.end_col == 6 and details.hl_group == 'DoraIcon'
+            or row == 0 and col == 0 and details.end_col == 5 and details.hl_group == 'DoraIcon'
         has_file = has_file
-            or row == 0 and col == 7 and details.end_col == 15 and details.hl_group == 'DoraFile'
+            or row == 0 and col == 6 and details.end_col == 14 and details.hl_group == 'DoraFile'
     end
     assert(has_icon, 'delete confirmation should highlight icons')
     assert(has_file, 'delete confirmation should keep highlighting filenames after icons')
@@ -421,8 +421,8 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(confirm_lines[1], ' ▸ icon.txt')
-    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ▸ ' + 1)
+    assert_eq(confirm_lines[1], '▸ icon.txt')
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #'▸ ' + 1)
     assert_eq(first_item_pos.row, name_pos.row, 'icon delete confirmation should superimpose onto the deleted row')
     assert_eq(first_item_pos.col, name_pos.col, 'icon delete confirmation should align the filename with the deleted row')
 
@@ -1381,11 +1381,11 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
-    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, 1)
     assert_eq(first_item_pos.row, pos.row, 'delete confirmation should superimpose onto the deleted row')
     assert_eq(first_item_pos.col, pos.col, 'delete confirmation should align the filename with the deleted row')
     assert_match(win_title(confirm_win), 'Delete%?')
-    assert_eq(confirm_lines[1], ' single.txt')
+    assert_eq(confirm_lines[1], 'single.txt')
 
     api.nvim_feedkeys('n', 'xt', false)
     core.quit()
@@ -1442,7 +1442,7 @@ do
 
     core.rename()
     assert_match(win_title(api.nvim_get_current_win()), 'Overwrite%?')
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' dest.txt')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], 'dest.txt')
     api.nvim_feedkeys('n', 'xt', false)
     assert_eq(vim.fn.readfile(tmp .. '/source.txt')[1], 'new',
         'declining rename overwrite should preserve the source file')
@@ -1642,7 +1642,7 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Trash 2 files%?')
-    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, 1)
     assert_eq(first_item_pos.row, pos.row, 'visual trash confirmation should superimpose onto the first selected row')
     assert_eq(first_item_pos.col, pos.col, 'visual trash confirmation should superimpose onto the first selected row')
     api.nvim_feedkeys('y', 'xt', false)
@@ -1677,7 +1677,7 @@ do
 
     local confirm_win = api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Delete 2 files%?')
-    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, 1)
     assert_eq(first_item_pos.row, pos.row, 'visual delete confirmation should superimpose onto the first selected row')
     assert_eq(first_item_pos.col, pos.col, 'visual delete confirmation should superimpose onto the first selected row')
     api.nvim_feedkeys('y', 'xt', false)
@@ -1713,15 +1713,15 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_buf = api.nvim_get_current_buf()
     assert_match(win_title(confirm_win), 'Delete ' .. count .. ' files%?')
-    local first_item_pos = vim.fn.screenpos(confirm_win, 1, #' ' + 1)
+    local first_item_pos = vim.fn.screenpos(confirm_win, 1, 1)
     assert_eq(first_item_pos.row, pos.row, 'superimposed visual delete confirmation should align with the first selected row')
     local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
     assert_eq(#confirm_lines, count, 'superimposed visual delete should list every selected file without truncating')
     for _, line in ipairs(confirm_lines) do
         assert(not line:match('and %d+ more'), 'superimposed visual delete should not show an overflow line')
     end
-    assert_eq(confirm_lines[1], ' f01')
-    assert_eq(confirm_lines[count], ' f' .. count)
+    assert_eq(confirm_lines[1], 'f01')
+    assert_eq(confirm_lines[count], 'f' .. count)
 
     api.nvim_feedkeys('n', 'xt', false)
     assert(fs.exists(tmp .. '/f01'), 'declining the confirmation should keep files')
@@ -1754,9 +1754,9 @@ do
     -- bottom rows would be hidden with no indication.
     assert(api.nvim_win_get_height(confirm_win) >= #confirm_lines,
         'viewport-filling delete should not hide rows the buffer contains')
-    assert(vim.fn.screenpos(confirm_win, #confirm_lines, 2).row ~= 0,
+    assert(vim.fn.screenpos(confirm_win, #confirm_lines, 1).row ~= 0,
         'the last confirmation line should be on screen')
-    assert(confirm_lines[#confirm_lines]:match('^ %.%.%. and %d+ more$'),
+    assert(confirm_lines[#confirm_lines]:match('^%.%.%. and %d+ more$'),
         'viewport-filling delete should overflow into a "... and N more" line')
 
     api.nvim_feedkeys('n', 'xt', false)
@@ -1800,9 +1800,9 @@ do
     local paste_win = api.nvim_get_current_win()
     assert_match(win_title(paste_win), 'Paste%?')
     local paste_lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(paste_lines[1], ' alpha.txt', 'paste confirmation should list the source file')
-    assert_eq(paste_lines[2], ' ↓', 'paste confirmation should show a down-arrow separator')
-    assert_eq(paste_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
+    assert_eq(paste_lines[1], 'alpha.txt', 'paste confirmation should list the source file')
+    assert_eq(paste_lines[2], '↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(paste_lines[3], 'dest/', 'paste confirmation should show the target path relative to the root')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
 
@@ -1860,7 +1860,7 @@ do
     set_cursor_pos('dest')
     core.paste_under()
 
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' sub/a.c',
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], 'sub/a.c',
         'paste confirmation should list source files relative to the root')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -1890,7 +1890,7 @@ do
     set_cursor_line('b%.txt$')
     core.paste_under()
 
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' ' .. root .. '/a.c',
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], root .. '/a.c',
         'paste confirmation should list marks above the root as absolute paths')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -2007,10 +2007,10 @@ do
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Paste%?')
     local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(confirm_lines[1], ' alpha.txt (overwrites)',
+    assert_eq(confirm_lines[1], 'alpha.txt (overwrites)',
         'paste confirmation should flag sources that replace an existing file')
-    assert_eq(confirm_lines[2], ' ↓', 'paste confirmation should show a down-arrow separator')
-    assert_eq(confirm_lines[3], ' dest/', 'paste confirmation should show the target path relative to the root')
+    assert_eq(confirm_lines[2], '↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(confirm_lines[3], 'dest/', 'paste confirmation should show the target path relative to the root')
     assert_eq(confirm_cfg.row, cursor_pos.row,
         'paste confirmation should anchor below the cursorline')
     api.nvim_feedkeys('n', 'xt', false)
@@ -2052,7 +2052,7 @@ do
     set_cursor_pos('dest')
     core.paste_under()
 
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], ' foo/ (overwrites)',
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], 'foo/ (overwrites)',
         'pasting a directory onto an existing one should be flagged as an overwrite')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
