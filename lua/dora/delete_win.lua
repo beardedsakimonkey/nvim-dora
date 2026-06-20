@@ -10,8 +10,6 @@ local M = {}
 
 local MAX_DELETE_PATHS = 10
 local MAX_DELETE_WIDTH = 96
-local LINE_PREFIX = ' '
-local LINE_PREFIX_LEN = #LINE_PREFIX
 local RIGHT_PADDING = 1
 local OVERWRITE_LABEL = ' (overwrites)'
 local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
@@ -148,20 +146,20 @@ end
 local function lines(confirm_items, overflow, dest_item)
     local ret = {}
     for _, confirm_item in ipairs(confirm_items) do
-        local line = LINE_PREFIX .. confirm_item.display
+        local line = confirm_item.display
         if confirm_item.overwrite then
             line = line .. OVERWRITE_LABEL
         end
         ret[#ret+1] = line
     end
     if overflow > 0 then
-        ret[#ret+1] = string.format('%s... and %d more', LINE_PREFIX, overflow)
+        ret[#ret+1] = string.format('... and %d more', overflow)
     end
     local dest_row
     if dest_item then
-        ret[#ret+1] = LINE_PREFIX .. '↓'
+        ret[#ret+1] = '↓'
         dest_row = #ret
-        ret[#ret+1] = LINE_PREFIX .. dest_item.display
+        ret[#ret+1] = dest_item.display
     end
     return ret, dest_row
 end
@@ -172,15 +170,15 @@ end
 ---@param confirm_item DoraDeleteConfirmItem
 local function render_item(buf, ns, row, confirm_item)
     if confirm_item.icon_start_col then
-        api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN + confirm_item.icon_start_col, {
-            end_col = LINE_PREFIX_LEN + confirm_item.icon_end_col,
+        api.nvim_buf_set_extmark(buf, ns, row, confirm_item.icon_start_col, {
+            end_col = confirm_item.icon_end_col,
             hl_group = confirm_item.icon_hl,
             priority = 10000,
         })
     end
     if confirm_item.dir_start_col then
-        api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN + confirm_item.dir_start_col, {
-            end_col = LINE_PREFIX_LEN + confirm_item.dir_end_col,
+        api.nvim_buf_set_extmark(buf, ns, row, confirm_item.dir_start_col, {
+            end_col = confirm_item.dir_end_col,
             hl_group = 'DoraFilterPath',
             priority = 10000,
         })
@@ -189,8 +187,8 @@ local function render_item(buf, ns, row, confirm_item)
     -- in the tree.
     local name_hl = confirm_item.operation and OPERATION_HL[confirm_item.operation]
         or confirm_item.file_hl
-    api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN + confirm_item.file_start_col, {
-        end_col = LINE_PREFIX_LEN + confirm_item.file_end_col,
+    api.nvim_buf_set_extmark(buf, ns, row, confirm_item.file_start_col, {
+        end_col = confirm_item.file_end_col,
         hl_group = name_hl,
         priority = 10000,
     })
@@ -208,7 +206,7 @@ local function render(buf, ns, confirm_items, overflow, dest_item)
     for i, confirm_item in ipairs(confirm_items) do
         render_item(buf, ns, i - 1, confirm_item)
         if confirm_item.overwrite then
-            api.nvim_buf_set_extmark(buf, ns, i - 1, LINE_PREFIX_LEN + #confirm_item.display, {
+            api.nvim_buf_set_extmark(buf, ns, i - 1, #confirm_item.display, {
                 end_col = #rendered_lines[i],
                 hl_group = 'DoraOverwrite',
                 priority = 10000,
@@ -217,7 +215,7 @@ local function render(buf, ns, confirm_items, overflow, dest_item)
     end
     if overflow > 0 then
         local row = #confirm_items
-        api.nvim_buf_set_extmark(buf, ns, row, LINE_PREFIX_LEN, {
+        api.nvim_buf_set_extmark(buf, ns, row, 0, {
             end_col = #rendered_lines[row + 1],
             hl_group = 'DoraMutedText',
         })
@@ -250,7 +248,9 @@ local function cursor_anchor(win)
 end
 
 -- Superimposes the first item's basename onto the anchor cell, so the lines
--- align with the rows they remove
+-- align with the rows they remove. The offset is the width of the directory
+-- prefix shown before the basename (none for a bare basename), letting the icon
+-- sit flush against the border like the rename prompt.
 ---@param anchor DoraFloatAnchor
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@return DoraFloatAnchor
@@ -263,10 +263,10 @@ local function superimpose_anchor(anchor, confirm_items)
         return anchor
     end
     local icon_len = first.icon_end_col and first.icon_end_col + 1 or 0
-    local prefix = LINE_PREFIX .. first.display:sub(icon_len + 1, first.file_start_col)
+    local dir_prefix = first.display:sub(icon_len + 1, first.file_start_col)
     return vim.tbl_extend('force', anchor, {
         superimpose = true,
-        col_offset = vim.fn.strdisplaywidth(prefix),
+        col_offset = vim.fn.strdisplaywidth(dir_prefix),
     })
 end
 
