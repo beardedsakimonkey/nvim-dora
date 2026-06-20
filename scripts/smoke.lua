@@ -401,6 +401,31 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local dir = tmp .. '/subdir'
+    assert(vim.loop.fs_mkdir(dir, tonumber('755', 8)))
+
+    local old_icons = config.icons
+    config.icons = true
+
+    -- A directory left expanded in the tree keeps its open-folder icon.
+    delete_win.delete({dir}, function() end, {expanded = {[dir] = true}})
+    local expanded_line = api.nvim_buf_get_lines(api.nvim_get_current_buf(), 0, -1, false)[1]
+    assert_eq(expanded_line, '\238\151\190 subdir/', 'delete confirmation should preserve the expanded directory icon')
+    api.nvim_feedkeys('n', 'xt', false)
+
+    -- Without expansion it falls back to the collapsed icon.
+    delete_win.delete({dir}, function() end)
+    local collapsed_line = api.nvim_buf_get_lines(api.nvim_get_current_buf(), 0, -1, false)[1]
+    assert_eq(collapsed_line, '\238\151\191 subdir/', 'delete confirmation should use the collapsed icon for unexpanded directories')
+    api.nvim_feedkeys('n', 'xt', false)
+
+    config.icons = old_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/icon.txt')
 
     local old_icons = config.icons
