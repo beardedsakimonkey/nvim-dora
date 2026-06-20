@@ -28,6 +28,7 @@ local M = {}
 ---@field icons DoraIconConfig
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
+---@field prompt_insert_esc_closes boolean
 
 ---@type DoraConfig
 M.config = {
@@ -44,6 +45,8 @@ M.config = {
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
     -- Key mappings
     keymaps = {
         -- General

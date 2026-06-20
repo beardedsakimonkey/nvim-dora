@@ -561,8 +561,8 @@ do
     assert_eq(cfg.relative, 'editor')
     assert_eq(cfg.anchor, 'NW')
     assert_eq(cfg.border[1], '╭')
-    assert(next(vim.fn.maparg('<Esc>', 'i', false, true)) == nil,
-        'prompt should use the default insert-mode escape behavior')
+    assert_eq(type(vim.fn.maparg('<Esc>', 'i', false, true).callback), 'function',
+        'prompt should close on insert-mode escape by default')
     assert_eq(type(vim.fn.maparg('<Esc>', 'n', false, true).callback), 'function')
     for _, map in ipairs(api.nvim_buf_get_keymap(p.input_buf, 'i')) do
         assert(map.lhs ~= '<Tab>', 'prompt should not map tab for completion')
@@ -632,11 +632,10 @@ do
 
     api.nvim_feedkeys(api.nvim_replace_termcodes('ix<Esc>', true, false, true), 'xt', false)
     assert(vim.wait(1000, function()
-        return p:get_input() == 'x' and vim.api.nvim_get_mode().mode == 'n'
-    end), 'escape after typed input should leave insert mode')
-    assert(not p.closed, 'escape after typed input should leave prompt open')
-    p:cancel()
-    assert_eq(vim.g.dora_smoke_escape_typed, true)
+        return p.closed
+    end), 'escape after typed input should close the prompt by default')
+    assert_eq(vim.g.dora_smoke_escape_typed, true,
+        'closing a prompt on escape should cancel it')
 end
 
 do
@@ -653,10 +652,34 @@ do
 
     api.nvim_feedkeys(api.nvim_replace_termcodes('i<Esc>', true, false, true), 'xt', false)
     assert(vim.wait(1000, function()
-        return not p.closed and vim.api.nvim_get_mode().mode == 'n'
-    end), 'escape with empty input should leave insert mode and keep the prompt open')
-    p:cancel()
+        return p.closed
+    end), 'escape with empty input should close the prompt by default')
     assert_eq(vim.g.dora_smoke_escape_key_empty, true)
+end
+
+do
+    local original = config.prompt_insert_esc_closes
+    config.prompt_insert_esc_closes = false
+    local p = prompt.input({
+        prompt = 'Escape leaves insert mode',
+        cwd = cwd,
+        validate = function(input)
+            return input
+        end,
+    }, function() end)
+    ---@cast p DoraPrompt
+
+    assert(next(vim.fn.maparg('<Esc>', 'i', false, true)) == nil,
+        'disabling prompt_insert_esc_closes should leave insert-mode escape unmapped')
+
+    api.nvim_feedkeys(api.nvim_replace_termcodes('ix<Esc>', true, false, true), 'xt', false)
+    assert(vim.wait(1000, function()
+        return p:get_input() == 'x' and vim.api.nvim_get_mode().mode == 'n'
+    end), 'escape should leave insert mode when prompt_insert_esc_closes is false')
+    assert(not p.closed,
+        'escape should keep the prompt open when prompt_insert_esc_closes is false')
+    p:cancel()
+    config.prompt_insert_esc_closes = original
 end
 
 do

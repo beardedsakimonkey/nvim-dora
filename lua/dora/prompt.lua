@@ -1,5 +1,6 @@
 local api = vim.api
 local window = require'dora.window'
+local config = require'dora'.config
 
 local M = {}
 
@@ -167,6 +168,9 @@ function M.input(opts, cb)
 
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
     keymap(self.input_buf, 'n', 'q',     function() self:cancel() end)
+    if config.prompt_insert_esc_closes then
+        keymap(self.input_buf, 'i', '<Esc>', function() self:cancel() end)
+    end
     keymap(self.input_buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.input_buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
 
