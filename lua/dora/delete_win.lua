@@ -366,6 +366,7 @@ function M.delete(paths, cb, opts)
     for _, lhs in ipairs({'n', 'N', 'q', '<Esc>', '<C-c>'}) do
         vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})
     end
+    vim.keymap.set('n', 'd', '<Nop>', {buffer = buf, silent = true, nowait = true})
 
     autocmds[#autocmds+1] = api.nvim_create_autocmd('CursorMoved', {
         buffer = buf,
