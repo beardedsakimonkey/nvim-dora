@@ -300,7 +300,7 @@ do
     assert(not has_path, 'delete confirmation should not dim the path portion')
     assert(has_file, 'delete confirmation should highlight file names by type')
     assert(has_dir, 'delete confirmation should highlight directory names by type')
-    assert(not has_dir_suffix, 'delete confirmation should leave directory suffixes normal')
+    assert(has_dir_suffix, 'delete confirmation should highlight directory suffixes with DoraVirtText')
     assert(has_more, 'delete confirmation should highlight the overflow row')
 
     api.nvim_feedkeys('n', 'xt', false)

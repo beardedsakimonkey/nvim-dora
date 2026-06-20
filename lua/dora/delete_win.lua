@@ -21,6 +21,8 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 ---@field icon_hl? string
 ---@field dir_start_col? integer
 ---@field dir_end_col? integer
+---@field suffix_start_col? integer
+---@field suffix_end_col? integer
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
@@ -73,11 +75,13 @@ local function item(path, base, overwrites, operations)
     local hl = file_hl(path)
     local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path)
     local icon_prefix = icon and icon .. ' ' or ''
-    local display = relative
+    local display = icon_prefix .. relative
+    local suffix_start_col, suffix_end_col
     if hl == 'DoraDirectory' then
+        suffix_start_col = #display
         display = display .. '/'
+        suffix_end_col = #display
     end
-    display = icon_prefix .. display
     return {
         display = display,
         icon_start_col = icon and 0 or nil,
@@ -85,6 +89,8 @@ local function item(path, base, overwrites, operations)
         icon_hl = icon_hl or 'DoraIcon',
         dir_start_col = dir_len > 0 and #icon_prefix or nil,
         dir_end_col = dir_len > 0 and #icon_prefix + dir_len or nil,
+        suffix_start_col = suffix_start_col,
+        suffix_end_col = suffix_end_col,
         file_start_col = #icon_prefix + dir_len,
         file_end_col = #icon_prefix + dir_len + #basename,
         file_hl = hl,
@@ -192,6 +198,13 @@ local function render_item(buf, ns, row, confirm_item)
         hl_group = name_hl,
         priority = 10000,
     })
+    if confirm_item.suffix_start_col then
+        api.nvim_buf_set_extmark(buf, ns, row, confirm_item.suffix_start_col, {
+            end_col = confirm_item.suffix_end_col,
+            hl_group = 'DoraVirtText',
+            priority = 10000,
+        })
+    end
 end
 
 ---@param buf integer
