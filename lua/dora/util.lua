@@ -24,7 +24,7 @@ local function create_buf_name(cwd)
     local i = 0
     while vim.tbl_contains(loaded_bufs, new_name) do
         i = i + 1
-        new_name = cwd .. ' [' .. i .. ']'
+        new_name = cwd .. ' ' .. i
     end
     return new_name
 end
