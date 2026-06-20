@@ -90,6 +90,8 @@ require('dora').setup {
     is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
     -- Key mappings
     keymaps = {
         -- General
@@ -246,18 +248,12 @@ time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set
 `dora.config.sort_order` to choose the initial order.
 
-Dora prompt buffers use the `dora-prompt` filetype. Use a `FileType` autocmd
-to customize them. For example, to make `<Esc>` close a prompt directly from
-insert mode:
+Prompts (rename, create, symlink, and so on) close when you press `<Esc>` in
+insert mode. Set `prompt_insert_esc_closes = false` to leave insert mode
+instead, switching to normal mode where `<Esc>` or `q` then closes the prompt.
 
-```lua
-vim.api.nvim_create_autocmd("FileType", {
-    pattern = "dora-prompt",
-    callback = function(args)
-        vim.keymap.set("i", "<Esc>", "<Cmd>close<CR>", {buffer = args.buf})
-    end,
-})
-```
+Dora prompt buffers use the `dora-prompt` filetype, so you can customize them
+further with a `FileType` autocmd.
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
