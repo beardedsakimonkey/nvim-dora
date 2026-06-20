@@ -99,13 +99,34 @@ end
 ---@param base? string
 ---@param overwrites? table<string, boolean>
 ---@param operations? table<string, DoraPasteOperation>
+---@param limit integer Maximum number of paths to render before overflowing
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, overwrites, operations)
+local function items(paths, base, overwrites, operations, limit)
     local ret = {}
-    for i = 1, math.min(#paths, MAX_DELETE_PATHS) do
+    for i = 1, math.min(#paths, limit) do
         ret[#ret+1] = item(paths[i], base, overwrites, operations)
     end
     return ret
+end
+
+-- How many paths to list before overflowing into "... and N more". A
+-- superimposed confirmation aligns one line per removed row, so it lists every
+-- path that fits; it only overflows when the float (including its border)
+-- genuinely cannot show them all. Other confirmations (paste, centered) keep
+-- the fixed cap.
+---@param anchor? DoraFloatAnchor
+---@param count integer Number of paths to confirm
+---@return integer
+local function path_limit(anchor, count)
+    local capacity = window.superimpose_capacity(anchor)
+    if not capacity then
+        return MAX_DELETE_PATHS
+    end
+    if count <= capacity then
+        return count
+    end
+    -- Reserve the final visible row for the overflow line.
+    return capacity - 1
 end
 
 ---@param count integer
@@ -264,7 +285,8 @@ function M.delete(paths, cb, opts)
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil) or nil
-    local confirm_items = items(paths, base, overwrites, operations)
+    local max_paths = path_limit(opts.anchor, #paths)
+    local confirm_items = items(paths, base, overwrites, operations, max_paths)
     local overflow = math.max(0, #paths - #confirm_items)
     local rendered_lines = lines(confirm_items, overflow, dest_item)
     local confirm_title = get_title(#paths, opts.action)
@@ -279,7 +301,7 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, overwrites, operations)
+        confirm_items = items(paths, base, overwrites, operations, max_paths)
         rendered_lines = lines(confirm_items, overflow, dest_item)
         vim.bo[buf].modifiable = true
         render(buf, ns, confirm_items, overflow, dest_item)
