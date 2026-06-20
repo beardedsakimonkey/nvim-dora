@@ -322,8 +322,8 @@ function M.delete(paths, cb, opts)
     end
 
     local win = api.nvim_open_win(buf, true, layout())
-    vim.o.guicursor = 'a:block-Normal'
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorderInvalid,Cursor:Normal'
+    vim.o.guicursor = 'a:block-DoraHiddenCursor'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorderInvalid'
     vim.wo[win].wrap = false
 
     local function finish(confirmed)
