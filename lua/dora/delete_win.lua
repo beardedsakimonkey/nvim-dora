@@ -11,8 +11,31 @@ local M = {}
 local MAX_DELETE_PATHS = 10
 local MAX_DELETE_WIDTH = 96
 local RIGHT_PADDING = 1
-local OVERWRITE_LABEL = ' (overwrites)'
+-- Arrow joining a conflicting name to the free name a keep-both paste would use.
+local RENAME_ARROW = ' → '
+-- Muted full-width rule separating the header from the file list.
+local DIVIDER_CHAR = '─'
+-- Per-conflict-row tag of what the chosen mode does to that entry.
+local KEEP_SUFFIX = ' (keep)'
+local OVERWRITE_SUFFIX = ' (overwrite)'
 local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
+
+-- The mode-key hint shown beneath the warning, advertising both keys: `o`
+-- overwrites the conflicting entries, `k` keeps both (renaming around them). The
+-- text never changes -- only which mode's segment is bolded -- so it is built
+-- once alongside the 0-indexed byte ranges each highlight needs.
+local HINT = (function()
+    local overwrite, keep, middot = 'o overwrite', 'k keep', '·'
+    local sep = ' ' .. middot .. ' '
+    local keep_col = #overwrite + #sep
+    return {
+        text = overwrite .. sep .. keep,
+        overwrite_range = {0, #overwrite},          -- bolded in overwrite mode
+        keep_range = {keep_col, keep_col + #keep},   -- bolded in keep mode
+        key_cols = {0, keep_col},                    -- the `o` and `k` mnemonics
+        middot_range = {#overwrite + 1, #overwrite + 1 + #middot},
+    }
+end)()
 
 ---@class DoraDeleteConfirmItem
 ---@field display string
@@ -26,7 +49,7 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
----@field overwrite? boolean
+---@field rename? string Free name a keep-both paste would use, shown after an arrow
 ---@field operation? DoraPasteOperation
 
 ---@class DoraDeleteOptions
@@ -34,7 +57,8 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 ---@field action? string
 ---@field dest? string Destination directory shown beneath the file list
 ---@field base? string Show listed paths relative to this directory
----@field overwrites? table<string, boolean> Source paths that will replace an existing file
+---@field renames? table<string, string> Source path -> free name shown for a kept-both paste
+---@field allow_overwrite? boolean Offer `o`/`k` to toggle overwrite vs the default keep-both, passed to cb's second arg
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
 
@@ -64,11 +88,11 @@ end
 
 ---@param path string
 ---@param base? string
----@param overwrites? table<string, boolean>
+---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
 ---@return DoraDeleteConfirmItem
-local function item(path, base, overwrites, operations, expanded)
+local function item(path, base, renames, operations, expanded)
     local basename = fs.basename(path)
     -- Show the path relative to base, falling back to the absolute path for
     -- marks outside it (e.g. above the current root).
@@ -97,22 +121,22 @@ local function item(path, base, overwrites, operations, expanded)
         file_start_col = #icon_prefix + dir_len,
         file_end_col = #icon_prefix + dir_len + #basename,
         file_hl = hl,
-        overwrite = overwrites and overwrites[path] or nil,
+        rename = renames and renames[path] or nil,
         operation = operations and operations[path] or nil,
     }
 end
 
 ---@param paths string[]
 ---@param base? string
----@param overwrites? table<string, boolean>
+---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
 ---@param limit integer Maximum number of paths to render before overflowing
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, overwrites, operations, expanded, limit)
+local function items(paths, base, renames, operations, expanded, limit)
     local ret = {}
     for i = 1, math.min(#paths, limit) do
-        ret[#ret+1] = item(paths[i], base, overwrites, operations, expanded)
+        ret[#ret+1] = item(paths[i], base, renames, operations, expanded)
     end
     return ret
 end
@@ -148,17 +172,66 @@ local function get_title(count, action)
     return string.format('%s %d files?', action, count)
 end
 
+---@param count integer
+---@return string
+local function conflicts_text(count)
+    return string.format('%d conflict%s', count, count == 1 and '' or 's')
+end
+
+---@param overwrite boolean
+---@return string
+local function conflict_suffix(overwrite)
+    return overwrite and OVERWRITE_SUFFIX or KEEP_SUFFIX
+end
+
+-- Number of leading spaces that horizontally centers `text` within `width`.
+---@param text string
+---@param width integer
+---@return integer
+local function center_pad(text, width)
+    return math.max(0, math.floor((width - vim.fn.strdisplaywidth(text)) / 2))
+end
+
+---@param text string
+---@param width integer
+---@return string
+local function center(text, width)
+    return string.rep(' ', center_pad(text, width)) .. text
+end
+
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
 ---@param dest_item? DoraDeleteConfirmItem
+---@param overwrite boolean Drop the keep-both rename previews while overwriting
+---@param warning? string Conflict count centered on the first line
+---@param hint? string Mode-key hint centered below the warning, above a spacer
+---@param width? integer Window width used to center the warning and hint
 ---@return string[] rendered_lines
 ---@return integer? dest_row 0-indexed row of the destination
-local function lines(confirm_items, overflow, dest_item)
+local function lines(confirm_items, overflow, dest_item, overwrite, warning, hint, width)
     local ret = {}
+    if warning then
+        ret[#ret+1] = width and center(warning, width) or warning
+    end
+    if hint then
+        ret[#ret+1] = width and center(hint, width) or hint
+    end
+    if warning or hint then
+        -- Built only once the width is known; an empty placeholder keeps it out
+        -- of the width measurement so it never drives the window wider.
+        ret[#ret+1] = width and string.rep(DIVIDER_CHAR, width) or ''
+    end
+    local suffix = conflict_suffix(overwrite)
     for _, confirm_item in ipairs(confirm_items) do
         local line = confirm_item.display
-        if confirm_item.overwrite then
-            line = line .. OVERWRITE_LABEL
+        if confirm_item.rename then
+            -- The rename preview only applies to a keep-both paste; an overwrite
+            -- lands on the conflicting name itself. Either way the row is tagged
+            -- with what the chosen mode does to it.
+            if not overwrite then
+                line = line .. RENAME_ARROW .. confirm_item.rename
+            end
+            line = line .. suffix
         end
         ret[#ret+1] = line
     end
@@ -172,6 +245,15 @@ local function lines(confirm_items, overflow, dest_item)
         ret[#ret+1] = dest_item.display
     end
     return ret, dest_row
+end
+
+-- A cut/copy mark recolors the filename red/green, matching how the marked file
+-- appears in the tree; otherwise it keeps its file-type color.
+---@param confirm_item DoraDeleteConfirmItem
+---@return string
+local function name_hl(confirm_item)
+    return confirm_item.operation and OPERATION_HL[confirm_item.operation]
+        or confirm_item.file_hl
 end
 
 ---@param buf integer
@@ -193,13 +275,9 @@ local function render_item(buf, ns, row, confirm_item)
             priority = 10000,
         })
     end
-    -- A cut/copy mark recolors the filename, matching how marked files appear
-    -- in the tree.
-    local name_hl = confirm_item.operation and OPERATION_HL[confirm_item.operation]
-        or confirm_item.file_hl
     api.nvim_buf_set_extmark(buf, ns, row, confirm_item.file_start_col, {
         end_col = confirm_item.file_end_col,
-        hl_group = name_hl,
+        hl_group = name_hl(confirm_item),
         priority = 10000,
     })
     if confirm_item.suffix_start_col then
@@ -216,22 +294,86 @@ end
 ---@param confirm_items DoraDeleteConfirmItem[]
 ---@param overflow integer
 ---@param dest_item? DoraDeleteConfirmItem
-local function render(buf, ns, confirm_items, overflow, dest_item)
-    local rendered_lines, dest_row = lines(confirm_items, overflow, dest_item)
+---@param overwrite boolean
+---@param warning? string
+---@param hint? string
+---@param width integer
+local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, width)
+    local rendered_lines, dest_row = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, width)
     api.nvim_buf_set_lines(buf, 0, -1, false, rendered_lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+    -- The centered warning and hint head the list, above a blank spacer, so the
+    -- file rows start below them.
+    local offset = 0
+    if warning then
+        local pad = center_pad(warning, width)
+        api.nvim_buf_set_extmark(buf, ns, offset, pad, {
+            end_col = pad + #warning,
+            hl_group = 'DoraWarn',
+            priority = 10000,
+        })
+        offset = offset + 1
+    end
+    if hint then
+        -- Bold the active mode's segment, spotlight both mnemonic keys, and mute
+        -- the middot; the rest reads normally. Bold and the key color set
+        -- different attributes, so they layer on the active key.
+        local pad = center_pad(hint, width)
+        local active = overwrite and HINT.overwrite_range or HINT.keep_range
+        api.nvim_buf_set_extmark(buf, ns, offset, pad + active[1], {
+            end_col = pad + active[2],
+            hl_group = 'DoraBold',
+            priority = 10000,
+        })
+        for _, key_col in ipairs(HINT.key_cols) do
+            api.nvim_buf_set_extmark(buf, ns, offset, pad + key_col, {
+                end_col = pad + key_col + 1,
+                hl_group = 'DoraInfoValue',
+                priority = 10001,
+            })
+        end
+        api.nvim_buf_set_extmark(buf, ns, offset, pad + HINT.middot_range[1], {
+            end_col = pad + HINT.middot_range[2],
+            hl_group = 'DoraMutedText',
+            priority = 10000,
+        })
+        offset = offset + 1
+    end
+    if warning or hint then
+        api.nvim_buf_set_extmark(buf, ns, offset, 0, {
+            end_col = #rendered_lines[offset + 1],
+            hl_group = 'DoraMutedText',
+            priority = 10000,
+        })
+        offset = offset + 1
+    end
+    local suffix = conflict_suffix(overwrite)
     for i, confirm_item in ipairs(confirm_items) do
-        render_item(buf, ns, i - 1, confirm_item)
-        if confirm_item.overwrite then
-            api.nvim_buf_set_extmark(buf, ns, i - 1, #confirm_item.display, {
-                end_col = #rendered_lines[i],
-                hl_group = 'DoraOverwrite',
+        local row = offset + i - 1
+        render_item(buf, ns, row, confirm_item)
+        if confirm_item.rename then
+            local line_len = #rendered_lines[row + 1]
+            local suffix_start = line_len - #suffix
+            if not overwrite then
+                -- The arrow reads in the normal color; the previewed name takes
+                -- the marked file's color (cut/copy) so it reads like the row.
+                local name_start = #confirm_item.display + #RENAME_ARROW
+                api.nvim_buf_set_extmark(buf, ns, row, name_start, {
+                    end_col = suffix_start,
+                    hl_group = name_hl(confirm_item),
+                    priority = 10000,
+                })
+            end
+            -- Tag the row with its fate (keep/overwrite) in the warning color.
+            api.nvim_buf_set_extmark(buf, ns, row, suffix_start, {
+                end_col = line_len,
+                hl_group = 'DoraWarn',
                 priority = 10000,
             })
         end
     end
     if overflow > 0 then
-        local row = #confirm_items
+        local row = offset + #confirm_items
         api.nvim_buf_set_extmark(buf, ns, row, 0, {
             end_col = #rendered_lines[row + 1],
             hl_group = 'DoraMutedText',
@@ -288,7 +430,7 @@ local function superimpose_anchor(anchor, confirm_items)
 end
 
 ---@param paths string[]
----@param cb fun(confirmed: boolean)
+---@param cb fun(confirmed: boolean, overwrite?: boolean)
 ---@param opts? DoraDeleteOptions
 function M.delete(paths, cb, opts)
     if #paths == 0 then
@@ -297,17 +439,37 @@ function M.delete(paths, cb, opts)
     end
     opts = opts or {}
     local base = opts.base
-    local overwrites = opts.overwrites
+    local renames = opts.renames
     local operations = opts.operations
     local expanded = opts.expanded
+    -- Paste confirmations start in keep-both mode; `o` switches to overwrite and
+    -- `k` switches back, retagging each row. A conflict count and a static
+    -- both-keys hint head the list.
+    local overwrite = false
+    local warning = opts.allow_overwrite
+        and conflicts_text(vim.tbl_count(renames or {})) or nil
+    local hint = opts.allow_overwrite and HINT.text or nil
+    -- A paste warns (regardless of overwrite mode) when it would clash with an
+    -- existing entry, otherwise keeps the normal float border; a delete or
+    -- single-file overwrite stays red to flag the destructive confirm.
+    local border = 'DoraPromptBorderInvalid'
+    if opts.action == 'Paste' then
+        border = opts.allow_overwrite and 'DoraPromptBorderWarn' or 'DoraPromptBorder'
+    end
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded) or nil
     local max_paths = path_limit(opts.anchor, #paths)
-    local confirm_items = items(paths, base, overwrites, operations, expanded, max_paths)
+    local confirm_items = items(paths, base, renames, operations, expanded, max_paths)
     local overflow = math.max(0, #paths - #confirm_items)
-    local rendered_lines = lines(confirm_items, overflow, dest_item)
     local confirm_title = get_title(#paths, opts.action)
+    -- Size the window to fit either mode (overwrite tags are shorter than the
+    -- keep-both previews) so toggling never resizes it. A fixed width keeps the
+    -- centered warning and hint from shifting — stability over a snug fit.
+    local win_width = math.max(
+        get_width(confirm_title, lines(confirm_items, overflow, dest_item, false, warning, hint)),
+        get_width(confirm_title, lines(confirm_items, overflow, dest_item, true, warning, hint)))
+    local rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
     local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
     local autocmds = {}
@@ -319,10 +481,12 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, overwrites, operations, expanded, max_paths)
-        rendered_lines = lines(confirm_items, overflow, dest_item)
+        confirm_items = items(paths, base, renames, operations, expanded, max_paths)
+        -- win_width is fixed for the window's lifetime, so the centered header
+        -- never moves as the mode (and the list content) changes.
+        rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
         vim.bo[buf].modifiable = true
-        render(buf, ns, confirm_items, overflow, dest_item)
+        render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
         vim.bo[buf].modifiable = false
     end
 
@@ -332,7 +496,7 @@ function M.delete(paths, cb, opts)
     local function layout()
         return window.layout({
             title = confirm_title,
-            width = get_width(confirm_title, rendered_lines),
+            width = win_width,
             height = #rendered_lines,
             anchor = opts.anchor and superimpose_anchor(opts.anchor, confirm_items)
                 or cursor_anchor(origin_win),
@@ -341,9 +505,10 @@ function M.delete(paths, cb, opts)
 
     local win = api.nvim_open_win(buf, true, layout())
     vim.o.guicursor = 'a:block-DoraHiddenCursor'
-    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorderInvalid'
+    vim.wo[win].winhighlight = 'NormalFloat:Normal,FloatBorder:' .. border
     vim.wo[win].wrap = false
 
+    ---@param confirmed boolean
     local function finish(confirmed)
         if closed then
             return
@@ -357,7 +522,18 @@ function M.delete(paths, cb, opts)
         if window.valid_win(origin_win) then
             pcall(api.nvim_set_current_win, origin_win)
         end
-        cb(confirmed)
+        cb(confirmed, overwrite)
+    end
+
+    -- Switch between keep-both and overwrite without leaving the confirmation.
+    -- The window geometry is fixed (same line count, mode-independent width), so
+    -- only the buffer content is re-rendered.
+    local function set_overwrite(value)
+        if overwrite == value or not window.valid_win(win) then
+            return
+        end
+        overwrite = value
+        refresh()
     end
 
     for _, lhs in ipairs({'y', 'Y', '<CR>'}) do
@@ -365,6 +541,16 @@ function M.delete(paths, cb, opts)
     end
     for _, lhs in ipairs({'n', 'N', 'q', '<Esc>', '<C-c>'}) do
         vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})
+    end
+    -- A keep-both confirm renames around conflicts; `o` overwrites the existing
+    -- destinations instead and `k` switches back to keeping both.
+    if opts.allow_overwrite then
+        for _, lhs in ipairs({'o', 'O'}) do
+            vim.keymap.set('n', lhs, function() set_overwrite(true) end, {buffer = buf, silent = true, nowait = true})
+        end
+        for _, lhs in ipairs({'k', 'K'}) do
+            vim.keymap.set('n', lhs, function() set_overwrite(false) end, {buffer = buf, silent = true, nowait = true})
+        end
     end
     vim.keymap.set('n', 'd', '<Nop>', {buffer = buf, silent = true, nowait = true})
 
