@@ -835,9 +835,9 @@ do
     assert(not fs.exists(tmp .. '/foo'), 'trash should remove source files')
     assert(not fs.exists(tmp .. '/bar'), 'trash should remove source files when destination name collides with a directory')
     assert(fs.exists(trash_dir .. '/foo'), 'trash should preserve existing trash entries')
-    assert(fs.exists(trash_dir .. '/foo 1'), 'trash should suffix colliding file names')
+    assert(fs.exists(trash_dir .. '/foo(1)'), 'trash should suffix colliding file names')
     assert(fs.exists(trash_dir .. '/bar'), 'trash should preserve existing trash directories')
-    assert(fs.exists(trash_dir .. '/bar 1'), 'trash should suffix colliding directory names')
+    assert(fs.exists(trash_dir .. '/bar(1)'), 'trash should suffix colliding directory names')
 
     vim.env.HOME = old_home
     vim.env.XDG_DATA_HOME = old_data_home
@@ -2054,32 +2054,159 @@ do
     local confirm_win = api.nvim_get_current_win()
     local confirm_cfg = api.nvim_win_get_config(confirm_win)
     assert_match(win_title(confirm_win), 'Paste%?')
+    assert(not win_title(confirm_win):match('overwrite'),
+        'paste confirmation should keep the overwrite hint out of the title')
+    assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
+        'a conflicting paste confirmation should warn on its border')
     local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(confirm_lines[1], 'alpha.txt (overwrites)',
-        'paste confirmation should flag sources that replace an existing file')
-    assert_eq(confirm_lines[2], '↓', 'paste confirmation should show a down-arrow separator')
-    assert_eq(confirm_lines[3], 'dest/', 'paste confirmation should show the target path relative to the root')
+    local confirm_width = confirm_cfg.width
+    local function pad_for(text)
+        return math.max(0, math.floor((confirm_width - vim.fn.strdisplaywidth(text)) / 2))
+    end
+    local function centered(text)
+        return string.rep(' ', pad_for(text)) .. text
+    end
+    local hint_str = 'o overwrite · k keep'
+    assert_eq(confirm_lines[1], centered('1 conflict'),
+        'a centered conflict count should head the confirmation')
+    assert_eq(confirm_lines[2], centered(hint_str),
+        'a centered both-keys hint should sit below the count')
+    assert_eq(confirm_lines[3], string.rep('─', confirm_width),
+        'a full-width divider should separate the header from the list')
+    assert_eq(confirm_lines[4], 'alpha.txt → alpha(1).txt (keep)',
+        'a conflict row should preview the kept-both name and tag its fate')
+    assert_eq(confirm_lines[5], '↓', 'paste confirmation should show a down-arrow separator')
+    assert_eq(confirm_lines[6], 'dest/', 'paste confirmation should show the target path relative to the root')
     assert_eq(confirm_cfg.row, cursor_pos.row,
         'paste confirmation should anchor below the cursorline')
+
+    -- The count and each row's fate are colored; the hint spotlights both
+    -- mnemonic keys, mutes the middot, and bolds the active mode's segment (keep,
+    -- by default); the previewed name keeps its file-type color while the arrow
+    -- reads in the normal color (not muted).
+    local warn_pad, hint_pad = pad_for('1 conflict'), pad_for(hint_str)
+    local key_o, key_k = hint_pad, hint_pad + #'o overwrite · '
+    local middot_col = hint_pad + #'o overwrite '
+    local warn, hint_keys, hint_middot, keep_bold, divider_muted, suffix_warn, arrow_muted, preview_name =
+        false, 0, false, false, false, false, false, false
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
+        local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil
+        if row == 0 and col == warn_pad and details.hl_group == 'DoraWarn' then
+            warn = true
+        end
+        if row == 2 and col == 0 and details.hl_group == 'DoraMutedText' then
+            divider_muted = true
+        end
+        if row == 1 and details.hl_group == 'DoraInfoValue' and details.end_col == col + 1
+            and (col == key_o or col == key_k) then
+            hint_keys = hint_keys + 1
+        end
+        if row == 1 and col == middot_col and details.hl_group == 'DoraMutedText' then
+            hint_middot = true
+        end
+        if row == 1 and col == key_k and details.end_col == hint_pad + #hint_str
+            and details.hl_group == 'DoraBold' then
+            keep_bold = true
+        end
+        if row == 3 and col == #'alpha.txt → alpha(1).txt' and details.hl_group == 'DoraWarn' then
+            suffix_warn = true
+        end
+        if row == 3 and details.hl_group == 'DoraVirtText' then
+            arrow_muted = true
+        end
+        if row == 3 and col == #'alpha.txt → ' and details.hl_group == 'DoraCopy' then
+            preview_name = true
+        end
+    end
+    assert(warn, 'the centered conflict count should be highlighted')
+    assert_eq(hint_keys, 2, 'both mnemonic keys should be highlighted')
+    assert(hint_middot, 'the hint middot should be muted')
+    assert(keep_bold, 'keep-both mode should bold the keep segment')
+    assert(divider_muted, 'the header divider should be muted')
+    assert(suffix_warn, 'each conflict row should tag its fate in the warning color')
+    assert(not arrow_muted, 'the rename preview arrow should read in the normal color')
+    assert(preview_name, 'the rename preview name should match the marked file color (copy)')
+
+    -- `o` switches to overwrite mode in place: the border keeps warning, the
+    -- rename preview collapses to the conflicting name (still tagged), the static
+    -- hint is unchanged, and bold moves to the overwrite segment.
+    api.nvim_feedkeys('o', 'xt', false)
+    assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
+        'overwrite mode should keep the warning border')
+    local overwrite_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    assert_eq(overwrite_lines[1], centered('1 conflict'),
+        'overwrite mode should keep the centered conflict count')
+    assert_eq(overwrite_lines[2], centered(hint_str),
+        'the both-keys hint should not change with the mode')
+    assert_eq(overwrite_lines[4], 'alpha.txt (overwrite)',
+        'overwrite mode should drop the preview and tag the row as overwritten')
+    local overwrite_bold = false
+    for _, mark in ipairs(api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
+        local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil
+        if row == 1 and col == key_o and details.end_col == hint_pad + #'o overwrite'
+            and details.hl_group == 'DoraBold' then
+            overwrite_bold = true
+        end
+    end
+    assert(overwrite_bold, 'overwrite mode should bold the overwrite segment')
+    api.nvim_feedkeys('k', 'xt', false)
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[4], 'alpha.txt → alpha(1).txt (keep)',
+        'k should switch back to keep-both mode')
+
     api.nvim_feedkeys('n', 'xt', false)
 
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'old',
-        'declining overwrite should preserve the destination file')
+        'declining paste should preserve the destination file')
     assert_eq(marked_path_count(state), 1,
-        'declining overwrite should preserve paste marks')
+        'declining paste should preserve paste marks')
 
     core.paste()
     assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
 
+    assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'old',
+        'keep-both paste should preserve the existing destination file')
+    assert_eq(vim.fn.readfile(tmp .. '/dest/alpha(1).txt')[1], 'new',
+        'keep-both paste should land beside the conflict under a free name')
+    assert(fs.exists(tmp .. '/alpha.txt'), 'copy should preserve the source file')
+    assert_eq(marked_path_count(state), 0,
+        'successful paste should clear paste marks')
+    assert_match(current_line(), 'alpha%(1%)%.txt$',
+        'successful paste should move the cursor to the kept-both file')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- Overwriting (o) replaces the existing file instead of keeping both.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    write_file(tmp .. '/alpha.txt', 'new')
+    write_file(tmp .. '/dest/alpha.txt', 'old')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('^alpha%.txt$')
+    core.toggle_copy()
+    set_cursor_pos('dest')
+    core.paste_under()
+    assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
+    api.nvim_feedkeys('o', 'xt', false)
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
     assert_eq(vim.fn.readfile(tmp .. '/dest/alpha.txt')[1], 'new',
-        'confirming overwrite should replace the destination file')
+        'overwriting paste should replace the destination file')
+    assert(not fs.exists(tmp .. '/dest/alpha(1).txt'),
+        'overwriting paste should not leave a kept-both copy')
     assert(fs.exists(tmp .. '/alpha.txt'), 'copy overwrite should preserve the source file')
     assert_eq(marked_path_count(state), 0,
         'successful overwrite should clear paste marks')
-    assert_match(current_line(), 'alpha%.txt$',
-        'successful overwrite should keep the cursor on the pasted file')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -2100,15 +2227,46 @@ do
     set_cursor_pos('dest')
     core.paste_under()
 
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], 'foo/ (overwrites)',
-        'pasting a directory onto an existing one should be flagged as an overwrite')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[4], 'foo/ → foo(1)/ (keep)',
+        'pasting a directory onto an existing one should preview a kept-both name')
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert(fs.exists(tmp .. '/dest/foo(1)/new.txt'),
+        'keep-both directory paste should copy contents beside the existing directory')
+    assert(fs.exists(tmp .. '/dest/foo/old.txt'),
+        'keep-both directory paste should preserve the existing directory')
+    assert(fs.exists(tmp .. '/foo'), 'copying should preserve the source directory')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- Overwriting a directory replaces the existing one outright.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/foo', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest/foo', tonumber('755', 8)))
+    write_file(tmp .. '/foo/new.txt', 'new')
+    write_file(tmp .. '/dest/foo/old.txt', 'old')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('foo')
+    core.toggle_copy()
+    set_cursor_pos('dest')
+    core.paste_under()
+    api.nvim_feedkeys('o', 'xt', false)
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
 
     assert(fs.exists(tmp .. '/dest/foo/new.txt'),
-        'confirming should copy the pasted directory contents')
+        'overwriting should copy the pasted directory contents')
     assert(not fs.exists(tmp .. '/dest/foo/old.txt'),
-        'confirming a directory overwrite should replace the existing directory')
+        'overwriting a directory should replace the existing directory')
+    assert(not fs.exists(tmp .. '/dest/foo(1)'),
+        'overwriting should not leave a kept-both directory')
     assert(fs.exists(tmp .. '/foo'), 'copying should preserve the source directory')
 
     core.quit()

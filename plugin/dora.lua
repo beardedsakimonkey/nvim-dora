@@ -16,16 +16,17 @@ vim.cmd 'hi default link DoraVirtText            NonText'
 vim.cmd 'hi default link DoraIcon                Special'
 vim.cmd 'hi default link DoraCut                 DiagnosticError'
 vim.cmd 'hi default link DoraCopy                DiagnosticOk'
+vim.cmd 'hi default link DoraWarn                DiagnosticWarn'
 vim.cmd 'hi default link DoraFilterMatch         Special'
 vim.cmd 'hi default link DoraFilterPath          Comment'
 vim.cmd 'hi default link DoraPromptBorder        FloatBorder'
 vim.cmd 'hi default link DoraPromptBorderValid   DoraPromptBorder'
 vim.cmd 'hi default link DoraPromptBorderInvalid DoraPromptBorder'
+vim.cmd 'hi default link DoraPromptBorderWarn    DoraPromptBorder'
 vim.cmd 'hi default link DoraInfoLabel           Label'
 vim.cmd 'hi default link DoraInfoValue           Special'
 vim.cmd 'hi default link DoraHelpSection         Title'
 vim.cmd 'hi default link DoraMutedText           NonText'
-vim.cmd 'hi default link DoraOverwrite           DiagnosticWarn'
 vim.cmd 'hi default link DoraKeymapHintMnemonic  Underlined'
 
 local function set_prompt_border_hls()
@@ -37,20 +38,27 @@ local function set_prompt_border_hls()
     end
     update_hl_fg('DoraPromptBorderValid', 'DiagnosticOk')
     update_hl_fg('DoraPromptBorderInvalid', 'DiagnosticError')
+    update_hl_fg('DoraPromptBorderWarn', 'DiagnosticWarn')
 end
 
 local function set_hidden_cursor_hl()
     api.nvim_set_hl(0, 'DoraHiddenCursor', {blend = 100, default = true})
 end
 
+local function set_bold_hl()
+    api.nvim_set_hl(0, 'DoraBold', {bold = true, default = true})
+end
+
 set_prompt_border_hls()
 set_hidden_cursor_hl()
+set_bold_hl()
 
 api.nvim_create_autocmd('ColorScheme', {
     group = augroup,
     callback = function()
         set_prompt_border_hls()
         set_hidden_cursor_hl()
+        set_bold_hl()
     end,
 })
 

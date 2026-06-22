@@ -1750,7 +1750,8 @@ end
 ---@param state DoraState
 ---@param entries DoraMarkedPathEntry[]
 ---@param dest_dir string
-local function paste_entries(state, entries, dest_dir)
+---@param overwrite boolean Replace conflicting destinations instead of keeping both
+local function paste_entries(state, entries, dest_dir, overwrite)
     if state.paste_in_progress then
         util.err('A paste is already in progress')
         return
@@ -1768,7 +1769,7 @@ local function paste_entries(state, entries, dest_dir)
     local progress = {files = 0, bytes = 0}
     local stop_spinner = start_paste_spinner(progress)
     state.paste_in_progress = true
-    fs.paste_async(ops, dest_dir, state.cwd, progress, function(ok, result)
+    fs.paste_async(ops, dest_dir, state.cwd, progress, overwrite, function(ok, result)
         state.paste_in_progress = false
         stop_spinner()
         if not ok then
@@ -1812,26 +1813,32 @@ local function paste_to_directory(state, row, dest_dir, entries)
         return
     end
     local paste_paths = {}
-    local overwrites = {}
+    local renames = {}
     local operations = {}
+    local has_conflict = false
     for _, entry in ipairs(entries) do
         paste_paths[#paste_paths+1] = entry.path
         operations[entry.path] = entry.operation
         local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
         if fs.exists(entry_dest) and not fs.same_file(entry.path, entry_dest) then
-            overwrites[entry.path] = true
+            has_conflict = true
+            -- Preview the free name a keep-both paste would use, mirroring the
+            -- target's trailing slash when it is a directory.
+            local target = fs.basename(fs.nonclobber_dest(entry_dest))
+            renames[entry.path] = fs.is_dir(entry.path) and target .. '/' or target
         end
     end
-    delete_win.delete(paste_paths, function(confirmed)
+    delete_win.delete(paste_paths, function(confirmed, overwrite)
         if confirmed and api.nvim_buf_is_valid(state.buf) then
-            paste_entries(state, entries, dest_dir)
+            paste_entries(state, entries, dest_dir, overwrite)
         end
     end, {
         anchor = current_name_anchor(row, {superimpose = false}),
         action = 'Paste',
         dest = dest_dir,
         base = state.cwd,
-        overwrites = overwrites,
+        renames = renames,
+        allow_overwrite = has_conflict,
         operations = operations,
         expanded = state.expanded_dirs,
     })

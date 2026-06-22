@@ -30,7 +30,10 @@ Dora aims to make filesystem navigation and common file operations efficient:
   file being acted on.
 - Files can be marked directly for cut or copy operations, then pasted at the
   destination. Marks are shared across all Dora windows, so you can mark in one
-  window and paste in another.
+  window and paste in another. When a paste would clash with an existing file,
+  it keeps both by default (`alpha.txt` lands as `alpha(1).txt`); press `o` in
+  the paste confirmation to overwrite the conflict instead, or `k` to switch
+  back to keeping both.
 - Dora remembers the selected entry in each visited directory and restores the
   cursor to it when navigating back.
 - Expanded directories persist for the lifetime of the Neovim session, and
@@ -274,24 +277,25 @@ hi default link DoraVirtText            NonText
 hi default link DoraIcon                Special
 hi default link DoraCut                 DiagnosticError
 hi default link DoraCopy                DiagnosticOk
+hi default link DoraWarn                DiagnosticWarn
 hi default link DoraFilterMatch         Special
 hi default link DoraFilterPath          Comment
 hi default link DoraPromptBorder        FloatBorder
 hi default link DoraPromptBorderValid   DoraPromptBorder
 hi default link DoraPromptBorderInvalid DoraPromptBorder
+hi default link DoraPromptBorderWarn    DoraPromptBorder
 hi default link DoraInfoLabel           Label
 hi default link DoraInfoValue           Special
 hi default link DoraHelpSection         Title
 hi default link DoraMutedText           NonText
-hi default link DoraOverwrite           DiagnosticWarn
 hi default link DoraKeymapHintMnemonic  Underlined
 ```
 <!-- dora-highlights:end -->
 
-Unless overridden, `DoraPromptBorderValid` and `DoraPromptBorderInvalid` get
-their foreground color replaced with that of `DiagnosticOk` and
-`DiagnosticError` respectively, keeping the other `DoraPromptBorder`
-attributes.
+Unless overridden, `DoraPromptBorderValid`, `DoraPromptBorderInvalid`, and
+`DoraPromptBorderWarn` get their foreground color replaced with that of
+`DiagnosticOk`, `DiagnosticError`, and `DiagnosticWarn` respectively, keeping
+the other `DoraPromptBorder` attributes.
 
 ## Development
 

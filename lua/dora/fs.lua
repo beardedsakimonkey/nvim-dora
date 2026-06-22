@@ -98,21 +98,41 @@ function M.same_file(a, b)
     return sa ~= nil and sb ~= nil and sa.ino == sb.ino and sa.dev == sb.dev
 end
 
----@param dir string
+-- Split a basename into its stem and extension at the first interior dot, so a
+-- counter inserted between them lands before the extension (report.txt ->
+-- report, .txt; archive.tar.gz -> archive, .tar.gz). A leading dot (dotfiles)
+-- stays in the stem, so .gitignore has no extension.
 ---@param basename string
+---@return string stem
+---@return string ext
+local function split_ext(basename)
+    local dot = basename:find('%.', 2)
+    if not dot then
+        return basename, ''
+    end
+    return basename:sub(1, dot - 1), basename:sub(dot)
+end
+
+-- Given a destination path, return a sibling path that does not yet exist by
+-- inserting "(N)" before the extension, so a paste keeps both files instead of
+-- overwriting (report.txt -> report(1).txt), incrementing N until the name is
+-- free. Returns the path unchanged when nothing exists there. Also used to pick
+-- a free name when trashing into an occupied trash directory.
+---@param path string
 ---@return string
-local function unused_child_path(dir, basename)
-    local path = vim.fs.joinpath(dir, basename)
+function M.nonclobber_dest(path)
     if not M.exists(path) then
         return path
     end
+    local dir = M.parent_dir(path)
+    local stem, ext = split_ext(M.basename(path))
     for i = 1, 1000 do
-        path = vim.fs.joinpath(dir, basename .. ' ' .. i)
-        if not M.exists(path) then
-            return path
+        local candidate = vim.fs.joinpath(dir, stem .. '(' .. i .. ')' .. ext)
+        if not M.exists(candidate) then
+            return candidate
         end
     end
-    error('Could not find an unused trash destination for ' .. basename)
+    error('Could not find a non-clobbering destination for ' .. path)
 end
 
 ---@param path string
@@ -323,7 +343,7 @@ function M.trash(path)
         trash_dir = vim.fs.joinpath(data_home, 'Trash/files')
     end
     assert(vim.fn.mkdir(trash_dir, 'p') == 1)
-    move(path, unused_child_path(trash_dir, M.basename(path)))
+    move(path, M.nonclobber_dest(vim.fs.joinpath(trash_dir, M.basename(path))))
 end
 
 ---@param path string
@@ -584,26 +604,36 @@ end
 
 -- Asynchronously copy/move each op into `dest_dir`, mimicking `cp -R` / `mv`
 -- exactly as M.copy_or_move does but off the main loop. `progress` is mutated
--- in place as work proceeds so callers can render a live indicator.
+-- in place as work proceeds so callers can render a live indicator. With
+-- `overwrite` a conflicting destination is replaced; otherwise the paste keeps
+-- both files by landing beside it under a free name (report.txt -> report(1).txt).
 ---@param ops {is_move: boolean, src: string}[]
 ---@param dest_dir string
 ---@param cwd string
 ---@param progress DoraPasteProgress
+---@param overwrite boolean Replace existing destinations instead of keeping both
 ---@param on_done fun(ok: boolean, result: string)
-function M.paste_async(ops, dest_dir, cwd, progress, on_done)
+function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
     run(function()
         local first_dest
         local buffer_renames = {}
         for _, op in ipairs(ops) do
             local dest = M.resolve_copy_or_move_dest(op.src, dest_dir, cwd)
-            first_dest = first_dest or dest
-            -- Replace an existing destination when a directory is involved so the
-            -- paste overwrites instead of erroring on mkdir/rename, mirroring
-            -- M.copy_or_move.
-            if M.exists(dest) and not M.same_file(op.src, dest)
-                and (M.is_dir(op.src) or M.is_dir(dest)) then
-                rm_a(dest)
+            if M.exists(dest) and not M.same_file(op.src, dest) then
+                if overwrite then
+                    -- Replace an existing destination when a directory is
+                    -- involved so the paste overwrites instead of erroring on
+                    -- mkdir/rename, mirroring M.copy_or_move. A file replacing a
+                    -- file is overwritten in place by copyfile/rename.
+                    if M.is_dir(op.src) or M.is_dir(dest) then
+                        rm_a(dest)
+                    end
+                else
+                    -- Keep both: paste beside the existing entry under a free name.
+                    dest = M.nonclobber_dest(dest)
+                end
             end
+            first_dest = first_dest or dest
             if op.is_move then
                 local rename = move_a(op.src, dest, progress)
                 if rename then
