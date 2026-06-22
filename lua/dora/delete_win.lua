@@ -542,6 +542,11 @@ function M.delete(paths, cb, opts)
     for _, lhs in ipairs({'n', 'N', 'q', '<Esc>', '<C-c>'}) do
         vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})
     end
+    if opts.action == 'Paste' then
+        for _, lhs in ipairs({'p', 'P'}) do
+            vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})
+        end
+    end
     -- A keep-both confirm renames around conflicts; `o` overwrites the existing
     -- destinations instead and `k` switches back to keeping both.
     if opts.allow_overwrite then

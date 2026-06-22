@@ -2162,6 +2162,19 @@ do
     assert_eq(marked_path_count(state), 1,
         'declining paste should preserve paste marks')
 
+    for _, lhs in ipairs({'p', 'P'}) do
+        core.paste()
+        local paste_confirm_win = api.nvim_get_current_win()
+        assert_match(win_title(paste_confirm_win), 'Paste%?')
+        api.nvim_feedkeys(lhs, 'xt', false)
+        assert(not api.nvim_win_is_valid(paste_confirm_win),
+            lhs .. ' should close the paste confirmation')
+        assert_eq(api.nvim_get_current_win(), origin_win,
+            lhs .. ' should restore focus after closing the paste confirmation')
+        assert_eq(marked_path_count(state), 1,
+            lhs .. ' should cancel paste without clearing marks')
+    end
+
     core.paste()
     assert_match(win_title(api.nvim_get_current_win()), 'Paste%?')
     api.nvim_feedkeys('y', 'xt', false)
