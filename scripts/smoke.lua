@@ -2182,6 +2182,103 @@ do
 end
 
 do
+    -- Pasting into the source directory is still a conflict: keep-both copies
+    -- or moves to a free sibling name, while overwrite safely leaves the exact
+    -- same filesystem object in place.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    write_file(tmp .. '/.luarc(1).json', 'luarc')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('^%.luarc%(1%)%.json$')
+    core.toggle_copy()
+    core.paste()
+
+    local confirm_win = api.nvim_get_current_win()
+    assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
+        'a same-directory copy should be detected as a conflict')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[4],
+        '.luarc(1).json → .luarc(2).json (keep)',
+        'a same-directory copy should increment an existing numeric suffix')
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert_eq(vim.fn.readfile(tmp .. '/.luarc(1).json')[1], 'luarc',
+        'same-directory keep-both copy should preserve the source')
+    assert_eq(vim.fn.readfile(tmp .. '/.luarc(2).json')[1], 'luarc',
+        'same-directory keep-both copy should use the incremented suffix')
+    assert(not fs.exists(tmp .. '/.luarc(1)(1).json'),
+        'same-directory keep-both copy should not nest numeric suffixes')
+
+    set_cursor_line('^%.luarc%(1%)%.json$')
+    core.toggle_cut()
+    core.paste()
+    assert_match(vim.wo[api.nvim_get_current_win()].winhighlight,
+        'FloatBorder:DoraPromptBorderWarn',
+        'a same-directory cut should be detected as a conflict')
+    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[4],
+        '.luarc(1).json → .luarc(3).json (keep)',
+        'a same-directory cut should preview its kept-both name')
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert(not fs.exists(tmp .. '/.luarc(1).json'),
+        'same-directory keep-both cut should move the source')
+    assert_eq(vim.fn.readfile(tmp .. '/.luarc(3).json')[1], 'luarc',
+        'same-directory keep-both cut should use the previewed free sibling')
+
+    set_cursor_line('^%.luarc%(2%)%.json$')
+    core.toggle_copy()
+    core.paste()
+    api.nvim_feedkeys('o', 'xt', false)
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert_eq(vim.fn.readfile(tmp .. '/.luarc(2).json')[1], 'luarc',
+        'same-directory overwrite should leave the source intact')
+    assert(not fs.exists(tmp .. '/.luarc(2)(1).json'),
+        'same-directory overwrite should not create a sibling')
+    assert_eq(marked_path_count(state), 0,
+        'successful same-directory overwrite should clear paste marks')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- Conflict previews reserve generated names across the whole paste batch,
+    -- matching the sequential names chosen during execution.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    write_file(tmp .. '/AGENTS(1).md', 'one')
+    write_file(tmp .. '/AGENTS(2).md', 'two')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('^AGENTS%(1%)%.md$')
+    core.toggle_copy()
+    set_cursor_line('^AGENTS%(2%)%.md$')
+    core.toggle_copy()
+    core.paste()
+
+    local confirm_lines = api.nvim_buf_get_lines(0, 0, -1, false)
+    assert_eq(confirm_lines[4], 'AGENTS(1).md → AGENTS(3).md (keep)',
+        'the first conflict should preview the first free suffix')
+    assert_eq(confirm_lines[5], 'AGENTS(2).md → AGENTS(4).md (keep)',
+        'the second conflict should reserve and skip the first previewed suffix')
+    api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+
+    assert_eq(vim.fn.readfile(tmp .. '/AGENTS(3).md')[1], 'one',
+        'the first conflict should use its previewed destination')
+    assert_eq(vim.fn.readfile(tmp .. '/AGENTS(4).md')[1], 'two',
+        'the second conflict should use its previewed destination')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     -- Overwriting (o) replaces the existing file instead of keeping both.
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))

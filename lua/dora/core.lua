@@ -1816,16 +1816,21 @@ local function paste_to_directory(state, row, dest_dir, entries)
     local renames = {}
     local operations = {}
     local has_conflict = false
+    local reserved_dests = {}
     for _, entry in ipairs(entries) do
         paste_paths[#paste_paths+1] = entry.path
         operations[entry.path] = entry.operation
         local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
-        if fs.exists(entry_dest) and not fs.same_file(entry.path, entry_dest) then
+        if fs.exists(entry_dest) or reserved_dests[entry_dest] then
             has_conflict = true
-            -- Preview the free name a keep-both paste would use, mirroring the
-            -- target's trailing slash when it is a directory.
-            local target = fs.basename(fs.nonclobber_dest(entry_dest))
+            -- Reserve each previewed name so later entries see the same
+            -- destinations that sequential paste execution will create.
+            local target_path = fs.nonclobber_dest(entry_dest, reserved_dests)
+            reserved_dests[target_path] = true
+            local target = fs.basename(target_path)
             renames[entry.path] = fs.is_dir(entry.path) and target .. '/' or target
+        else
+            reserved_dests[entry_dest] = true
         end
     end
     delete_win.delete(paste_paths, function(confirmed, overwrite)

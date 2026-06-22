@@ -115,20 +115,31 @@ end
 
 -- Given a destination path, return a sibling path that does not yet exist by
 -- inserting "(N)" before the extension, so a paste keeps both files instead of
--- overwriting (report.txt -> report(1).txt), incrementing N until the name is
+-- overwriting (report.txt -> report(1).txt), incrementing an existing suffix
+-- rather than nesting it (report(1).txt -> report(2).txt), until the name is
 -- free. Returns the path unchanged when nothing exists there. Also used to pick
 -- a free name when trashing into an occupied trash directory.
 ---@param path string
+---@param reserved? table<string, boolean> Paths planned by earlier operations
 ---@return string
-function M.nonclobber_dest(path)
-    if not M.exists(path) then
+function M.nonclobber_dest(path, reserved)
+    local function occupied(candidate)
+        return M.exists(candidate) or (reserved and reserved[candidate]) or false
+    end
+    if not occupied(path) then
         return path
     end
     local dir = M.parent_dir(path)
     local stem, ext = split_ext(M.basename(path))
-    for i = 1, 1000 do
+    local base, suffix = stem:match('^(.*)%((%d+)%)$')
+    local first = 1
+    if suffix then
+        stem = base
+        first = assert(tonumber(suffix)) + 1
+    end
+    for i = first, first + 999 do
         local candidate = vim.fs.joinpath(dir, stem .. '(' .. i .. ')' .. ext)
-        if not M.exists(candidate) then
+        if not occupied(candidate) then
             return candidate
         end
     end
@@ -443,18 +454,29 @@ end
 ---@param src string
 ---@param dest string
 ---@param cwd string
+---@param allow_same boolean Permit a paste to resolve to its own source
 ---@return string dest
-function M.resolve_copy_or_move_dest(src, dest, cwd)
+local function resolve_copy_or_move_dest(src, dest, cwd, allow_same)
     assert(M.exists(src), ("%s doesn't exist"):format(src))
     dest = M.normalize_path(dest, cwd)
     assert(src ~= dest, '`src` equals `dest`')
     if M.is_dir(dest) then
         dest = vim.fs.joinpath(dest, M.basename(src))
-        assert(src ~= dest, '`src` equals `dest`')
+        if not allow_same then
+            assert(src ~= dest, '`src` equals `dest`')
+        end
     end
     assert(not vim.startswith(dest, src .. '/'),
         ('Cannot copy or move %q into itself'):format(src))
     return dest
+end
+
+---@param src string
+---@param dest string
+---@param cwd string
+---@return string dest
+function M.resolve_copy_or_move_dest(src, dest, cwd)
+    return resolve_copy_or_move_dest(src, dest, cwd, false)
 end
 
 -- Mimics the semantics of `mv` / `cp -R`
@@ -618,9 +640,17 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
         local first_dest
         local buffer_renames = {}
         for _, op in ipairs(ops) do
-            local dest = M.resolve_copy_or_move_dest(op.src, dest_dir, cwd)
-            if M.exists(dest) and not M.same_file(op.src, dest) then
-                if overwrite then
+            -- Unlike the general copy/move helper, paste permits resolving to
+            -- the source itself. Keep-both gives it a free sibling name; an
+            -- overwrite of the exact same object is a safe no-op.
+            local dest = resolve_copy_or_move_dest(op.src, dest_dir, cwd, true)
+            local dest_is_src = M.same_file(op.src, dest)
+            if M.exists(dest) then
+                if dest_is_src then
+                    if not overwrite then
+                        dest = M.nonclobber_dest(dest)
+                    end
+                elseif overwrite then
                     -- Replace an existing destination when a directory is
                     -- involved so the paste overwrites instead of erroring on
                     -- mkdir/rename, mirroring M.copy_or_move. A file replacing a
@@ -634,13 +664,15 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                 end
             end
             first_dest = first_dest or dest
-            if op.is_move then
-                local rename = move_a(op.src, dest, progress)
-                if rename then
-                    buffer_renames[#buffer_renames + 1] = rename
+            if not (dest_is_src and overwrite) then
+                if op.is_move then
+                    local rename = move_a(op.src, dest, progress)
+                    if rename then
+                        buffer_renames[#buffer_renames + 1] = rename
+                    end
+                else
+                    copy_entry_a(op.src, dest, progress)
                 end
-            else
-                copy_entry_a(op.src, dest, progress)
             end
         end
         return first_dest, buffer_renames
