@@ -578,10 +578,19 @@ local function set_cursor_path(state, path)
     if vim.endswith(path, '/') then
         path = path:sub(1, -2)
     end
+    -- Target the window showing state.buf, not the current window: when called
+    -- from an async paste callback the user may have moved focus elsewhere, and
+    -- a row index into state.rows is out of range for some other buffer.
+    local win = api.nvim_get_current_win()
+    if api.nvim_win_get_buf(win) ~= state.buf then
+        win = vim.fn.bufwinid(state.buf)
+    end
     for i, row in ipairs(state.rows or {}) do
         if row.path == path then
-            api.nvim_win_set_cursor(0, {i, 0})
-            update_tree_cursor_highlight(state)
+            if win ~= -1 and api.nvim_win_is_valid(win) then
+                api.nvim_win_set_cursor(win, {i, 0})
+                update_tree_cursor_highlight(state)
+            end
             return true
         end
     end
