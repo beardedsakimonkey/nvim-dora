@@ -3687,7 +3687,7 @@ do
     assert_eq(type(vim.fn.maparg('>', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<', 'x', false, true).desc, 'First sibling')
     assert_eq(type(vim.fn.maparg('<', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('d', 'x', false, true).desc, 'Move file to trash')
+    assert_eq(vim.fn.maparg('d', 'x', false, true).desc, 'Move file to trash (Mac/Linux)')
     assert_eq(type(vim.fn.maparg('d', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('D', 'x', false, true).desc, 'Delete file permanently')
     assert_eq(type(vim.fn.maparg('D', 'x', false, true).callback), 'function')
