@@ -219,6 +219,19 @@ function M.open(opts)
     keymap(self.buf, {'i', 'n'}, '<Esc>', function() self:cancel() end)
     keymap(self.buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
     keymap(self.buf, {'i', 'n'}, '<C-i>', function() self:toggle_invert() end)
+    -- Readline-style caret motion: insert-mode <C-a>/<C-e> aren't line motions by
+    -- default (<C-a> reinserts text, <C-e> copies the char below), so map them to
+    -- jump to the start/end of the input like a shell prompt.
+    keymap(self.buf, 'i', '<C-a>', function()
+        if window.valid_win(self.win) then
+            api.nvim_win_set_cursor(self.win, {1, 0})
+        end
+    end)
+    keymap(self.buf, 'i', '<C-e>', function()
+        if window.valid_win(self.win) then
+            api.nvim_win_set_cursor(self.win, {1, #self:get_input()})
+        end
+    end)
 
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd({'TextChanged', 'TextChangedI'}, {
         buffer = self.buf,
