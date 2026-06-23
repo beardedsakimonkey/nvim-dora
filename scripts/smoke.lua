@@ -2066,7 +2066,7 @@ do
     local function centered(text)
         return string.rep(' ', pad_for(text)) .. text
     end
-    local hint_str = 'o overwrite · k keep'
+    local hint_str = 'k keep · o overwrite'
     assert_eq(confirm_lines[1], centered('1 conflict'),
         'a centered conflict count should head the confirmation')
     assert_eq(confirm_lines[2], centered(hint_str),
@@ -2085,8 +2085,8 @@ do
     -- by default); the previewed name keeps its file-type color while the arrow
     -- reads in the normal color (not muted).
     local warn_pad, hint_pad = pad_for('1 conflict'), pad_for(hint_str)
-    local key_o, key_k = hint_pad, hint_pad + #'o overwrite · '
-    local middot_col = hint_pad + #'o overwrite '
+    local key_k, key_o = hint_pad, hint_pad + #'k keep · '
+    local middot_col = hint_pad + #'k keep '
     local warn, hint_keys, hint_middot, keep_bold, divider_muted, suffix_warn, arrow_muted, preview_name =
         false, 0, false, false, false, false, false, false
     for _, mark in ipairs(api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
@@ -2105,7 +2105,7 @@ do
         if row == 1 and col == middot_col and details.hl_group == 'DoraMutedText' then
             hint_middot = true
         end
-        if row == 1 and col == key_k and details.end_col == hint_pad + #hint_str
+        if row == 1 and col == key_k and details.end_col == hint_pad + #'k keep'
             and details.hl_group == 'DoraBold' then
             keep_bold = true
         end
@@ -2145,7 +2145,7 @@ do
     for _, mark in ipairs(api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
         local row, col, details = mark[2], mark[3], mark[4]
         ---@cast details -nil
-        if row == 1 and col == key_o and details.end_col == hint_pad + #'o overwrite'
+        if row == 1 and col == key_o and details.end_col == hint_pad + #hint_str
             and details.hl_group == 'DoraBold' then
             overwrite_bold = true
         end

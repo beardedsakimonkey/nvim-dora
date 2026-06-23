@@ -27,13 +27,13 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 local HINT = (function()
     local overwrite, keep, middot = 'o overwrite', 'k keep', '·'
     local sep = ' ' .. middot .. ' '
-    local keep_col = #overwrite + #sep
+    local overwrite_col = #keep + #sep
     return {
-        text = overwrite .. sep .. keep,
-        overwrite_range = {0, #overwrite},          -- bolded in overwrite mode
-        keep_range = {keep_col, keep_col + #keep},   -- bolded in keep mode
-        key_cols = {0, keep_col},                    -- the `o` and `k` mnemonics
-        middot_range = {#overwrite + 1, #overwrite + 1 + #middot},
+        text = keep .. sep .. overwrite,
+        keep_range = {0, #keep},                     -- bolded in keep mode
+        overwrite_range = {overwrite_col, overwrite_col + #overwrite}, -- bolded in overwrite mode
+        key_cols = {0, overwrite_col},               -- the `k` and `o` mnemonics
+        middot_range = {#keep + 1, #keep + 1 + #middot},
     }
 end)()
 
