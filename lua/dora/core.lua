@@ -1713,6 +1713,14 @@ function M.collapse_visual()
     end
 end
 
+local function render_marked_windows()
+    store.each(function(state)
+        if api.nvim_buf_is_valid(state.buf) then
+            render(state)
+        end
+    end)
+end
+
 function M.clear_marks()
     M.clear_paste_operation()
 end
@@ -1730,7 +1738,7 @@ local function toggle_marked_path(operation)
     else
         state.marked_paths[path] = operation
     end
-    render(state)
+    render_marked_windows()
 end
 
 function M.toggle_cut()
@@ -1762,7 +1770,7 @@ local function toggle_marked_paths_visual(operation)
         return
     end
     exit_visual_mode()
-    render(state)
+    render_marked_windows()
 end
 
 function M.toggle_cut_visual()
@@ -1776,7 +1784,7 @@ end
 function M.clear_paste_operation()
     local state = store.get()
     clear_marked_paths(state)
-    render(state)
+    render_marked_windows()
 end
 
 ---@param state DoraState
