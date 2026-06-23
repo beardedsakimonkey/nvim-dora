@@ -3781,10 +3781,9 @@ do
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
     -- Every row carries a mode column ('n'/'nv') between the key and the
     -- description; %S+ matches it without coupling to the exact text.
-    local mouse_line = find_line_index(help_lines, '^%s+<2%-LeftMouse>%s+%S+%s+Open$')
     local enter_line = find_line_index(help_lines, '^%s+<CR>%s+%S+%s+Open$')
     local open_line = find_line_index(help_lines, '^%s+l%s+%S+%s+Open$')
-    assert(mouse_line < enter_line and enter_line < open_line,
+    assert(enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
     assert(find_line_index(help_lines, "^%s+''%s+%S+%s+Jump to previous directory$"),
         "help should always include the builtin previous-directory bookmark")

@@ -71,7 +71,6 @@ M.config = {
         ["'"] = 'jump_bookmark',
 
         -- Open
-        ['<2-LeftMouse>'] = 'open',
         ['<CR>'] = 'open',
         l = 'open',
         s = 'open_split',
