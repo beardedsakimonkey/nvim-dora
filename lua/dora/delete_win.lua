@@ -9,7 +9,6 @@ local config = require'dora'.config
 local M = {}
 
 local MAX_DELETE_PATHS = 10
-local MAX_DELETE_WIDTH = 96
 local RIGHT_PADDING = 1
 -- Arrow joining a conflicting name to the free name a keep-both paste would use.
 local RENAME_ARROW = ' → '
@@ -548,7 +547,10 @@ local function get_width(confirm_title, rendered_lines)
     for _, line in ipairs(rendered_lines) do
         max_width = math.max(max_width, vim.fn.strdisplaywidth(line))
     end
-    return math.max(32, math.min(MAX_DELETE_WIDTH, max_width + RIGHT_PADDING))
+    -- Grow to fit the longest line (with a sensible floor) so a long name stays
+    -- visible; the caller clamps this to the viewport, which is the only upper
+    -- bound.
+    return math.max(32, max_width + RIGHT_PADDING)
 end
 
 ---@param win integer
