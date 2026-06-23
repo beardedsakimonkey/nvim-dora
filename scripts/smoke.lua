@@ -353,6 +353,90 @@ do
 end
 
 do
+    -- A paste conflict whose name is too long for the window elides the name(s)
+    -- so no row spills past the edge, in either keep-both or overwrite mode.
+    local origin_win = api.nvim_get_current_win()
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local long_name = 'a-really-quite-long-file-name-that-will-never-fit-the-confirmation-window-at-all.txt'
+    local path = tmp .. '/' .. long_name
+    touch(path)
+    local rename = 'a-really-quite-long-file-name-that-will-never-fit-the-confirmation-window-at-all (1).txt'
+
+    delete_win.delete({path}, function() end, {
+        action = 'Paste',
+        base = tmp,
+        dest = tmp,
+        allow_overwrite = true,
+        renames = {[path] = rename},
+        operations = {[path] = 'copy'},
+    })
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    local width = api.nvim_win_get_config(confirm_win).width
+
+    local function fits(label)
+        for _, line in ipairs(api.nvim_buf_get_lines(confirm_buf, 0, -1, false)) do
+            assert(vim.fn.strdisplaywidth(line) <= width,
+                ('%s row should fit the %d-col window: %q'):format(label, width, line))
+        end
+    end
+    local function find_line(needle)
+        for _, line in ipairs(api.nvim_buf_get_lines(confirm_buf, 0, -1, false)) do
+            if line:find(needle, 1, true) then
+                return line
+            end
+        end
+    end
+
+    assert(width <= 96, 'paste confirmation should cap its width')
+    local keep_line = find_line(' (keep)')
+    assert(keep_line, 'keep-both paste should preview the renamed file')
+    assert(keep_line:find('→', 1, true), 'keep-both preview should keep the rename arrow')
+    assert(keep_line:find('…', 1, true), 'a too-long keep-both row should be elided')
+    fits('keep-both')
+
+    -- Overwrite mode drops the preview but keeps the longer suffix; it must fit too.
+    api.nvim_feedkeys('o', 'xt', false)
+    assert(find_line(' (overwrite)'), 'overwrite mode should tag the conflict row')
+    assert(find_line('…'), 'a too-long overwrite row should be elided')
+    fits('overwrite')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(api.nvim_get_current_win(), origin_win)
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A nested mark shows a relative path; when it overflows, the directory
+    -- prefix is elided first so the basename (with its extension) stays readable.
+    local origin_win = api.nvim_get_current_win()
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local long_dir = 'a-deeply-nested-directory-whose-name-is-much-too-long-to-fit-the-window'
+    local long_file = 'and-then-a-file-with-an-equally-unreasonable-name-inside-it.txt'
+    local rel_path = long_dir .. '/' .. long_file
+    assert_eq(vim.fn.mkdir(tmp .. '/' .. long_dir, 'p'), 1)
+    touch(tmp .. '/' .. rel_path)
+
+    delete_win.delete({tmp .. '/' .. rel_path}, function() end, {base = tmp})
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    local width = api.nvim_win_get_config(confirm_win).width
+    local line = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)[1]
+
+    assert(vim.fn.strdisplaywidth(line) <= width,
+        ('nested row should fit the %d-col window: %q'):format(width, line))
+    assert(line:find('…', 1, true), 'an overflowing relative path should be elided')
+    assert(not line:find(long_dir, 1, true), 'the long directory prefix should not survive in full')
+    assert(line:find(long_file, 1, true), 'the basename should stay whole when the prefix can absorb the cut')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(api.nvim_get_current_win(), origin_win)
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local bookmark_rows = bookmarks.help_rows(bookmarks.new())
     assert_eq(bookmark_rows[1].lhs, "''", "a fresh bookmark state should include the previous-directory shortcut")
     assert_eq(bookmark_rows[1].desc, 'Jump to previous directory')
@@ -1938,8 +2022,16 @@ do
     set_cursor_line('b%.txt$')
     core.paste_under()
 
-    assert_eq(api.nvim_buf_get_lines(0, 0, -1, false)[1], root .. '/a.c',
-        'paste confirmation should list marks above the root as absolute paths')
+    -- The absolute path may be too long for the window and get middle-elided;
+    -- accept that as long as the surviving head and tail come from it (and it is
+    -- the absolute path, not a `../`-relative one).
+    local confirm_line = api.nvim_buf_get_lines(0, 0, -1, false)[1]
+    local expected_abs = root .. '/a.c'
+    local head, tail = confirm_line:match('^(.*)…(.*)$')
+    local shows_absolute = confirm_line == expected_abs
+        or (head ~= nil and expected_abs:sub(1, #head) == head
+            and (tail == '' or expected_abs:sub(-#tail) == tail))
+    assert(shows_absolute, 'paste confirmation should list marks above the root as absolute paths')
     api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
 
