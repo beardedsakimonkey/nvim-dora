@@ -621,6 +621,45 @@ do
 end
 
 do
+    -- Rename prompt border: a file→file overwrite warns, a clean name is valid,
+    -- and an existing directory target is invalid.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/source.txt')
+    touch(tmp .. '/existing.txt')
+    assert(vim.loop.fs_mkdir(tmp .. '/subdir', tonumber('755', 8)))
+    local src = tmp .. '/source.txt'
+
+    local p = prompt.input({
+        cwd = tmp,
+        initial_prompt = 'source.txt',
+        validate = function(input) return fs.validate_rename(input, src) end,
+        warn = function(_, dest)
+            return fs.exists(dest) and not fs.same_file(src, dest)
+        end,
+    }, function() end)
+    assert(p)
+
+    p:set_input('existing.txt', #'existing.txt')
+    p:validate()
+    assert_match(vim.wo[p.input_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
+        'renaming over an existing file should warn')
+
+    p:set_input('unique.txt', #'unique.txt')
+    p:validate()
+    assert_match(vim.wo[p.input_win].winhighlight, 'FloatBorder:DoraPromptBorderValid',
+        'renaming to a free name should be valid')
+
+    p:set_input('subdir', #'subdir')
+    p:validate()
+    assert_match(vim.wo[p.input_win].winhighlight, 'FloatBorder:DoraPromptBorderInvalid',
+        'renaming over an existing directory should be invalid')
+
+    p:cancel()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
