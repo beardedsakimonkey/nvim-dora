@@ -2051,11 +2051,12 @@ local function rename(prefill)
         util.err(msg)
         return
     end
+    local basename = fs.basename(path)
     prompt.input({
         prompt = 'Rename',
         cwd = fs.get_parent_dir(path),
-        initial_prompt = prefill and fs.basename(path) or '',
-        width = PROMPT_WIDTH,
+        initial_prompt = prefill and basename or '',
+        width = math.max(PROMPT_WIDTH, #basename + 4),
         anchor = current_name_anchor(row, {superimpose = true}),
         icon = row and row.icon or nil,
         icon_hl = row and row.icon_hl or nil,
