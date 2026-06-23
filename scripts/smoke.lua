@@ -337,7 +337,7 @@ do
     local view = api.nvim_win_call(confirm_win, function()
         return vim.fn.winsaveview()
     end)
-    local expected_width = math.max(32, math.min(96, vim.fn.strdisplaywidth(long_file) + 1))
+    local expected_width = math.max(32, math.min(vim.o.columns - 4, vim.fn.strdisplaywidth(long_file) + 1))
     local expected_col = math.min(anchor_pos.col - 2, math.max(0, vim.o.columns - expected_width - 2))
 
     assert_eq(confirm_lines[1], long_file)
@@ -349,6 +349,36 @@ do
     api.nvim_feedkeys('n', 'xt', false)
     api.nvim_set_current_buf(origin_buf)
     api.nvim_buf_delete(anchor_buf, {force = true})
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A name longer than the old fixed cap stays fully visible when the viewport
+    -- is wide enough: the window grows to fit it rather than eliding.
+    local origin_buf = api.nvim_get_current_buf()
+    local saved_columns = vim.o.columns
+    vim.o.columns = 200
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local long_file = string.rep('a', 100) .. '.txt'
+    assert(vim.fn.strdisplaywidth(long_file) > 96, 'name should exceed the old fixed cap')
+    local path = tmp .. '/' .. long_file
+    touch(path)
+
+    delete_win.delete({path}, function() end)
+    local confirm_win = api.nvim_get_current_win()
+    local confirm_buf = api.nvim_get_current_buf()
+    local confirm_cfg = api.nvim_win_get_config(confirm_win)
+    local confirm_lines = api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+
+    assert_eq(confirm_lines[1], long_file)
+    assert(not confirm_lines[1]:find('…', 1, true), 'a name that fits the viewport should not be elided')
+    assert_eq(confirm_cfg.width, vim.fn.strdisplaywidth(long_file) + 1,
+        'delete confirmation should grow past the old cap to fit a long name')
+
+    api.nvim_feedkeys('n', 'xt', false)
+    api.nvim_set_current_buf(origin_buf)
+    vim.o.columns = saved_columns
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
@@ -389,7 +419,7 @@ do
         end
     end
 
-    assert(width <= 96, 'paste confirmation should cap its width')
+    assert(width <= vim.o.columns - 4, 'paste confirmation should not exceed the viewport')
     local keep_line = find_line(' (keep)')
     assert(keep_line, 'keep-both paste should preview the renamed file')
     assert(keep_line:find('→', 1, true), 'keep-both preview should keep the rename arrow')
