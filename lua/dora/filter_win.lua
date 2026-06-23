@@ -7,6 +7,8 @@ local M = {}
 local FILTER_WIDTH = 32
 local FILTER_PREFIX = 'Filter›'
 local FILTER_PREFIX_INVERTED = 'Filter!›'
+-- Leading space puts a gap between the prompt's `›` and the hint.
+local INVERT_PLACEHOLDER = ' <tab> to invert'
 
 ---@class DoraFilterWindowOptions
 ---@field origin_win integer
@@ -66,6 +68,15 @@ function FilterWindow:render_prefix()
         virt_text_pos = 'inline',
         right_gravity = false,
     })
+    -- While the input is empty, show a placeholder hint as ghost text after the
+    -- cursor (right_gravity keeps it to the right of the prompt and the caret).
+    if self:get_input() == '' then
+        api.nvim_buf_set_extmark(self.buf, self.ns, 0, 0, {
+            virt_text = {{INVERT_PLACEHOLDER, 'DoraMutedText'}},
+            virt_text_pos = 'inline',
+            right_gravity = true,
+        })
+    end
 end
 
 ---@return string
@@ -213,6 +224,8 @@ function M.open(opts)
         buffer = self.buf,
         callback = function()
             if not self.closed then
+                -- Refresh so the empty-state placeholder appears/disappears.
+                self:render_prefix()
                 self.opts.on_change(self:get_input())
             end
         end,

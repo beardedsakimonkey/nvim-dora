@@ -4000,16 +4000,20 @@ do
     assert_eq(filter_cfg.col, 0, 'filter should be aligned with the left of Dora')
     assert_eq(filter_cfg.border, 'none', 'filter should be borderless')
     assert_eq(win_title(filter.win), '', 'filter should not have a title')
-    local function decoration_mark(virt_text_pos)
+    -- The prompt label and the empty-state placeholder are both inline marks,
+    -- distinguished by gravity: the label sticks left of the caret, the
+    -- placeholder ghost-text right of it.
+    local function inline_mark(right_gravity)
         for _, mark in ipairs(api.nvim_buf_get_extmarks(filter.buf, filter.ns, 0, -1, {details = true})) do
-            if mark[4].virt_text_pos == virt_text_pos then
+            if mark[4].virt_text_pos == 'inline' and mark[4].right_gravity == right_gravity then
                 return mark
             end
         end
     end
-    local prefix_mark = assert(decoration_mark('inline'), 'filter should render a prefix')
+    local prefix_mark = assert(inline_mark(false), 'filter should render a prefix')
     assert_eq(prefix_mark[4].virt_text[1][1], 'Filter›')
-    assert_eq(prefix_mark[4].right_gravity, false)
+    local placeholder_mark = assert(inline_mark(true), 'an empty filter should show the invert placeholder')
+    assert_eq(placeholder_mark[4].virt_text[1][1], ' <tab> to invert')
     local spacer_marks = vim.tbl_filter(function(mark)
         return mark[4].virt_lines ~= nil
     end, api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true}))
@@ -4018,6 +4022,7 @@ do
     assert_eq(spacer_marks[1][4].virt_lines_above, true)
 
     filter:set_input('MATCH')
+    assert(not inline_mark(true), 'a non-empty filter should hide the invert placeholder')
     local filtered_view = api.nvim_win_call(origin_win, function()
         return vim.fn.winsaveview()
     end)
@@ -4259,7 +4264,7 @@ do
     -- set flips to the rows that do not match.
     local function prefix_text()
         for _, mark in ipairs(api.nvim_buf_get_extmarks(filter.buf, filter.ns, 0, -1, {details = true})) do
-            if mark[4].virt_text_pos == 'inline' then
+            if mark[4].virt_text_pos == 'inline' and mark[4].right_gravity == false then
                 return mark[4].virt_text[1][1]
             end
         end
