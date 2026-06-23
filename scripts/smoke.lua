@@ -4223,6 +4223,41 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/init.lua')
+    touch(tmp .. '/notes.lua.bak')
+    touch(tmp .. '/readme.md')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+
+    local function visible_names()
+        return vim.tbl_filter(function(line) return line ~= '' end, buf_lines(state.buf))
+    end
+
+    core.filter()
+    local filter = assert(state.filter_window)
+
+    -- The filter is a Vim regex: `$` anchors to the end of the basename.
+    filter:set_input('lua$')
+    local anchored = visible_names()
+    assert(vim.tbl_contains(anchored, 'init.lua'), 'anchored regex should match names ending in .lua')
+    assert(not vim.tbl_contains(anchored, 'notes.lua.bak'),
+        'anchored regex should exclude names where .lua is not at the end')
+    assert(not vim.tbl_contains(anchored, 'readme.md'), 'anchored regex should exclude non-matching names')
+
+    -- An incomplete/invalid pattern (common mid-typing) matches nothing rather
+    -- than erroring.
+    filter:set_input('init\\(')
+    assert_eq(#visible_names(), 0, 'invalid regex should show no matches without erroring')
+
+    filter:cancel()
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     local old_home = vim.env.HOME
     vim.env.HOME = tmp
 
