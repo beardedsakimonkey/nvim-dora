@@ -6,11 +6,14 @@ local M = {}
 
 local FILTER_WIDTH = 32
 local FILTER_PREFIX = 'Filter›'
+local FILTER_PREFIX_INVERTED = 'Filter!›'
 
 ---@class DoraFilterWindowOptions
 ---@field origin_win integer
 ---@field initial_text string
+---@field inverted boolean
 ---@field on_change fun(text: string)
+---@field on_toggle_invert fun(inverted: boolean)
 ---@field on_confirm fun(text: string): boolean
 ---@field on_cancel fun(): string?
 ---@field on_close fun()
@@ -20,6 +23,7 @@ local FILTER_PREFIX = 'Filter›'
 ---@field buf integer
 ---@field win integer
 ---@field ns integer
+---@field inverted boolean
 ---@field autocmds integer[]
 ---@field closed boolean
 local FilterWindow = {}
@@ -56,8 +60,9 @@ function FilterWindow:render_prefix()
         return
     end
     api.nvim_buf_clear_namespace(self.buf, self.ns, 0, -1)
+    local prefix = self.inverted and FILTER_PREFIX_INVERTED or FILTER_PREFIX
     api.nvim_buf_set_extmark(self.buf, self.ns, 0, 0, {
-        virt_text = {{FILTER_PREFIX, 'DoraInfoLabel'}},
+        virt_text = {{prefix, 'DoraInfoLabel'}},
         virt_text_pos = 'inline',
         right_gravity = false,
     })
@@ -96,6 +101,15 @@ function FilterWindow:set_display(text)
     self:render_prefix()
 end
 
+function FilterWindow:toggle_invert()
+    if self.closed then
+        return
+    end
+    self.inverted = not self.inverted
+    self:render_prefix()
+    self.opts.on_toggle_invert(self.inverted)
+end
+
 function FilterWindow:relayout()
     if window.valid_win(self.win) and window.valid_win(self.opts.origin_win) then
         api.nvim_win_set_config(self.win, self:layout())
@@ -123,6 +137,7 @@ end
 ---@param opts DoraFilterWindowOptions
 function FilterWindow:edit(opts)
     self.opts = opts
+    self.inverted = opts.inverted
     self:set_display(opts.initial_text)
     self:relayout()
     self:focus()
@@ -176,6 +191,7 @@ end
 function M.open(opts)
     local self = setmetatable({
         opts = opts,
+        inverted = opts.inverted,
         autocmds = {},
         closed = false,
     }, {__index = FilterWindow})
@@ -191,6 +207,7 @@ function M.open(opts)
     keymap(self.buf, {'i', 'n'}, '<CR>', function() self:confirm() end)
     keymap(self.buf, {'i', 'n'}, '<Esc>', function() self:cancel() end)
     keymap(self.buf, {'i', 'n'}, '<C-c>', function() self:cancel() end)
+    keymap(self.buf, {'i', 'n'}, '<C-i>', function() self:toggle_invert() end)
 
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd({'TextChanged', 'TextChangedI'}, {
         buffer = self.buf,
