@@ -14,7 +14,7 @@ local NS = api.nvim_create_namespace('dora/prompt')
 ---@field anchor? DoraFloatAnchor
 ---@field icon? string Icon shown as virtual text before the input
 ---@field icon_hl? string
----@field validate fun(input: string): any
+---@field validate? fun(input: string): any When omitted, any input is accepted and the border keeps its normal color
 
 ---@param opts DoraPromptOptions
 ---@return string?
@@ -76,6 +76,10 @@ function Prompt:set_input(input, col)
 end
 
 function Prompt:validate()
+    if not self.opts.validate then
+        self.is_valid = true
+        return
+    end
     local ok, result = pcall(self.opts.validate, self:get_input())
     self.is_valid = ok
     self.valid_result = ok and result or nil

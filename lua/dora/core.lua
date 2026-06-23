@@ -2207,7 +2207,6 @@ function M.shell_cmd()
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(current_row(state)),
-        validate = function() return true end,
     }, function(input)
         if not input or not api.nvim_buf_is_valid(state.buf) then
             return
