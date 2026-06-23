@@ -13,6 +13,11 @@ local MAX_DELETE_WIDTH = 96
 local RIGHT_PADDING = 1
 -- Arrow joining a conflicting name to the free name a keep-both paste would use.
 local RENAME_ARROW = ' → '
+-- Marker shown where a name is elided to keep its row within the window.
+local ELLIPSIS = '…'
+-- A truncated name is never shrunk below this, leaving a character on each side
+-- of the ellipsis.
+local MIN_NAME_WIDTH = 3
 -- Muted full-width rule separating the header from the file list.
 local DIVIDER_CHAR = '─'
 -- Per-conflict-row tag of what the chosen mode does to that entry.
@@ -86,6 +91,181 @@ local function dir_prefix_len(path)
     return #fs.strip_trailing_sep(path) - #fs.basename(path)
 end
 
+-- Longest prefix of `s` whose display width does not exceed `max_cols`.
+---@param s string
+---@param max_cols integer
+---@return string
+local function prefix_cols(s, max_cols)
+    local out, width = '', 0
+    for i = 0, vim.fn.strchars(s) - 1 do
+        local ch = vim.fn.strcharpart(s, i, 1)
+        local w = vim.fn.strdisplaywidth(ch)
+        if width + w > max_cols then
+            break
+        end
+        out, width = out .. ch, width + w
+    end
+    return out
+end
+
+-- Longest suffix of `s` whose display width does not exceed `max_cols`.
+---@param s string
+---@param max_cols integer
+---@return string
+local function suffix_cols(s, max_cols)
+    local out, width = '', 0
+    for i = vim.fn.strchars(s) - 1, 0, -1 do
+        local ch = vim.fn.strcharpart(s, i, 1)
+        local w = vim.fn.strdisplaywidth(ch)
+        if width + w > max_cols then
+            break
+        end
+        out, width = ch .. out, width + w
+    end
+    return out
+end
+
+-- Middle-elide `s` to at most `max_width` display columns, keeping its start and
+-- its tail -- a file extension, or a path's trailing separator -- visible on
+-- either side of a single ellipsis.
+---@param s string
+---@param max_width integer
+---@return string
+local function truncate_name(s, max_width)
+    max_width = math.max(1, max_width)
+    if vim.fn.strdisplaywidth(s) <= max_width then
+        return s
+    end
+    if max_width == 1 then
+        return ELLIPSIS
+    end
+    local budget = max_width - 1
+    local head = prefix_cols(s, math.ceil(budget / 2))
+    local tail = suffix_cols(s, budget - vim.fn.strdisplaywidth(head))
+    return head .. ELLIPSIS .. tail
+end
+
+-- Raw pieces of a confirmation row, kept as plain strings so a name can be
+-- elided (see truncate_parts) before the byte columns are measured.
+---@param path string
+---@param base? string
+---@param renames? table<string, string>
+---@param operations? table<string, DoraPasteOperation>
+---@param expanded? table<string, boolean>
+---@return table
+local function item_parts(path, base, renames, operations, expanded)
+    -- Show the path relative to base, falling back to the absolute path for
+    -- marks outside it (e.g. above the current root).
+    local relative = base and (vim.fs.relpath(base, path) or path) or fs.basename(path)
+    local dir_len = dir_prefix_len(relative)
+    local hl = file_hl(path)
+    local is_expanded = expanded and expanded[path] or nil
+    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path, is_expanded)
+    return {
+        icon = icon,
+        icon_hl = icon_hl or 'DoraIcon',
+        dir_part = relative:sub(1, dir_len),
+        basename = relative:sub(dir_len + 1),
+        is_dir = hl == 'DoraDirectory',
+        file_hl = hl,
+        rename = renames and renames[path] or nil,
+        operation = operations and operations[path] or nil,
+    }
+end
+
+-- Assemble the display string and its byte-column highlight ranges from
+-- (possibly truncated) raw pieces.
+---@param parts table
+---@return DoraDeleteConfirmItem
+local function build_item(parts)
+    local icon_prefix = parts.icon and parts.icon .. ' ' or ''
+    local display = icon_prefix .. parts.dir_part .. parts.basename
+    local suffix_start_col, suffix_end_col
+    if parts.is_dir then
+        suffix_start_col = #display
+        display = display .. '/'
+        suffix_end_col = #display
+    end
+    local dir_len = #parts.dir_part
+    return {
+        display = display,
+        icon_start_col = parts.icon and 0 or nil,
+        icon_end_col = parts.icon and #parts.icon or nil,
+        icon_hl = parts.icon_hl,
+        dir_start_col = dir_len > 0 and #icon_prefix or nil,
+        dir_end_col = dir_len > 0 and #icon_prefix + dir_len or nil,
+        suffix_start_col = suffix_start_col,
+        suffix_end_col = suffix_end_col,
+        file_start_col = #icon_prefix + dir_len,
+        file_end_col = #icon_prefix + dir_len + #parts.basename,
+        file_hl = parts.file_hl,
+        rename = parts.rename,
+        operation = parts.operation,
+    }
+end
+
+-- Elide the relative path -- its directory prefix first, then the basename --
+-- and, when its keep-both preview is shown, the rename, so the rendered line fits
+-- within `target` display columns. The fixed parts (icon, the directory '/'
+-- suffix, rename arrow, and mode suffix) never shrink. The directory prefix is
+-- context, so it yields first; the basename and rename stay whole while they fit
+-- and otherwise share the leftover space.
+---@param parts table
+---@param overwrite boolean Current mode, deciding which suffix and preview the line carries
+---@param target integer Display columns the rendered line may occupy
+---@return table
+local function truncate_parts(parts, overwrite, target)
+    local show_rename = parts.rename ~= nil and not overwrite
+    local fixed = (parts.icon and vim.fn.strdisplaywidth(parts.icon) + 1 or 0)
+        + (parts.is_dir and 1 or 0)
+    if parts.rename ~= nil then
+        fixed = fixed + vim.fn.strdisplaywidth(overwrite and OVERWRITE_SUFFIX or KEEP_SUFFIX)
+    end
+    if show_rename then
+        fixed = fixed + vim.fn.strdisplaywidth(RENAME_ARROW)
+    end
+    local budget = target - fixed
+    local dir_w = vim.fn.strdisplaywidth(parts.dir_part)
+    local name_w = vim.fn.strdisplaywidth(parts.basename)
+    local rename_w = show_rename and vim.fn.strdisplaywidth(parts.rename) or 0
+    if dir_w + name_w + rename_w <= budget then
+        return parts
+    end
+    -- The directory prefix yields first: keep the names at full width when they
+    -- fit, shrinking the prefix into the leftover space and dropping it outright
+    -- once the names alone fill the row.
+    local dir_budget = budget - name_w - rename_w
+    if dir_budget <= 0 then
+        parts.dir_part = ''
+    elseif dir_budget < dir_w then
+        parts.dir_part = truncate_name(parts.dir_part, dir_budget)
+    end
+    local names_budget = budget - vim.fn.strdisplaywidth(parts.dir_part)
+    if not show_rename then
+        if name_w > names_budget then
+            parts.basename = truncate_name(parts.basename, math.max(MIN_NAME_WIDTH, names_budget))
+        end
+        return parts
+    end
+    if name_w + rename_w <= names_budget then
+        return parts
+    end
+    -- Both names overflow their shared space: let one that already fits half keep
+    -- its width and hand the slack to the other, else split the budget evenly.
+    local name_budget, rename_budget
+    if name_w * 2 <= names_budget then
+        name_budget, rename_budget = name_w, names_budget - name_w
+    elseif rename_w * 2 <= names_budget then
+        rename_budget, name_budget = rename_w, names_budget - rename_w
+    else
+        name_budget = math.floor(names_budget / 2)
+        rename_budget = names_budget - name_budget
+    end
+    parts.basename = truncate_name(parts.basename, math.max(MIN_NAME_WIDTH, name_budget))
+    parts.rename = truncate_name(parts.rename, math.max(MIN_NAME_WIDTH, rename_budget))
+    return parts
+end
+
 ---@param path string
 ---@param base? string
 ---@param renames? table<string, string>
@@ -93,37 +273,7 @@ end
 ---@param expanded? table<string, boolean>
 ---@return DoraDeleteConfirmItem
 local function item(path, base, renames, operations, expanded)
-    local basename = fs.basename(path)
-    -- Show the path relative to base, falling back to the absolute path for
-    -- marks outside it (e.g. above the current root).
-    local relative = base and (vim.fs.relpath(base, path) or path) or basename
-    local dir_len = dir_prefix_len(relative)
-    local hl = file_hl(path)
-    local is_expanded = expanded and expanded[path] or nil
-    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path, is_expanded)
-    local icon_prefix = icon and icon .. ' ' or ''
-    local display = icon_prefix .. relative
-    local suffix_start_col, suffix_end_col
-    if hl == 'DoraDirectory' then
-        suffix_start_col = #display
-        display = display .. '/'
-        suffix_end_col = #display
-    end
-    return {
-        display = display,
-        icon_start_col = icon and 0 or nil,
-        icon_end_col = icon and #icon or nil,
-        icon_hl = icon_hl or 'DoraIcon',
-        dir_start_col = dir_len > 0 and #icon_prefix or nil,
-        dir_end_col = dir_len > 0 and #icon_prefix + dir_len or nil,
-        suffix_start_col = suffix_start_col,
-        suffix_end_col = suffix_end_col,
-        file_start_col = #icon_prefix + dir_len,
-        file_end_col = #icon_prefix + dir_len + #basename,
-        file_hl = hl,
-        rename = renames and renames[path] or nil,
-        operation = operations and operations[path] or nil,
-    }
+    return build_item(item_parts(path, base, renames, operations, expanded))
 end
 
 ---@param paths string[]
@@ -132,11 +282,17 @@ end
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
 ---@param limit integer Maximum number of paths to render before overflowing
+---@param overwrite boolean Current mode, deciding which suffix and preview each line carries
+---@param target? integer Display columns each line may occupy; names are elided to fit
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, renames, operations, expanded, limit)
+local function items(paths, base, renames, operations, expanded, limit, overwrite, target)
     local ret = {}
     for i = 1, math.min(#paths, limit) do
-        ret[#ret+1] = item(paths[i], base, renames, operations, expanded)
+        local parts = item_parts(paths[i], base, renames, operations, expanded)
+        if target then
+            parts = truncate_parts(parts, overwrite, target)
+        end
+        ret[#ret+1] = build_item(parts)
     end
     return ret
 end
@@ -460,7 +616,7 @@ function M.delete(paths, cb, opts)
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded) or nil
     local max_paths = path_limit(opts.anchor, #paths)
-    local confirm_items = items(paths, base, renames, operations, expanded, max_paths)
+    local confirm_items = items(paths, base, renames, operations, expanded, max_paths, overwrite)
     local overflow = math.max(0, #paths - #confirm_items)
     local confirm_title = get_title(#paths, opts.action)
     -- Size the window to fit either mode (overwrite tags are shorter than the
@@ -469,6 +625,18 @@ function M.delete(paths, cb, opts)
     local win_width = math.max(
         get_width(confirm_title, lines(confirm_items, overflow, dest_item, false, warning, hint)),
         get_width(confirm_title, lines(confirm_items, overflow, dest_item, true, warning, hint)))
+    -- Clamp to the room the float actually gets — layout would otherwise narrow
+    -- it below win_width on a slim terminal — so the divider, centered header,
+    -- and elided rows all agree on a single width.
+    win_width = math.min(win_width, math.max(20, vim.o.columns - 4))
+    -- Names are elided to this width so no row spills past the window edge.
+    -- win_width itself stays fixed for the window's lifetime, so the centered
+    -- header never shifts.
+    local target = win_width - RIGHT_PADDING
+    if dest_item then
+        dest_item = build_item(truncate_parts(
+            item_parts(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded), false, target))
+    end
     local rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
     local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
@@ -481,7 +649,7 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, renames, operations, expanded, max_paths)
+        confirm_items = items(paths, base, renames, operations, expanded, max_paths, overwrite, target)
         -- win_width is fixed for the window's lifetime, so the centered header
         -- never moves as the mode (and the list content) changes.
         rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
