@@ -2103,6 +2103,9 @@ local function rename(prefill)
         validate = function(input)
             return fs.validate_rename(input, path)
         end,
+        warn = function(_, dest)
+            return fs.exists(dest) and not fs.same_file(path, dest)
+        end,
     }, function(input, dest)
         if not input or not api.nvim_buf_is_valid(state.buf) then
             return

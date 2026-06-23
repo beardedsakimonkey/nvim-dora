@@ -15,6 +15,7 @@ local NS = api.nvim_create_namespace('dora/prompt')
 ---@field icon? string Icon shown as virtual text before the input
 ---@field icon_hl? string
 ---@field validate? fun(input: string): any When omitted, any input is accepted and the border keeps its normal color
+---@field warn? fun(input: string, result: any): boolean? Called for valid, non-initial input; when it returns true the border uses the warn color instead of the valid color
 
 ---@param opts DoraPromptOptions
 ---@return string?
@@ -86,8 +87,12 @@ function Prompt:validate()
     local hl
     if self:get_input() == self.initial_prompt then
         hl = 'DoraPromptBorder'
+    elseif not ok then
+        hl = 'DoraPromptBorderInvalid'
+    elseif self.opts.warn and self.opts.warn(self:get_input(), result) then
+        hl = 'DoraPromptBorderWarn'
     else
-        hl = ok and 'DoraPromptBorderValid' or 'DoraPromptBorderInvalid'
+        hl = 'DoraPromptBorderValid'
     end
     if window.valid_win(self.input_win) then
         vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:' .. hl
