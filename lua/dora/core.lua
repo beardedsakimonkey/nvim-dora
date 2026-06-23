@@ -2346,11 +2346,13 @@ end
 local function getcwd(dir)
     dir = dir or ''
     if dir ~= '' then return fs.realpath(dir) end
+    -- `expand('%:p:h')` can be empty (unnamed buffers like `:enew`) or a
+    -- non-filesystem path for special buffers (e.g. dora's own `dora://help`
+    -- expands to `dora:`), so only trust it when it resolves to a real path;
+    -- otherwise fall back to the cwd.
     local p = vim.fn.expand'%:p:h'
-    if p ~= '' then return fs.realpath(p) end
-    -- `expand('%')` can be empty if in an unnamed buffer, like `:enew`, so
-    -- fallback to the cwd.
-    return fs.normalize_sep(assert(uv.cwd()))
+    local resolved = p ~= '' and fs.try_realpath(p) or nil
+    return resolved or fs.normalize_sep(assert(uv.cwd()))
 end
 
 -- Handler for the :Dora command

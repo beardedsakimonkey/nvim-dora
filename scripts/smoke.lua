@@ -3807,6 +3807,22 @@ do
 end
 
 do
+    -- Regression: a global `-`/`<Cmd>Dora<CR>` mapping can run `:Dora` while
+    -- the help window is focused. The help buffer is named `dora://help`
+    -- (asserted above), whose `:p:h` expands to the bogus path `dora:`, so
+    -- `:Dora` must fall back to the cwd instead of crashing in realpath.
+    local help_buf = api.nvim_create_buf(false, true)
+    vim.bo[help_buf].buftype = 'nofile'
+    api.nvim_buf_set_name(help_buf, 'dora://help')
+    api.nvim_set_current_buf(help_buf)
+    local ok, err = pcall(vim.cmd, 'Dora')
+    assert(ok, 'running :Dora from a dora://help buffer should not error: ' .. tostring(err))
+    assert_eq(store.get().cwd, fs.normalize_sep(assert(vim.loop.cwd())),
+        ':Dora from a non-filesystem buffer should open at the cwd')
+    core.quit()
+end
+
+do
     local old_keymaps = config.keymaps
     config.keymaps = {
         n = "yank_file_path",
