@@ -2092,6 +2092,41 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+-- Toggling a mark in one dora window refreshes the others. Marks are shared, so
+-- a window showing the same path must paint (and later drop) the cut/copy sign
+-- without waiting for a manual reload.
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local buf1 = api.nvim_get_current_buf()
+    local state1 = store.get(buf1)
+    assert(not has_mark_sign(buf1, state1.ns), 'no mark should show before toggling')
+
+    -- A second session on the same directory becomes the active window.
+    vim.cmd('new')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local buf2 = api.nvim_get_current_buf()
+    assert(buf2 ~= buf1, 'a second Dora window should be a separate session')
+
+    set_cursor_line('alpha%.txt$')
+    core.toggle_copy()
+    assert(has_mark_sign(buf2, store.get(buf2).ns), 'marking should sign the active window')
+    assert(has_mark_sign(buf1, state1.ns),
+        'toggling a mark should refresh the other dora window\'s sign')
+
+    core.toggle_copy()
+    assert(not has_mark_sign(buf1, state1.ns),
+        'un-toggling a mark should clear the other window\'s sign too')
+
+    core.quit()
+    vim.cmd('bwipeout! ' .. buf1)
+    vim.cmd('silent! only')
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 do
     local old_notify = vim.notify
     local notifications = {}
