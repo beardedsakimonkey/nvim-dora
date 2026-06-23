@@ -346,17 +346,32 @@ local function build_filtered_rows(state, tree_rows)
     end
 
     local rows = {}
-    local needle = vim.fn.tolower(filter)
+    -- The filter is a Vim regex, so users can anchor (e.g. `lua$`), use
+    -- character classes, etc. vim.regex is always case-sensitive regardless of
+    -- 'ignorecase', so prepend `\c` to keep matching case-insensitive by
+    -- default; a `\C` in the user's own pattern still wins to force case.
+    local ok, regex = pcall(vim.regex, '\\c' .. filter)
+    if not ok then
+        -- Incomplete or invalid pattern (common while typing); show nothing.
+        return rows
+    end
     for _, row in ipairs(tree_rows) do
-        local lowered_name = vim.fn.tolower(row.name)
-        local match_index = vim.fn.stridx(lowered_name, needle)
-        if row.path and match_index >= 0 then
-            -- Case folding can change byte lengths (e.g. 'İ' → 'i'), so map
-            -- the match back to byte offsets in the original name via
-            -- character indices, which tolower() preserves.
-            local match_char_start = vim.fn.charidx(lowered_name, match_index)
-            local match_start = vim.fn.byteidx(row.name, match_char_start)
-            local match_end = vim.fn.byteidx(row.name, match_char_start + vim.fn.strchars(needle))
+        local match_start, match_end
+        if row.path then
+            -- Match the lowered name so Unicode case folding (e.g. 'İ' → 'i',
+            -- which `\c` alone does not do) still matches, then map the lowered
+            -- byte offsets back to the original name's bytes via character
+            -- indices, which tolower() preserves even when byte lengths change.
+            local lowered_name = vim.fn.tolower(row.name)
+            local lowered_start, lowered_end = regex:match_str(lowered_name)
+            if lowered_start then
+                local char_start = vim.fn.charidx(lowered_name, lowered_start)
+                local matched_chars = vim.fn.strchars(lowered_name:sub(lowered_start + 1, lowered_end))
+                match_start = vim.fn.byteidx(row.name, char_start)
+                match_end = vim.fn.byteidx(row.name, char_start + matched_chars)
+            end
+        end
+        if match_start then
             local relative_path = relative_child_path(state, row.path)
             local icon_prefix = row.icon and row.icon .. ' ' or ''
             local display_name = icon_prefix .. relative_path
