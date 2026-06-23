@@ -2541,7 +2541,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.prompt, 'Rename to')
+        assert_eq(opts.prompt, 'Rename')
         assert_eq(opts.initial_prompt, 'alpha.txt')
         assert_eq(opts.cwd, state.cwd)
         assert_eq(opts.width, 32)
@@ -2563,7 +2563,7 @@ do
     local empty_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.prompt, 'Rename to')
+        assert_eq(opts.prompt, 'Rename')
         assert_eq(opts.initial_prompt, '', 'empty rename should omit the current filename')
         cb('gamma.txt', opts.validate('gamma.txt'))
     end

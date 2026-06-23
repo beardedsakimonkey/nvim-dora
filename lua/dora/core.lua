@@ -2052,7 +2052,7 @@ local function rename(prefill)
         return
     end
     prompt.input({
-        prompt = 'Rename to',
+        prompt = 'Rename',
         cwd = fs.get_parent_dir(path),
         initial_prompt = prefill and fs.basename(path) or '',
         width = PROMPT_WIDTH,
