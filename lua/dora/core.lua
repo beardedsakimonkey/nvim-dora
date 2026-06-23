@@ -108,6 +108,7 @@ end
 ---@field filter_preview? string
 ---@field filter_window? DoraFilterWindow
 ---@field filter_editing boolean
+---@field filter_inverted boolean when true, the filter keeps non-matching rows
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
 ---@field bookmarks DoraBookmarks
@@ -355,8 +356,9 @@ local function build_filtered_rows(state, tree_rows)
         -- Incomplete or invalid pattern (common while typing); show nothing.
         return rows
     end
+    local inverted = state.filter_inverted
     for _, row in ipairs(tree_rows) do
-        local match_start, match_end
+        local matched, match_start, match_end = false, nil, nil
         if row.path then
             -- Match the lowered name so Unicode case folding (e.g. 'İ' → 'i',
             -- which `\c` alone does not do) still matches, then map the lowered
@@ -365,13 +367,16 @@ local function build_filtered_rows(state, tree_rows)
             local lowered_name = vim.fn.tolower(row.name)
             local lowered_start, lowered_end = regex:match_str(lowered_name)
             if lowered_start then
+                matched = true
                 local char_start = vim.fn.charidx(lowered_name, lowered_start)
                 local matched_chars = vim.fn.strchars(lowered_name:sub(lowered_start + 1, lowered_end))
                 match_start = vim.fn.byteidx(row.name, char_start)
                 match_end = vim.fn.byteidx(row.name, char_start + matched_chars)
             end
         end
-        if match_start then
+        -- Keep matching rows; when inverted, keep the non-matching rows instead
+        -- (which have no basename span to highlight).
+        if row.path and matched ~= inverted then
             local relative_path = relative_child_path(state, row.path)
             local icon_prefix = row.icon and row.icon .. ' ' or ''
             local display_name = icon_prefix .. relative_path
@@ -399,8 +404,8 @@ local function build_filtered_rows(state, tree_rows)
                 directory_suffix_col = directory_suffix_col,
                 filter_directory_start_col = basename_start_col > #icon_prefix and #icon_prefix or nil,
                 filter_directory_end_col = basename_start_col > #icon_prefix and basename_start_col or nil,
-                filter_match_start_col = basename_start_col + match_start,
-                filter_match_end_col = basename_start_col + match_end,
+                filter_match_start_col = match_start and basename_start_col + match_start or nil,
+                filter_match_end_col = match_end and basename_start_col + match_end or nil,
             }
         end
     end
@@ -1032,6 +1037,7 @@ local function close_filter(state)
     state.filter_text = nil
     state.filter_preview = nil
     state.filter_editing = false
+    state.filter_inverted = false
     local filter_window = state.filter_window
     state.filter_window = nil
     if filter_window then
@@ -1264,6 +1270,9 @@ function M.filter()
     local cursor_path = row and row.path or nil
     local initial_text = state.filter_text or ''
     local origin_win = api.nvim_get_current_win()
+    -- Captured so cancelling discards any invert toggles made while editing,
+    -- the same way it discards the previewed text.
+    local original_inverted = state.filter_inverted
     state.filter_preview = initial_text
     state.filter_editing = true
     render(state)
@@ -1272,8 +1281,14 @@ function M.filter()
     local opts = {
         origin_win = origin_win,
         initial_text = initial_text,
+        inverted = state.filter_inverted,
         on_change = function(text)
             state.filter_preview = text
+            render(state)
+            scroll_filter_results_to_top(origin_win)
+        end,
+        on_toggle_invert = function(inverted)
+            state.filter_inverted = inverted
             render(state)
             scroll_filter_results_to_top(origin_win)
         end,
@@ -1283,6 +1298,7 @@ function M.filter()
             state.filter_editing = false
             if not state.filter_text then
                 state.filter_window = nil
+                state.filter_inverted = false
             end
             render(state)
             set_cursor_pos(state, nil, --[[or_top]]true)
@@ -1294,6 +1310,7 @@ function M.filter()
         on_cancel = function()
             state.filter_preview = nil
             state.filter_editing = false
+            state.filter_inverted = original_inverted
             if not state.filter_text then
                 state.filter_window = nil
             end
@@ -2370,6 +2387,7 @@ function M.initialize(dir, from_au)
         filter_preview = nil,
         filter_window = nil,
         filter_editing = false,
+        filter_inverted = false,
         marked_paths = global_marked_paths,
         bookmarks = bookmarks.new(load_previous_directory(win)),
     }

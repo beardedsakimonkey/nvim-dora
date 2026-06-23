@@ -4000,11 +4000,16 @@ do
     assert_eq(filter_cfg.col, 0, 'filter should be aligned with the left of Dora')
     assert_eq(filter_cfg.border, 'none', 'filter should be borderless')
     assert_eq(win_title(filter.win), '', 'filter should not have a title')
-    local prefix_marks = api.nvim_buf_get_extmarks(filter.buf, filter.ns, 0, -1, {details = true})
-    assert_eq(#prefix_marks, 1, 'filter should render one prefix')
-    assert_eq(prefix_marks[1][4].virt_text[1][1], 'Filter›')
-    assert_eq(prefix_marks[1][4].virt_text_pos, 'inline')
-    assert_eq(prefix_marks[1][4].right_gravity, false)
+    local function decoration_mark(virt_text_pos)
+        for _, mark in ipairs(api.nvim_buf_get_extmarks(filter.buf, filter.ns, 0, -1, {details = true})) do
+            if mark[4].virt_text_pos == virt_text_pos then
+                return mark
+            end
+        end
+    end
+    local prefix_mark = assert(decoration_mark('inline'), 'filter should render a prefix')
+    assert_eq(prefix_mark[4].virt_text[1][1], 'Filter›')
+    assert_eq(prefix_mark[4].right_gravity, false)
     local spacer_marks = vim.tbl_filter(function(mark)
         return mark[4].virt_lines ~= nil
     end, api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true}))
@@ -4249,6 +4254,34 @@ do
     -- than erroring.
     filter:set_input('init\\(')
     assert_eq(#visible_names(), 0, 'invalid regex should show no matches without erroring')
+
+    -- <C-i> inverts the filter: the prompt gains a `!` marker and the result
+    -- set flips to the rows that do not match.
+    local function prefix_text()
+        for _, mark in ipairs(api.nvim_buf_get_extmarks(filter.buf, filter.ns, 0, -1, {details = true})) do
+            if mark[4].virt_text_pos == 'inline' then
+                return mark[4].virt_text[1][1]
+            end
+        end
+    end
+    filter:set_input('lua$')
+    assert_eq(prefix_text(), 'Filter›', 'a non-inverted filter shows the plain prompt')
+    filter:toggle_invert()
+    assert(state.filter_inverted, 'toggling should invert the filter state')
+    assert_eq(prefix_text(), 'Filter!›', 'an inverted filter marks the prompt with !')
+    local inverted = visible_names()
+    assert(not vim.tbl_contains(inverted, 'init.lua'), 'inverting should drop the matching rows')
+    assert(vim.tbl_contains(inverted, 'notes.lua.bak'), 'inverting should keep the non-matching rows')
+    assert(vim.tbl_contains(inverted, 'readme.md'), 'inverting should keep the non-matching rows')
+
+    -- No basename span is highlighted for inverted (non-matching) rows.
+    local match_marks = vim.tbl_filter(function(mark)
+        return mark[4].hl_group == 'DoraFilterMatch'
+    end, api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true}))
+    assert_eq(#match_marks, 0, 'inverted rows should not highlight a match span')
+
+    filter:toggle_invert()
+    assert(not state.filter_inverted, 'toggling again should clear the inverted state')
 
     filter:cancel()
     core.quit()
