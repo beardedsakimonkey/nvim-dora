@@ -89,80 +89,80 @@ require('dora').setup {
     -- Key mappings
     keymaps = {
         -- General
-        ['g?'] = 'help',
-        q = 'quit',
+        ['g?'] = 'help', -- Show help
+        q      = 'quit', -- Quit
 
         -- Navigation
-        ['-'] = 'up_dir',
-        h = 'up_dir',
-        J = 'next_sibling',
-        K = 'prev_sibling',
-        ['>'] = 'last_sibling',
-        ['<'] = 'first_sibling',
-        o = 'expand',
-        O = 'expand_recursive',
-        u = 'collapse',
-        U = 'collapse_recursive',
-        ['<BS>'] = 'close_dir',
-        gp = 'parent_dir',
-        gh = 'home_dir',
-        m = 'set_bookmark',
-        ["'"] = 'jump_bookmark',
+        ['-']    = 'up_dir',             -- Up directory
+        h        = 'up_dir',             -- Up directory
+        J        = 'next_sibling',       -- Next sibling
+        K        = 'prev_sibling',       -- Previous sibling
+        ['>']    = 'last_sibling',       -- Last sibling
+        ['<']    = 'first_sibling',      -- First sibling
+        o        = 'expand',             -- Expand directory
+        O        = 'expand_recursive',   -- Expand directory recursively
+        u        = 'collapse',           -- Collapse directory
+        U        = 'collapse_recursive', -- Collapse directory recursively
+        ['<BS>'] = 'close_dir',          -- Close directory
+        gp       = 'parent_dir',         -- Go to parent directory
+        gh       = 'home_dir',           -- Go to home directory
+        m        = 'set_bookmark',       -- Set bookmark
+        ["'"]    = 'jump_bookmark',      -- Jump to bookmark
 
         -- Open
-        ['<CR>'] = 'open',
-        l = 'open',
-        s = 'open_split',
-        v = 'open_vsplit',
-        t = 'open_tab',
-        ['<C-s>'] = 'open_split_stay',
-        ['<C-v>'] = 'open_vsplit_stay',
-        ['<C-t>'] = 'open_tab_stay',
-        gx = 'open_external',
+        ['<CR>']  = 'open',             -- Open
+        l         = 'open',             -- Open
+        s         = 'open_split',       -- Open in split
+        v         = 'open_vsplit',      -- Open in vertical split
+        t         = 'open_tab',         -- Open in tab
+        ['<C-s>'] = 'open_split_stay',  -- Open in split (stay)
+        ['<C-v>'] = 'open_vsplit_stay', -- Open in vertical split (stay)
+        ['<C-t>'] = 'open_tab_stay',    -- Open in tab (stay)
+        gx        = 'open_external',    -- Open externally
 
         -- File operations
-        a = 'add_under',
-        A = 'add',
-        S = 'create_symlink',
-        r = 'rename',
-        R = 'rename_empty',
-        d = 'trash',
-        D = 'delete',
-        x = 'toggle_cut',
-        c = 'toggle_copy',
-        p = 'paste_under',
-        P = 'paste',
-        ['<Esc>'] = 'clear_marks',
-        ['.'] = 'shell_cmd',
+        a         = 'add_under',      -- Add file under directory
+        A         = 'add',            -- Add file
+        S         = 'create_symlink', -- Add symlink to file
+        r         = 'rename',         -- Rename file
+        R         = 'rename_empty',   -- Rename file with empty prompt
+        d         = 'trash',          -- Move file to trash (Mac/Linux)
+        D         = 'delete',         -- Delete file permanently
+        x         = 'toggle_cut',     -- Toggle cut mark
+        c         = 'toggle_copy',    -- Toggle copy mark
+        p         = 'paste_under',    -- Paste under directory
+        P         = 'paste',          -- Paste
+        ['<Esc>'] = 'clear_marks',    -- Clear cut/copy marks
+        ['.']     = 'shell_cmd',      -- Shell command on file
 
         -- View
-        f = 'filter',
-        F = 'clear_filter',
-        i = 'file_info',
-        ['g.'] = 'toggle_hidden_files',
-        ['<C-r>'] = 'reload',
+        f         = 'filter',              -- Filter visible files
+        F         = 'clear_filter',        -- Clear filter
+        i         = 'file_info',           -- Show file info
+        ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+        ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank
-        yf = 'yank_filename',
-        yF = 'yank_filename_clipboard',
-        yy = 'yank_file_path',
-        yY = 'yank_file_path_clipboard',
-        yd = 'yank_dir_path',
-        yD = 'yank_dir_path_clipboard',
-        yn = 'yank_name',
-        yN = 'yank_name_clipboard',
+        yf = 'yank_filename',            -- Yank filename
+        yF = 'yank_filename_clipboard',  -- Yank filename to clipboard
+        yy = 'yank_file_path',           -- Yank full path
+        yY = 'yank_file_path_clipboard', -- Yank full path to clipboard
+        yd = 'yank_dir_path',            -- Yank parent directory
+        yD = 'yank_dir_path_clipboard',  -- Yank parent directory to clipboard
+        yn = 'yank_name',                -- Yank name without extension
+        yN = 'yank_name_clipboard',      -- Yank name without extension to clipboard
 
         -- Sort
-        [',n'] = 'sort_by_name',
-        [',N'] = 'sort_by_name_desc',
-        [',m'] = 'sort_by_modified',
-        [',M'] = 'sort_by_modified_desc',
-        [',c'] = 'sort_by_created',
-        [',C'] = 'sort_by_created_desc',
-        [',s'] = 'sort_by_size',
-        [',S'] = 'sort_by_size_desc',
-        [',e'] = 'sort_by_extension',
-        [',E'] = 'sort_by_extension_desc',
+        [',n'] = 'sort_by_name',           -- Sort by name
+        [',N'] = 'sort_by_name_desc',      -- Sort by name (descending)
+        [',m'] = 'sort_by_modified',       -- Sort by modified time
+        [',M'] = 'sort_by_modified_desc',  -- Sort by modified time (descending)
+        [',c'] = 'sort_by_created',        -- Sort by creation time
+        [',C'] = 'sort_by_created_desc',   -- Sort by creation time (descending)
+        [',s'] = 'sort_by_size',           -- Sort by size
+        [',S'] = 'sort_by_size_desc',      -- Sort by size (descending)
+        [',e'] = 'sort_by_extension',      -- Sort by extension
+        [',E'] = 'sort_by_extension_desc', -- Sort by extension (descending)
     },
 }
 ```
