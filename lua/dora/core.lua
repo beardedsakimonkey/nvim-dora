@@ -1730,10 +1730,6 @@ local function render_marked_windows()
     end)
 end
 
-function M.clear_marks()
-    M.clear_paste_operation()
-end
-
 ---@param operation DoraPasteOperation
 local function toggle_marked_path(operation)
     local state = store.get()
@@ -1790,10 +1786,23 @@ function M.toggle_copy_visual()
     toggle_marked_paths_visual('copy')
 end
 
-function M.clear_paste_operation()
+---@param operation DoraPasteOperation
+local function clear_marks_for_operation(operation)
     local state = store.get()
-    clear_marked_paths(state)
+    for marked_path, marked_operation in pairs(state.marked_paths) do
+        if marked_operation == operation then
+            state.marked_paths[marked_path] = nil
+        end
+    end
     render_marked_windows()
+end
+
+function M.clear_cut()
+    clear_marks_for_operation('cut')
+end
+
+function M.clear_copy()
+    clear_marks_for_operation('copy')
 end
 
 ---@param state DoraState

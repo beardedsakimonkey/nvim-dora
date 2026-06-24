@@ -2602,14 +2602,13 @@ do
     assert(has_sign_highlight(state, 'DoraCopy'), 'copy marks should use the copy sign')
     assert(has_high_priority_highlight(state, 'DoraCopy'), 'copy marks should highlight filenames like the copy sign')
 
-    core.clear_marks()
-    assert_eq(marked_path_count(state), 0, 'escape action should clear paste marks')
+    core.clear_cut()
+    assert_eq(state.marked_paths[state.cwd .. '/a'], nil, 'clear_cut should drop cut marks')
+    assert_eq(state.marked_paths[state.cwd .. '/c'], 'copy', 'clear_cut should keep copy marks')
+    assert_eq(marked_path_count(state), 1)
 
-    set_cursor_line('b$')
-    core.toggle_copy()
-    assert_eq(state.marked_paths[state.cwd .. '/b'], 'copy', 'copy should set paste mark before escape')
-    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
-    assert_eq(marked_path_count(state), 0, 'escape should clear paste marks')
+    core.clear_copy()
+    assert_eq(marked_path_count(state), 0, 'clear_copy should drop the remaining copy marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -3459,8 +3458,8 @@ do
     set_cursor_pos('a')
     core.toggle_cut()
     assert_eq(marked_path_count(state), 1)
-    core.clear_marks()
-    assert_eq(marked_path_count(state), 0, 'clear_marks should clear paste marks')
+    core.clear_cut()
+    assert_eq(marked_path_count(state), 0, 'clear_cut should clear cut marks')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
