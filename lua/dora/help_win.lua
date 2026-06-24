@@ -30,7 +30,8 @@ local SECTIONS = {
         name = 'File Operations',
         actions = {
             'add_under', 'add', 'create_symlink', 'rename', 'rename_empty', 'trash', 'delete',
-            'toggle_cut', 'toggle_copy', 'paste_under', 'paste', 'clear_marks', 'shell_cmd',
+            'toggle_cut', 'clear_cut', 'toggle_copy', 'clear_copy',
+            'paste_under', 'paste', 'shell_cmd',
         },
     },
     {

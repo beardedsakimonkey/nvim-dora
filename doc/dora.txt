@@ -135,10 +135,11 @@ Here are the defaults:
             d         = 'trash',          -- Move file to trash (Mac/Linux)
             D         = 'delete',         -- Delete file permanently
             x         = 'toggle_cut',     -- Toggle cut mark
+            X         = 'clear_cut',      -- Clear all cut marks
             c         = 'toggle_copy',    -- Toggle copy mark
+            C         = 'clear_copy',     -- Clear all copy marks
             p         = 'paste_under',    -- Paste under directory
             P         = 'paste',          -- Paste
-            ['<Esc>'] = 'clear_marks',    -- Clear cut/copy marks
             ['.']     = 'shell_cmd',      -- Shell command on file
     
             -- View
