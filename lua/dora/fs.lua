@@ -253,9 +253,16 @@ function M.file_from_path(path, fallback_type)
     }
 end
 
+-- Debounce window for coalescing bursts of filesystem events. A single
+-- logical change often emits several events, and constrained filesystems
+-- (e.g. the overlay mounts used by sandboxes) can fire them continuously.
+-- Without coalescing, every event triggers a full re-render, which can
+-- saturate the event loop and stall.
+local WATCH_DEBOUNCE_MS = 50
+
 -- Watch a directory for changes. `on_change` is called on the main loop
--- after the first change, and the watcher stops itself; watch again for
--- further changes. Returns a function that cancels the watch, or nil when
+-- once a burst of events settles, and the watcher stops itself; watch again
+-- for further changes. Returns a function that cancels the watch, or nil when
 -- the directory can't be watched.
 ---@param dir string
 ---@param on_change fun()
@@ -265,21 +272,44 @@ function M.watch_dir(dir, on_change)
     if not watcher then
         return nil
     end
+    local timer
+    local function stop_timer()
+        if timer then
+            timer:stop()
+            if not timer:is_closing() then
+                timer:close()
+            end
+            timer = nil
+        end
+    end
     local function cancel()
+        stop_timer()
         if not watcher:is_closing() then
             watcher:stop()
             watcher:close()
         end
     end
-    local ok = watcher:start(dir, {}, vim.schedule_wrap(function()
-        -- Events can queue up faster than they're handled, and the watch
-        -- may have been cancelled before a queued event runs.
+    local fire = vim.schedule_wrap(function()
+        -- The watch may have been cancelled while the debounce timer was
+        -- pending, or before this ran on the main loop.
         if watcher:is_closing() then
             return
         end
         cancel()
         on_change()
-    end))
+    end)
+    local ok = watcher:start(dir, {}, function(err)
+        if err or watcher:is_closing() then
+            return
+        end
+        -- Coalesce this event with any others that arrive within the debounce
+        -- window so a burst (or storm) causes a single refresh rather than one
+        -- re-render per event.
+        if not timer then
+            timer = uv.new_timer()
+        end
+        timer:start(WATCH_DEBOUNCE_MS, 0, fire)
+    end)
     if not ok then
         watcher:close()
         return nil
