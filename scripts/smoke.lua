@@ -4021,6 +4021,10 @@ do
     assert_eq(current_line(), 'top.txt', 'counted next sibling should move the requested number of siblings')
     api.nvim_feedkeys('2K', 'xt', false)
     assert_eq(current_line(), 'alpha/', 'counted previous sibling should move the requested number of siblings')
+    -- Clear the pending count so it doesn't leak into later blocks that call
+    -- core.expand()/core.collapse() directly; those read vim.v.count1 and would
+    -- otherwise inherit this 2 as an ambient count.
+    api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
