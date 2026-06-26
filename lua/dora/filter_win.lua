@@ -8,7 +8,7 @@ local FILTER_WIDTH = 32
 local FILTER_PREFIX = 'Filter›'
 local FILTER_PREFIX_INVERTED = 'Filter!›'
 -- Leading space puts a gap between the prompt's `›` and the hint.
-local INVERT_PLACEHOLDER = ' <tab> to invert'
+local INVERT_PLACEHOLDER = ' <c-i> to invert'
 
 ---@class DoraFilterWindowOptions
 ---@field origin_win integer
@@ -37,21 +37,14 @@ function FilterWindow:clear_autocmds()
     self.autocmds = {}
 end
 
----Display columns needed for the prompt prefix plus the current input. The +1
----leaves a cell for the caret sitting at end-of-input.
----@return integer
-function FilterWindow:content_width()
-    local prefix = self.inverted and FILTER_PREFIX_INVERTED or FILTER_PREFIX
-    return vim.fn.strdisplaywidth(prefix) + vim.fn.strdisplaywidth(self:get_input()) + 1
-end
-
 ---@return table
 function FilterWindow:layout()
-    -- Grow to fit the input so a long filter doesn't scroll horizontally, but
-    -- never below FILTER_WIDTH nor past the origin window's width.
-    local width = math.max(FILTER_WIDTH, self:content_width())
+    -- Span the full width of the origin (dora) window so the prompt always
+    -- matches it, including after a resize (driven by the WinResized autocmd).
+    -- Falls back to FILTER_WIDTH only when the origin window is gone.
+    local width = FILTER_WIDTH
     if window.valid_win(self.opts.origin_win) then
-        width = math.min(width, api.nvim_win_get_width(self.opts.origin_win))
+        width = api.nvim_win_get_width(self.opts.origin_win)
     end
     return {
         relative = 'win',
@@ -87,9 +80,6 @@ function FilterWindow:render_prefix()
             right_gravity = true,
         })
     end
-    -- The prefix and input drive the window width, so resize whenever either
-    -- changes to grow the window instead of scrolling it horizontally.
-    self:relayout()
 end
 
 ---@return string

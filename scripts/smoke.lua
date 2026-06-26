@@ -4223,7 +4223,7 @@ do
     local prefix_mark = assert(inline_mark(false), 'filter should render a prefix')
     assert_eq(prefix_mark[4].virt_text[1][1], 'Filter›')
     local placeholder_mark = assert(inline_mark(true), 'an empty filter should show the invert placeholder')
-    assert_eq(placeholder_mark[4].virt_text[1][1], ' <tab> to invert')
+    assert_eq(placeholder_mark[4].virt_text[1][1], ' <c-i> to invert')
     local spacer_marks = vim.tbl_filter(function(mark)
         return mark[4].virt_lines ~= nil
     end, api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true}))
