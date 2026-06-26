@@ -1019,11 +1019,11 @@ do
 
     assert(fs.exists(tmp .. '/foo/bar/a'), 'create should create a nested file path')
     assert(vim.tbl_contains(lines(), 'foo/'), 'create should render the new top-level parent')
-    assert(vim.tbl_contains(lines(), '└── bar/'), 'create should expand the selected created parent')
-    assert(vim.tbl_contains(lines(), '    └── a'), 'create should recursively reveal the created nested file')
-    assert_match(current_line(), 'foo/$', 'create should move cursor to the top-level created parent')
+    assert(vim.tbl_contains(lines(), '└── bar/'), 'create should expand the parents above the new file')
+    assert(vim.tbl_contains(lines(), '    └── a'), 'create should reveal the created nested file')
+    assert_match(current_line(), 'a$', 'create should move cursor to the created nested file')
     local row = store.get().rows[api.nvim_win_get_cursor(0)[1]]
-    assert_eq(row.path, fs.realpath(tmp) .. '/foo')
+    assert_eq(row.path, fs.realpath(tmp) .. '/foo/bar/a')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1050,10 +1050,49 @@ do
     prompt.input = old_input
 
     assert(fs.exists(tmp .. '/nvim-dora/foo/bar'), 'create should create nested paths inside expanded directories')
-    assert(vim.tbl_contains(lines(), '│   └── bar'), 'create should expand the selected parent under expanded directories')
-    assert_match(current_line(), 'foo/$', 'create should move cursor to the nearest visible created parent')
+    assert(vim.tbl_contains(lines(), '│   └── bar'), 'create should expand the parent under expanded directories')
+    assert_match(current_line(), 'bar$', 'create should move cursor to the created nested file')
     local row = store.get().rows[api.nvim_win_get_cursor(0)[1]]
-    assert_eq(row.path, fs.realpath(tmp) .. '/nvim-dora/foo')
+    assert_eq(row.path, fs.realpath(tmp) .. '/nvim-dora/foo/bar')
+
+    core.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local root = fs.realpath(tmp)
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local old_input = prompt.input
+
+    -- Creating a nested directory expands the parents above it but leaves the
+    -- lowest created directory collapsed.
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        local input = 'dir1/dir2/'
+        cb(input, opts.validate(input))
+    end
+    core.add()
+
+    assert(fs.is_dir(tmp .. '/dir1/dir2'), 'create should create the nested directory')
+    assert_eq(store.get().expanded_dirs[root .. '/dir1'], true, 'create should expand the parent of a new directory')
+    assert(not store.get().expanded_dirs[root .. '/dir1/dir2'], 'create should leave the lowest new directory collapsed')
+    assert_match(current_line(), 'dir2/$', 'create should move cursor to the new directory')
+
+    -- Creating a single top-level directory leaves it collapsed too.
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        local input = 'solo/'
+        cb(input, opts.validate(input))
+    end
+    core.add()
+    prompt.input = old_input
+
+    assert(fs.is_dir(tmp .. '/solo'), 'create should create the top-level directory')
+    assert(not store.get().expanded_dirs[root .. '/solo'], 'create should not expand a new top-level directory')
+    assert_match(current_line(), 'solo/$', 'create should move cursor to the new top-level directory')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
@@ -1075,7 +1114,7 @@ do
 
     assert(fs.is_dir(tmp .. '/foo/bar'), 'create should create nested directory paths')
     assert(vim.tbl_contains(lines(), '└── bar/'), 'create should expand newly created directory parents')
-    assert_match(current_line(), 'foo/$', 'create should keep cursor on the top-level created directory')
+    assert_match(current_line(), 'bar/$', 'create should move cursor to the new directory')
 
     core.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
