@@ -2190,13 +2190,18 @@ local function create(under_directory)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
                 clear_listings(state)
+                -- Reveal the new entry by expanding the directories above it,
+                -- but leave the entry itself collapsed: `foo/bar/` expands
+                -- `foo` so `bar` shows without expanding `bar`, and `foo/`
+                -- expands nothing.
+                local dir = fs.parent_dir(cursor_path)
+                while dir ~= state.cwd do
+                    state.expanded_dirs[dir] = true
+                    dir = fs.parent_dir(dir)
+                end
                 render(state)
                 while cursor_path ~= state.cwd and not set_cursor_path(state, cursor_path) do
                     cursor_path = fs.parent_dir(cursor_path)
-                end
-                if cursor_path ~= state.cwd and fs.is_dir(cursor_path) and expand_all_dirs(state, cursor_path) then
-                    render(state)
-                    set_cursor_path(state, cursor_path)
                 end
             end
         end
