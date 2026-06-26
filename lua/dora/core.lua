@@ -1590,7 +1590,13 @@ function M.expand()
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
-    local changed = expand_next_level(state, row.path)
+    local changed = false
+    for _ = 1, vim.v.count1 do
+        if not expand_next_level(state, row.path) then
+            break
+        end
+        changed = true
+    end
     if changed then
         render(state)
         set_cursor_path(state, row.path)
@@ -1617,7 +1623,16 @@ function M.collapse()
     if not row or not row.path or not path or not target_depth then
         return
     end
-    local changed = collapse_deepest_visible_dirs(state, path, target_depth)
+    local changed = false
+    for _ = 1, vim.v.count1 do
+        if not collapse_deepest_visible_dirs(state, path, target_depth) then
+            break
+        end
+        changed = true
+        -- collapse_deepest_visible_dirs reads state.tree_rows to find the deepest
+        -- level, so refresh it between iterations before collapsing the next one.
+        state.tree_rows = build_tree_rows(state)
+    end
     if changed then
         render(state)
         if not set_cursor_path(state, row.path) then
