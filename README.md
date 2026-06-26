@@ -4,11 +4,10 @@ Dora is a directory explorer for Neovim 0.12+ focused on usability. It was born
 from a desire for a modern netrw-style plugin with a tree view. It includes:
 
 - 🌳 A tree view that can be expanded/collapsed one level at a time (or
-  recursively) for quick exploration.
+  all the way) for quick exploration.
 - 🩻 "Transparent" floating windows positioned over selected files (at the
   [locus of attention](https://raskincenter.org/jef/humane-interface/)).
 - ✅ Floating window border colors that provide validation feedback while typing.
-- ✂️ Marking files to be cut/copied (`x`/`c`) and then pasted (`p`).
 - ⚠️ A paste confirmation window that previews changes, detects conflicts, and
   provides customizable conflict resolution.
 - 🔎 A filename filter that persists when navigating directories.
@@ -121,20 +120,20 @@ require('dora').setup {
         gx        = 'open_external',    -- Open externally
 
         -- File operations
-        a         = 'add_under',      -- Add file under directory
-        A         = 'add',            -- Add file
-        S         = 'create_symlink', -- Add symlink to file
-        r         = 'rename',         -- Rename file
-        R         = 'rename_empty',   -- Rename file with empty prompt
-        d         = 'trash',          -- Move file to trash (Mac/Linux)
-        D         = 'delete',         -- Delete file permanently
-        x         = 'toggle_cut',     -- Toggle cut mark
-        X         = 'clear_cut',      -- Clear all cut marks
-        c         = 'toggle_copy',    -- Toggle copy mark
-        C         = 'clear_copy',     -- Clear all copy marks
-        p         = 'paste_under',    -- Paste under directory
-        P         = 'paste',          -- Paste
-        ['.']     = 'shell_cmd',      -- Shell command on file
+        a     = 'add_under',      -- Add file under directory
+        A     = 'add',            -- Add file
+        S     = 'create_symlink', -- Add symlink to file
+        r     = 'rename',         -- Rename file
+        R     = 'rename_empty',   -- Rename file with empty prompt
+        d     = 'trash',          -- Move file to trash (Mac/Linux)
+        D     = 'delete',         -- Delete file permanently
+        x     = 'toggle_cut',     -- Toggle cut mark
+        X     = 'clear_cut',      -- Clear all cut marks
+        c     = 'toggle_copy',    -- Toggle copy mark
+        C     = 'clear_copy',     -- Clear all copy marks
+        p     = 'paste_under',    -- Paste under directory
+        P     = 'paste',          -- Paste
+        ['.'] = 'shell_cmd',      -- Shell command on file
 
         -- View
         f         = 'filter',              -- Filter visible files
