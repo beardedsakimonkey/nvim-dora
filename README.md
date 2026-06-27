@@ -195,9 +195,9 @@ dora.config.keymaps.D = nil
 dora.config.keymaps = {}
 ```
 
-Keymaps may be core action names, Vim RHS strings, functions, or
-`{action, desc=...}` tables. Built-in action names automatically use Dora's
-description in mappings, prefix hints, and `g?` help, even when remapped.
+Keymaps may be api action names, Vim RHS strings, functions, or `{action,
+desc=...}` tables. Built-in action names automatically use Dora's description in
+mappings, prefix hints, and `g?` help, even when remapped.
 
 Use the table form to override the built-in wording or describe a custom
 mapping:

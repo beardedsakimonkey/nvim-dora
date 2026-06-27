@@ -17,9 +17,9 @@ local cases = {
         end,
     },
     {
-        name = "require'dora.core'",
+        name = "require'dora.api'",
         fn = function()
-            require'dora.core'
+            require'dora.api'
         end,
     },
 }
