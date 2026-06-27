@@ -98,6 +98,8 @@ require('dora').setup {
         K        = 'prev_sibling',       -- Previous sibling
         ['>']    = 'last_sibling',       -- Last sibling
         ['<']    = 'first_sibling',      -- First sibling
+        [']m']   = 'next_mark',          -- Next paste mark
+        ['[m']   = 'prev_mark',          -- Previous paste mark
         o        = 'expand',             -- Expand directory
         O        = 'expand_recursive',   -- Expand directory recursively
         u        = 'collapse',           -- Collapse directory

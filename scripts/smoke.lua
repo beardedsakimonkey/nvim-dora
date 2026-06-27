@@ -2052,6 +2052,54 @@ do
 end
 
 do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+    touch(tmp .. '/bravo.txt')
+    touch(tmp .. '/charlie.txt')
+    touch(tmp .. '/delta.txt')
+    touch(tmp .. '/echo.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, 'Next paste mark')
+    assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, 'Previous paste mark')
+
+    -- Mark non-adjacent rows with a mix of cut and copy.
+    set_cursor_line('bravo%.txt$')
+    api.toggle_cut()
+    set_cursor_line('delta%.txt$')
+    api.toggle_copy()
+    set_cursor_line('echo%.txt$')
+    api.toggle_copy()
+    assert_eq(marked_path_count(state), 3)
+
+    set_cursor_line('alpha%.txt$')
+    api.next_mark()
+    assert_match(current_line(), 'bravo%.txt$', 'next mark should jump to the first paste mark below the cursor')
+    api.next_mark()
+    assert_match(current_line(), 'delta%.txt$', 'next mark should skip unmarked rows to the following mark')
+    api.next_mark()
+    assert_match(current_line(), 'echo%.txt$', 'next mark should jump to copy marks as well as cut marks')
+    api.next_mark()
+    assert_match(current_line(), 'echo%.txt$', 'next mark should stay put when no further mark exists')
+
+    api.prev_mark()
+    assert_match(current_line(), 'delta%.txt$', 'previous mark should jump to the closest mark above the cursor')
+
+    set_cursor_line('alpha%.txt$')
+    vim.api.nvim_feedkeys('2]m', 'xt', false)
+    assert_match(current_line(), 'delta%.txt$', 'counted next mark should skip the requested number of marks')
+
+    set_cursor_line('echo%.txt$')
+    vim.api.nvim_feedkeys('2[m', 'xt', false)
+    assert_match(current_line(), 'bravo%.txt$', 'counted previous mark should skip the requested number of marks')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local old_notify = vim.notify
     local notifications = {}
     ---@diagnostic disable-next-line: duplicate-set-field
