@@ -64,6 +64,7 @@ end)()
 ---@field base? string Show listed paths relative to this directory
 ---@field renames? table<string, string> Source path -> free name shown for a kept-both paste
 ---@field allow_overwrite? boolean Offer `o`/`k` to toggle overwrite vs the default keep-both, passed to cb's second arg
+---@field error? string A blocking error heading the window: the border turns red and the confirm keys only dismiss it
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
 
@@ -321,9 +322,13 @@ end
 
 ---@param count integer
 ---@param action? string
+---@param err? string A blocking error replaces the prompt title with "<action> Error"
 ---@return string
-local function get_title(count, action)
+local function get_title(count, action, err)
     action = action or 'Delete'
+    if err then
+        return action .. ' Error'
+    end
     if count == 1 then
         return action .. '?'
     end
@@ -460,7 +465,8 @@ end
 ---@param warning? string
 ---@param hint? string
 ---@param width integer
-local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, width)
+---@param warning_hl? string Highlight for the centered warning (red for an error, yellow for a conflict)
+local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, width, warning_hl)
     local rendered_lines, dest_row = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, width)
     api.nvim_buf_set_lines(buf, 0, -1, false, rendered_lines)
     api.nvim_buf_clear_namespace(buf, ns, 0, -1)
@@ -471,9 +477,19 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
         local pad = center_pad(warning, width)
         api.nvim_buf_set_extmark(buf, ns, offset, pad, {
             end_col = pad + #warning,
-            hl_group = 'DoraWarn',
+            hl_group = warning_hl,
             priority = 10000,
         })
+        -- Bold an error to read as an alert; bold and the color set different
+        -- attributes, so they layer (like the hint's active segment). A conflict
+        -- count stays regular weight.
+        if warning_hl == 'DoraError' then
+            api.nvim_buf_set_extmark(buf, ns, offset, pad, {
+                end_col = pad + #warning,
+                hl_group = 'DoraBold',
+                priority = 10001,
+            })
+        end
         offset = offset + 1
     end
     if hint then
@@ -616,18 +632,26 @@ function M.delete(paths, cb, opts)
     local renames = opts.renames
     local operations = opts.operations
     local expanded = opts.expanded
+    local err = opts.error
     -- Paste confirmations start in keep-both mode; `o` switches to overwrite and
     -- `k` switches back, retagging each row. A conflict count and a static
     -- both-keys hint head the list.
     local overwrite = false
-    local warning = opts.allow_overwrite
-        and conflicts_text(vim.tbl_count(renames or {})) or nil
-    local hint = opts.allow_overwrite and HINT.text or nil
+    local warning, hint, warning_hl
+    if err then
+        -- An error fills the width, so centering would otherwise leave it flush
+        -- against the left border; a leading space keeps it off, balancing the
+        -- column RIGHT_PADDING already reserves on the right.
+        warning, warning_hl = ' ' .. err, 'DoraError'
+    elseif opts.allow_overwrite then
+        warning, warning_hl = conflicts_text(vim.tbl_count(renames or {})), 'DoraWarn'
+        hint = HINT.text
+    end
     -- A paste warns (regardless of overwrite mode) when it would clash with an
-    -- existing entry, otherwise keeps the normal float border; a delete or
-    -- single-file overwrite stays red to flag the destructive confirm.
+    -- existing entry, otherwise keeps the normal float border; a blocking error,
+    -- a delete, or a single-file overwrite stays red to flag the confirm.
     local border = 'DoraPromptBorderInvalid'
-    if opts.action == 'Paste' then
+    if opts.action == 'Paste' and not err then
         border = opts.allow_overwrite and 'DoraPromptBorderWarn' or 'DoraPromptBorder'
     end
     -- Render the destination like a listed entry: relative to base, or by its
@@ -636,7 +660,7 @@ function M.delete(paths, cb, opts)
     local max_paths = path_limit(opts.anchor, #paths)
     local confirm_items = items(paths, base, renames, operations, expanded, max_paths, overwrite)
     local overflow = math.max(0, #paths - #confirm_items)
-    local confirm_title = get_title(#paths, opts.action)
+    local confirm_title = get_title(#paths, opts.action, err)
     -- Size the window to fit either mode (overwrite tags are shorter than the
     -- keep-both previews) so toggling never resizes it. A fixed width keeps the
     -- centered warning and hint from shifting — stability over a snug fit.
@@ -672,7 +696,7 @@ function M.delete(paths, cb, opts)
         -- never moves as the mode (and the list content) changes.
         rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
         vim.bo[buf].modifiable = true
-        render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
+        render(buf, ns, confirm_items, overflow, dest_item, overwrite, warning, hint, win_width, warning_hl)
         vim.bo[buf].modifiable = false
     end
 
@@ -722,8 +746,12 @@ function M.delete(paths, cb, opts)
         refresh()
     end
 
+    local function confirm()
+        -- Nothing to confirm on a blocking error; `<CR>` (and y/Y) just dismiss it.
+        finish(not err)
+    end
     for _, lhs in ipairs({'y', 'Y', '<CR>'}) do
-        vim.keymap.set('n', lhs, function() finish(true) end, {buffer = buf, silent = true, nowait = true})
+        vim.keymap.set('n', lhs, confirm, {buffer = buf, silent = true, nowait = true})
     end
     for _, lhs in ipairs({'n', 'N', 'q', '<Esc>', '<C-c>'}) do
         vim.keymap.set('n', lhs, function() finish(false) end, {buffer = buf, silent = true, nowait = true})

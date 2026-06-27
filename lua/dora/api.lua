@@ -1898,6 +1898,15 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     end)
 end
 
+---@param count integer
+---@return string
+local function paste_error_message(count)
+    if count == 1 then
+        return 'Cannot paste a directory into itself'
+    end
+    return string.format('Cannot paste %d directories into themselves', count)
+end
+
 ---@param state DoraState
 ---@param row DoraTreeRow
 ---@param dest_dir string
@@ -1911,10 +1920,14 @@ local function paste_to_directory(state, row, dest_dir, entries)
     local renames = {}
     local operations = {}
     local has_conflict = false
+    local error_count = 0
     local reserved_dests = {}
     for _, entry in ipairs(entries) do
         paste_paths[#paste_paths+1] = entry.path
         operations[entry.path] = entry.operation
+        if fs.paste_into_self(entry.path, dest_dir, state.cwd) then
+            error_count = error_count + 1
+        end
         local entry_dest = vim.fs.joinpath(dest_dir, fs.basename(entry.path))
         if fs.exists(entry_dest) or reserved_dests[entry_dest] then
             has_conflict = true
@@ -1928,20 +1941,26 @@ local function paste_to_directory(state, row, dest_dir, entries)
             reserved_dests[entry_dest] = true
         end
     end
-    delete_win.delete(paste_paths, function(confirmed, overwrite)
-        if confirmed and api.nvim_buf_is_valid(state.buf) then
-            paste_entries(state, entries, dest_dir, overwrite)
-        end
-    end, {
+    local opts = {
         anchor = current_name_anchor(row, {superimpose = false}),
         action = 'Paste',
         dest = dest_dir,
         base = state.cwd,
-        renames = renames,
-        allow_overwrite = has_conflict,
         operations = operations,
         expanded = state.expanded_dirs,
-    })
+    }
+    if error_count > 0 then
+        opts.error = paste_error_message(error_count)
+        delete_win.delete(paste_paths, function() end, opts)
+        return
+    end
+    opts.renames = renames
+    opts.allow_overwrite = has_conflict
+    delete_win.delete(paste_paths, function(confirmed, overwrite)
+        if confirmed and api.nvim_buf_is_valid(state.buf) then
+            paste_entries(state, entries, dest_dir, overwrite)
+        end
+    end, opts)
 end
 
 ---@param resolve_dest fun(row: DoraTreeRow): string?

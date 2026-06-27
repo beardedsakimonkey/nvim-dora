@@ -268,6 +268,7 @@ hi default link DoraIcon                Special
 hi default link DoraCut                 DiagnosticError
 hi default link DoraCopy                DiagnosticOk
 hi default link DoraWarn                DiagnosticWarn
+hi default link DoraError               DiagnosticError
 hi default link DoraFilterMatch         Special
 hi default link DoraFilterPath          Comment
 hi default link DoraPromptBorder        FloatBorder
