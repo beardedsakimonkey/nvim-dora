@@ -2477,6 +2477,81 @@ do
 end
 
 do
+    -- Pasting a directory into itself would throw mid-copy, so the confirmation
+    -- blocks it: an "Error" title, a red border, a centered error (padded off the
+    -- border) heading the list above a divider, and confirm keys that only dismiss.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/foo', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_pos('foo')
+    api.toggle_copy()
+    local origin_win = vim.api.nvim_get_current_win()
+    api.paste_under()
+
+    local confirm_win = vim.api.nvim_get_current_win()
+    local confirm_cfg = vim.api.nvim_win_get_config(confirm_win)
+    assert_match(win_title(confirm_win), 'Paste Error')
+    assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderInvalid',
+        'a paste into itself should flag the error on its border')
+    local confirm_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local confirm_width = confirm_cfg.width
+    -- A leading space keeps the error off the left border; RIGHT_PADDING balances
+    -- the right, so the centered line carries one space on each side.
+    local error_text = ' Cannot paste a directory into itself'
+    local error_pad = math.max(0, math.floor((confirm_width - #error_text) / 2))
+    assert_eq(confirm_lines[1], string.rep(' ', error_pad) .. error_text,
+        'a centered error should head the blocked paste confirmation')
+    assert_eq(confirm_lines[2], string.rep('─', confirm_width),
+        'a full-width divider should separate the error from the list')
+    assert_eq(confirm_lines[3], 'foo/', 'the blocked paste should still list the source')
+    assert_eq(confirm_lines[4], '↓', 'the blocked paste should show a down-arrow separator')
+    assert_eq(confirm_lines[5], 'foo/', 'the blocked paste should show the destination')
+
+    local error_hl, error_bold = false, false
+    for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
+        local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil
+        if row == 0 and col == error_pad and details.hl_group == 'DoraError' then
+            error_hl = true
+        end
+        if row == 0 and col == error_pad and details.hl_group == 'DoraBold' then
+            error_bold = true
+        end
+    end
+    assert(error_hl, 'the centered error should be highlighted')
+    assert(error_bold, 'the centered error should be bold')
+
+    -- A blocking error has nothing to confirm, so <CR> just dismisses the window
+    -- without pasting, leaving the mark intact and restoring focus.
+    vim.api.nvim_feedkeys('\r', 'xt', false)
+    assert(not vim.api.nvim_win_is_valid(confirm_win),
+        'a blocked paste should dismiss on the confirm key')
+    assert(not fs.exists(tmp .. '/foo/foo'),
+        'a blocked paste should not copy the directory into itself')
+    assert_eq(marked_path_count(state), 1, 'a blocked paste should preserve the mark')
+    assert_eq(vim.api.nvim_get_current_win(), origin_win,
+        'dismissing should restore focus to the tree')
+
+    -- Esc cancels the reopened confirmation just the same.
+    set_cursor_pos('foo')
+    api.paste_under()
+    local cancel_win = vim.api.nvim_get_current_win()
+    assert(cancel_win ~= origin_win, 'the blocked paste should reopen')
+    vim.api.nvim_feedkeys('\27', 'xt', false)
+    assert(not vim.api.nvim_win_is_valid(cancel_win),
+        'cancelling should close the blocked paste confirmation')
+    assert_eq(vim.api.nvim_get_current_win(), origin_win,
+        'cancelling should restore focus to the tree')
+    assert_eq(marked_path_count(state), 1, 'cancelling a blocked paste should keep the mark')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     -- Pasting into the source directory is still a conflict: keep-both copies
     -- or moves to a free sibling name, while overwrite safely leaves the exact
     -- same filesystem object in place.

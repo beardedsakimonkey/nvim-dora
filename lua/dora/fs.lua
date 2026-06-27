@@ -509,6 +509,19 @@ function M.resolve_copy_or_move_dest(src, dest, cwd)
     return resolve_copy_or_move_dest(src, dest, cwd, false)
 end
 
+-- Whether pasting `src` into the directory `dest_dir` would resolve back onto the
+-- source itself or somewhere inside it.
+-- rejects.
+---@param src string
+---@param dest_dir string
+---@param cwd string
+---@return boolean
+function M.paste_into_self(src, dest_dir, cwd)
+    local dest = M.normalize_path(dest_dir, cwd)
+    return src == dest
+        or vim.startswith(vim.fs.joinpath(dest, M.basename(src)), src .. '/')
+end
+
 -- Mimics the semantics of `mv` / `cp -R`
 ---@param is_move boolean
 ---@param src string
