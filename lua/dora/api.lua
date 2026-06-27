@@ -1914,7 +1914,7 @@ local function paste_to_directory(state, row, dest_dir, entries)
             local target_path = fs.nonclobber_dest(entry_dest, reserved_dests)
             reserved_dests[target_path] = true
             local target = fs.basename(target_path)
-            renames[entry.path] = fs.is_dir(entry.path) and target .. '/' or target
+            renames[entry.path] = target
         else
             reserved_dests[entry_dest] = true
         end

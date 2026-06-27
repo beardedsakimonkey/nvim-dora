@@ -53,6 +53,7 @@ end)()
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
+---@field is_dir boolean Whether the entry is a directory (its name carries a trailing '/')
 ---@field rename? string Free name a keep-both paste would use, shown after an arrow
 ---@field operation? DoraPasteOperation
 
@@ -198,6 +199,7 @@ local function build_item(parts)
         file_start_col = #icon_prefix + dir_len,
         file_end_col = #icon_prefix + dir_len + #parts.basename,
         file_hl = parts.file_hl,
+        is_dir = parts.is_dir,
         rename = parts.rename,
         operation = parts.operation,
     }
@@ -221,7 +223,8 @@ local function truncate_parts(parts, overwrite, target)
         fixed = fixed + vim.fn.strdisplaywidth(overwrite and OVERWRITE_SUFFIX or KEEP_SUFFIX)
     end
     if show_rename then
-        fixed = fixed + vim.fn.strdisplaywidth(RENAME_ARROW)
+        -- The arrow plus, for a directory, the trailing '/' on the previewed name.
+        fixed = fixed + vim.fn.strdisplaywidth(RENAME_ARROW) + (parts.is_dir and 1 or 0)
     end
     local budget = target - fixed
     local dir_w = vim.fn.strdisplaywidth(parts.dir_part)
@@ -385,6 +388,10 @@ local function lines(confirm_items, overflow, dest_item, overwrite, warning, hin
             -- with what the chosen mode does to it.
             if not overwrite then
                 line = line .. RENAME_ARROW .. confirm_item.rename
+                -- A directory keeps its trailing '/' on the previewed name too.
+                if confirm_item.is_dir then
+                    line = line .. '/'
+                end
             end
             line = line .. suffix
         end
@@ -513,8 +520,17 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
                 -- The arrow reads in the normal color; the previewed name takes
                 -- the marked file's color (cut/copy) so it reads like the row.
                 local name_start = #confirm_item.display + #RENAME_ARROW
+                local name_end = suffix_start
+                if confirm_item.is_dir then
+                    name_end = name_end - 1
+                    api.nvim_buf_set_extmark(buf, ns, row, name_end, {
+                        end_col = suffix_start,
+                        hl_group = 'DoraVirtText',
+                        priority = 10000,
+                    })
+                end
                 api.nvim_buf_set_extmark(buf, ns, row, name_start, {
-                    end_col = suffix_start,
+                    end_col = name_end,
                     hl_group = name_hl(confirm_item),
                     priority = 10000,
                 })
