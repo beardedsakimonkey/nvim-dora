@@ -1416,6 +1416,34 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/a', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/a/b', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/a/b/c', tonumber('755', 8)))
+    touch(tmp .. '/a/b/c/deep.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp .. '/a/b/c'))
+    local state = store.get()
+    local start = state.cwd
+    local b = fs.get_parent_dir(start)
+    local a = fs.get_parent_dir(b)
+
+    vim.api.nvim_feedkeys('2h', 'xt', false)
+    assert_eq(state.cwd, a, 'counted up directory should ascend the requested number of levels')
+    assert_match(current_line(), 'b/$', 'counted up directory should land on the child leading back to the previous cwd')
+    assert(state.expanded_dirs[start], 'counted up directory should expand each visited directory')
+    assert(state.expanded_dirs[b], 'counted up directory should expand each visited directory')
+    -- Clear the pending count so it doesn't leak into later blocks that call
+    -- api.expand()/api.collapse() directly; those read vim.v.count1 and would
+    -- otherwise inherit this 2 as an ambient count.
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/one', tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/alpha/one/two', tonumber('755', 8)))

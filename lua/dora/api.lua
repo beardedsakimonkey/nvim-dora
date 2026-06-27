@@ -1169,13 +1169,22 @@ end
 function M.up_dir()
     local state = store.get()
     local cwd = state.cwd
-    local parent_dir = fs.get_parent_dir(state.cwd)
-    if parent_dir == cwd then
+    local target = cwd
+    local cursor_child = cwd
+    for _ = 1, vim.v.count1 do
+        local parent_dir = fs.get_parent_dir(target)
+        if parent_dir == target then
+            break
+        end
+        state.expanded_dirs[target] = true
+        cursor_child = target
+        target = parent_dir
+    end
+    if target == cwd then
         return
     end
     remember_hovered_file(state)
-    state.expanded_dirs[cwd] = true
-    change_cwd(state, parent_dir, fs.basename(cwd), --[[or_top]]true)
+    change_cwd(state, target, fs.basename(cursor_child), --[[or_top]]true)
 end
 
 function M.home_dir()
