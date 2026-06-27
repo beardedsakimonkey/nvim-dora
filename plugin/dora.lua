@@ -82,8 +82,7 @@ api.nvim_create_autocmd('BufEnter', {
         local path = vim.fn.expand('%')
         if vim.startswith(path, '~') then
             -- `:edit ~` names the buffer with a literal `~`, which
-            -- isdirectory() does not expand. Unlike expand(), fnamemodify()
-            -- expands it without globbing the rest of the name.
+            -- isdirectory() does not expand.
             path = vim.fn.fnamemodify(path, ':p')
         end
         if not buf_has_var(0, 'is_dora') and vim.fn.isdirectory(path) == 1 then

@@ -1195,7 +1195,11 @@ function M.home_dir()
     end
     local state = store.get()
     remember_hovered_file(state)
-    change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
+    local cursor = state.hovered_files[path]
+    if vim.startswith(state.cwd, path .. '/') then
+        cursor = state.cwd:sub(#path + 2):match('^[^/]+') or cursor
+    end
+    change_cwd(state, path, cursor, --[[or_top]]true)
 end
 
 function M.parent_dir()
