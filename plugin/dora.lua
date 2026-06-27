@@ -63,7 +63,7 @@ api.nvim_create_autocmd('ColorScheme', {
 })
 
 api.nvim_create_user_command('Dora', function(o)
-    require'dora.core'.initialize(o.args ~= '' and vim.fn.expand(o.args) or '')
+    require'dora.api'.initialize(o.args ~= '' and vim.fn.expand(o.args) or '')
 end, {bar=true, nargs='?', complete='dir'})
 
 local function buf_has_var(buf, var_name)
@@ -86,7 +86,7 @@ api.nvim_create_autocmd('BufEnter', {
             path = vim.fn.fnamemodify(path, ':p')
         end
         if not buf_has_var(0, 'is_dora') and vim.fn.isdirectory(path) == 1 then
-            require'dora.core'.initialize(path, true)
+            require'dora.api'.initialize(path, true)
         end
     end,
 })

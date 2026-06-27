@@ -1,7 +1,6 @@
-local api = vim.api
 local uv = vim.uv
 
-local core = require'dora.core'
+local api = require'dora.api'
 local fs = require'dora.fs'
 local store = require'dora.store'
 
@@ -43,7 +42,7 @@ local function row_line(relative_path)
 end
 
 local function set_cursor(relative_path)
-    api.nvim_win_set_cursor(0, {row_line(relative_path), 0})
+    vim.api.nvim_win_set_cursor(0, {row_line(relative_path), 0})
 end
 
 local tmp = vim.fn.tempname()
@@ -56,20 +55,20 @@ touch(vim.fs.joinpath(tmp, 'alpha.txt'), 'alpha')
 touch(vim.fs.joinpath(sub, 'child.txt'), 'child')
 
 vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-assert(api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
+assert(vim.api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
 assert(row_line('alpha.txt'), 'Dora should render files')
 set_cursor('sub')
-core.expand()
+api.expand()
 assert(row_line('sub/child.txt'), 'Dora should expand directories')
 
 set_cursor('alpha.txt')
-core.toggle_copy()
+api.toggle_copy()
 set_cursor('dest')
-core.paste_under()
-api.nvim_feedkeys('y', 'xt', false)
+api.paste_under()
+vim.api.nvim_feedkeys('y', 'xt', false)
 wait_for_paste()
 assert(fs.exists(vim.fs.joinpath(dest, 'alpha.txt')), 'paste should copy files on Windows')
-core.quit()
+api.quit()
 
 local created = vim.fs.joinpath(tmp, 'nested', 'created.txt')
 fs.create_file(created)
@@ -114,8 +113,8 @@ vim.notify = old_notify
 
 vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
 set_cursor('alpha.txt')
-core.open()
-assert_eq(vim.fs.normalize(api.nvim_buf_get_name(0)), fs.realpath(vim.fs.joinpath(tmp, 'alpha.txt')),
+api.open()
+assert_eq(vim.fs.normalize(vim.api.nvim_buf_get_name(0)), fs.realpath(vim.fs.joinpath(tmp, 'alpha.txt')),
     'open should edit selected files on Windows')
 vim.cmd'bdelete!'
 

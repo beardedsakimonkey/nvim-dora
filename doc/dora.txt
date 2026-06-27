@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 June 26
+                                 For Neovim 0.12+    Last change: 2026 June 27
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -199,7 +199,7 @@ Example setup:
     dora.config.keymaps = {}
 <
 
-Keymaps may be core action names, Vim RHS strings, functions, or `{action,
+Keymaps may be api action names, Vim RHS strings, functions, or `{action,
 desc=...}` tables. Built-in action names automatically use Dora’s description
 in mappings, prefix hints, and `g?` help, even when remapped.
 

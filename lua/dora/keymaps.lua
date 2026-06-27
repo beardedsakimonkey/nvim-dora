@@ -140,9 +140,9 @@ local function map_keymap_action(action)
     if type(action) ~= 'string' then
         return function() action(keymap_context()) end
     end
-    local core_action = require'dora.core'[action]
-    if type(core_action) == 'function' then
-        return core_action
+    local api_action = require'dora.api'[action]
+    if type(api_action) == 'function' then
+        return api_action
     end
     return action
 end
@@ -153,9 +153,9 @@ local function dispatch_keymap_action(action)
         action(keymap_context())
         return
     end
-    local core_action = require'dora.core'[action]
-    if type(core_action) == 'function' then
-        core_action()
+    local api_action = require'dora.api'[action]
+    if type(api_action) == 'function' then
+        api_action()
         return
     end
     api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), 'nx', false)
