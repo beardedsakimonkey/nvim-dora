@@ -2620,7 +2620,7 @@ do
     api.paste_under()
 
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'foo/ → foo(1)/ (keep)',
-        'pasting a directory onto an existing one should preview a kept-both name')
+        'pasting a directory onto an existing one should preview a kept-both name with a trailing slash on the rename')
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
 
