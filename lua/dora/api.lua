@@ -48,12 +48,21 @@ local function start_paste_spinner(progress)
         return function() end
     end
     local frame = 1
+    -- timer:stop() halts future ticks but cannot cancel a render that the timer
+    -- has already scheduled onto the main loop. A fast paste (e.g. a directory
+    -- rename, which finishes before the first tick fires) would otherwise let
+    -- that stale render repaint the line after we clear it. Guard against it.
+    local stopped = false
     timer:start(0, 100, vim.schedule_wrap(function()
+        if stopped then
+            return
+        end
         api.nvim_echo({{('dora: %s Pasting… %d items, %.1f MiB'):format(
             SPINNER_FRAMES[frame], progress.files, progress.bytes / 1024 / 1024)}}, false, {})
         frame = frame % #SPINNER_FRAMES + 1
     end))
     return function()
+        stopped = true
         timer:stop()
         timer:close()
         api.nvim_echo({{''}}, false, {})
