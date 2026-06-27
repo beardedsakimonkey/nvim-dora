@@ -1141,6 +1141,27 @@ do
 end
 
 do
+    local old_home = vim.env.HOME
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home/projects', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home/projects/app', tonumber('755', 8)))
+    touch(tmp .. '/home/home-file.txt')
+    vim.env.HOME = tmp .. '/home'
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp .. '/home/projects/app'))
+    local state = store.get()
+    core.home_dir()
+    assert_eq(state.cwd, fs.realpath(tmp .. '/home'), 'home directory should navigate to $HOME')
+    assert_match(current_line(), 'projects/$', 'home directory should restore cursor to the top-level dir we came from')
+
+    core.quit()
+    vim.env.HOME = old_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
