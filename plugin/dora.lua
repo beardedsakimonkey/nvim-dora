@@ -29,37 +29,25 @@ vim.cmd 'hi default link DoraHelpSection         Title'
 vim.cmd 'hi default link DoraMutedText           NonText'
 vim.cmd 'hi default link DoraKeymapHintMnemonic  Underlined'
 
-local function set_prompt_border_hls()
-    local function update_hl_fg(name, fg_group)
+local function setup_highlights()
+    local function set_hl_foreground(name, fg_group)
         if api.nvim_get_hl(0, {name = name}).link == 'DoraPromptBorder' then
             local hl = api.nvim_get_hl(0, {name = fg_group, link = false})
             api.nvim_set_hl(0, name, {fg = hl.fg, update = true})
         end
     end
-    update_hl_fg('DoraPromptBorderValid', 'DiagnosticOk')
-    update_hl_fg('DoraPromptBorderInvalid', 'DiagnosticError')
-    update_hl_fg('DoraPromptBorderWarn', 'DiagnosticWarn')
-end
-
-local function set_hidden_cursor_hl()
+    set_hl_foreground('DoraPromptBorderValid', 'DiagnosticOk')
+    set_hl_foreground('DoraPromptBorderInvalid', 'DiagnosticError')
+    set_hl_foreground('DoraPromptBorderWarn', 'DiagnosticWarn')
     api.nvim_set_hl(0, 'DoraHiddenCursor', {blend = 100, default = true})
-end
-
-local function set_bold_hl()
     api.nvim_set_hl(0, 'DoraBold', {bold = true, default = true})
 end
 
-set_prompt_border_hls()
-set_hidden_cursor_hl()
-set_bold_hl()
+setup_highlights()
 
 api.nvim_create_autocmd('ColorScheme', {
     group = augroup,
-    callback = function()
-        set_prompt_border_hls()
-        set_hidden_cursor_hl()
-        set_bold_hl()
-    end,
+    callback = function() setup_highlights() end,
 })
 
 api.nvim_create_user_command('Dora', function(o)
