@@ -774,6 +774,33 @@ local function move_sibling_edge(step)
     end
 end
 
+---@param state DoraState
+---@param line integer
+---@param step integer
+---@return integer?
+local function marked_line(state, line, step)
+    for i = line + step, step > 0 and #state.rows or 1, step do
+        local row = state.rows[i]
+        if row.path and state.marked_paths[row.path] then
+            return i
+        end
+    end
+end
+
+---@param step integer 1 for next mark, -1 for previous mark
+local function move_to_mark(step)
+    local state = store.get()
+    local line = api.nvim_win_get_cursor(0)[1]
+    for _ = 1, vim.v.count1 do
+        local target = marked_line(state, line, step)
+        if not target then
+            break
+        end
+        line = target
+    end
+    move_to_line(state, line)
+end
+
 ---@param path string
 ---@param selected string[]
 ---@return boolean
@@ -1249,6 +1276,14 @@ end
 
 function M.first_sibling()
     move_sibling_edge(-1)
+end
+
+function M.next_mark()
+    move_to_mark(1)
+end
+
+function M.prev_mark()
+    move_to_mark(-1)
 end
 
 function M.help()

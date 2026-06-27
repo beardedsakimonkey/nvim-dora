@@ -15,6 +15,7 @@ local SECTIONS = {
         name = 'Navigation',
         actions = {
             'up_dir', 'next_sibling', 'prev_sibling', 'last_sibling', 'first_sibling',
+            'next_mark', 'prev_mark',
             'expand', 'expand_recursive', 'collapse', 'collapse_recursive', 'close_dir',
             'parent_dir', 'home_dir', 'set_bookmark', 'jump_bookmark',
         },
