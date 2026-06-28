@@ -418,7 +418,7 @@ do
     end
 
     assert(width <= vim.o.columns - 4, 'paste confirmation should not exceed the viewport')
-    local keep_line = find_line(' (keep)')
+    local keep_line = find_line(' (rename)')
     assert(keep_line, 'keep-both paste should preview the renamed file')
     assert(keep_line:find('→', 1, true), 'keep-both preview should keep the rename arrow')
     assert(keep_line:find('…', 1, true), 'a too-long keep-both row should be elided')
@@ -2498,14 +2498,14 @@ do
     local function centered(text)
         return string.rep(' ', pad_for(text)) .. text
     end
-    local hint_str = 'k keep · o overwrite'
+    local hint_str = 'r rename · o overwrite'
     assert_eq(confirm_lines[1], centered('1 conflict'),
         'a centered conflict count should head the confirmation')
     assert_eq(confirm_lines[2], centered(hint_str),
         'a centered both-keys hint should sit below the count')
     assert_eq(confirm_lines[3], string.rep('─', confirm_width),
         'a full-width divider should separate the header from the list')
-    assert_eq(confirm_lines[4], 'alpha.txt → alpha(1).txt (keep)',
+    assert_eq(confirm_lines[4], 'alpha.txt → alpha(1).txt (rename)',
         'a conflict row should preview the kept-both name and tag its fate')
     assert_eq(confirm_lines[5], '↓', 'paste confirmation should show a down-arrow separator')
     assert_eq(confirm_lines[6], 'dest/', 'paste confirmation should show the target path relative to the root')
@@ -2517,8 +2517,8 @@ do
     -- by default); the previewed name keeps its file-type color while the arrow
     -- reads in the normal color (not muted).
     local warn_pad, hint_pad = pad_for('1 conflict'), pad_for(hint_str)
-    local key_k, key_o = hint_pad, hint_pad + #'k keep · '
-    local middot_col = hint_pad + #'k keep '
+    local key_r, key_o = hint_pad, hint_pad + #'r rename · '
+    local middot_col = hint_pad + #'r rename '
     local warn, hint_keys, hint_middot, keep_bold, divider_muted, suffix_warn, arrow_muted, preview_name =
         false, 0, false, false, false, false, false, false
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
@@ -2531,13 +2531,13 @@ do
             divider_muted = true
         end
         if row == 1 and details.hl_group == 'DoraInfoValue' and details.end_col == col + 1
-            and (col == key_o or col == key_k) then
+            and (col == key_o or col == key_r) then
             hint_keys = hint_keys + 1
         end
         if row == 1 and col == middot_col and details.hl_group == 'DoraMutedText' then
             hint_middot = true
         end
-        if row == 1 and col == key_k and details.end_col == hint_pad + #'k keep'
+        if row == 1 and col == key_r and details.end_col == hint_pad + #'r rename'
             and details.hl_group == 'DoraBold' then
             keep_bold = true
         end
@@ -2583,9 +2583,9 @@ do
         end
     end
     assert(overwrite_bold, 'overwrite mode should bold the overwrite segment')
-    vim.api.nvim_feedkeys('k', 'xt', false)
-    assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'alpha.txt → alpha(1).txt (keep)',
-        'k should switch back to keep-both mode')
+    vim.api.nvim_feedkeys('r', 'xt', false)
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'alpha.txt → alpha(1).txt (rename)',
+        'r should switch back to keep-both mode')
 
     vim.api.nvim_feedkeys('n', 'xt', false)
 
@@ -2719,7 +2719,7 @@ do
     assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
         'a same-directory copy should be detected as a conflict')
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4],
-        '.luarc(1).json → .luarc(2).json (keep)',
+        '.luarc(1).json → .luarc(2).json (rename)',
         'a same-directory copy should increment an existing numeric suffix')
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -2738,7 +2738,7 @@ do
         'FloatBorder:DoraPromptBorderWarn',
         'a same-directory cut should be detected as a conflict')
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4],
-        '.luarc(1).json → .luarc(3).json (keep)',
+        '.luarc(1).json → .luarc(3).json (rename)',
         'a same-directory cut should preview its kept-both name')
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -2782,9 +2782,9 @@ do
     api.paste()
 
     local confirm_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(confirm_lines[4], 'AGENTS(1).md → AGENTS(3).md (keep)',
+    assert_eq(confirm_lines[4], 'AGENTS(1).md → AGENTS(3).md (rename)',
         'the first conflict should preview the first free suffix')
-    assert_eq(confirm_lines[5], 'AGENTS(2).md → AGENTS(4).md (keep)',
+    assert_eq(confirm_lines[5], 'AGENTS(2).md → AGENTS(4).md (rename)',
         'the second conflict should reserve and skip the first previewed suffix')
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -2844,7 +2844,7 @@ do
     set_cursor_pos('dest')
     api.paste_under()
 
-    assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'foo/ → foo(1)/ (keep)',
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'foo/ → foo(1)/ (rename)',
         'pasting a directory onto an existing one should preview a kept-both name with a trailing slash on the rename')
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
