@@ -26,18 +26,20 @@ local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 
 -- The mode-key hint shown beneath the warning, advertising both keys: `o`
 -- overwrites the conflicting entries, `r` renames around them (keeping both). The
--- text never changes -- only which mode's segment is bolded -- so it is built
+-- text never changes -- only which mode's name is underlined -- so it is built
 -- once alongside the 0-indexed byte ranges each highlight needs.
 local HINT = (function()
-    local overwrite, rename, middot = 'o overwrite', 'r rename', '·'
-    local sep = ' ' .. middot .. ' '
+    local overwrite, rename = 'o overwrite', 'r rename'
+    local sep = '   '
     local overwrite_col = #rename + #sep
+    -- Each label is a one-char key, a space, then the mode name; the active mode's
+    -- name (the word after that 2-char key prefix) is the only part underlined.
+    local KEY_PREFIX = 2
     return {
         text = rename .. sep .. overwrite,
-        rename_range = {0, #rename},                 -- bolded in keep mode
-        overwrite_range = {overwrite_col, overwrite_col + #overwrite}, -- bolded in overwrite mode
+        rename_range = {KEY_PREFIX, #rename},                 -- 'rename', underlined when active
+        overwrite_range = {overwrite_col + KEY_PREFIX, overwrite_col + #overwrite}, -- 'overwrite', underlined when active
         key_cols = {0, overwrite_col},               -- the `r` and `o` mnemonics
-        middot_range = {#rename + 1, #rename + 1 + #middot},
     }
 end)()
 
@@ -493,14 +495,13 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
         offset = offset + 1
     end
     if hint then
-        -- Bold the active mode's segment, spotlight both mnemonic keys, and mute
-        -- the middot; the rest reads normally. Bold and the key color set
-        -- different attributes, so they layer on the active key.
+        -- Underline just the active mode's name (the word after its key) to mark
+        -- it as selected and spotlight both mnemonic keys; the rest reads normally.
         local pad = center_pad(hint, width)
         local active = overwrite and HINT.overwrite_range or HINT.rename_range
         api.nvim_buf_set_extmark(buf, ns, offset, pad + active[1], {
             end_col = pad + active[2],
-            hl_group = 'DoraBold',
+            hl_group = 'DoraUnderline',
             priority = 10000,
         })
         for _, key_col in ipairs(HINT.key_cols) do
@@ -510,11 +511,6 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
                 priority = 10001,
             })
         end
-        api.nvim_buf_set_extmark(buf, ns, offset, pad + HINT.middot_range[1], {
-            end_col = pad + HINT.middot_range[2],
-            hl_group = 'DoraMutedText',
-            priority = 10000,
-        })
         offset = offset + 1
     end
     if warning or hint then

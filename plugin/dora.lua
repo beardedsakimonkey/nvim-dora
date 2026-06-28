@@ -42,6 +42,7 @@ local function setup_highlights()
     set_hl_foreground('DoraPromptBorderWarn', 'DiagnosticWarn')
     api.nvim_set_hl(0, 'DoraHiddenCursor', {blend = 100, default = true})
     api.nvim_set_hl(0, 'DoraBold', {bold = true, default = true})
+    api.nvim_set_hl(0, 'DoraUnderline', {underline = true, default = true})
 end
 
 setup_highlights()

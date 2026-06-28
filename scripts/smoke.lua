@@ -2498,7 +2498,7 @@ do
     local function centered(text)
         return string.rep(' ', pad_for(text)) .. text
     end
-    local hint_str = 'r rename · o overwrite'
+    local hint_str = 'r rename   o overwrite'
     assert_eq(confirm_lines[1], centered('1 conflict'),
         'a centered conflict count should head the confirmation')
     assert_eq(confirm_lines[2], centered(hint_str),
@@ -2513,14 +2513,13 @@ do
         'paste confirmation should anchor below the cursorline')
 
     -- The count and each row's fate are colored; the hint spotlights both
-    -- mnemonic keys, mutes the middot, and bolds the active mode's segment (keep,
-    -- by default); the previewed name keeps its file-type color while the arrow
-    -- reads in the normal color (not muted).
+    -- mnemonic keys and underlines just the active mode's name (rename, by
+    -- default); the previewed name keeps its file-type color while the arrow reads
+    -- in the normal color (not muted).
     local warn_pad, hint_pad = pad_for('1 conflict'), pad_for(hint_str)
-    local key_r, key_o = hint_pad, hint_pad + #'r rename · '
-    local middot_col = hint_pad + #'r rename '
-    local warn, hint_keys, hint_middot, keep_bold, divider_muted, suffix_warn, arrow_muted, preview_name =
-        false, 0, false, false, false, false, false, false
+    local key_r, key_o = hint_pad, hint_pad + #'r rename   '
+    local warn, hint_keys, rename_underlined, divider_muted, suffix_warn, arrow_muted, preview_name =
+        false, 0, false, false, false, false, false
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
         local row, col, details = mark[2], mark[3], mark[4]
         ---@cast details -nil
@@ -2534,12 +2533,9 @@ do
             and (col == key_o or col == key_r) then
             hint_keys = hint_keys + 1
         end
-        if row == 1 and col == middot_col and details.hl_group == 'DoraMutedText' then
-            hint_middot = true
-        end
-        if row == 1 and col == key_r and details.end_col == hint_pad + #'r rename'
-            and details.hl_group == 'DoraBold' then
-            keep_bold = true
+        if row == 1 and col == hint_pad + #'r ' and details.end_col == hint_pad + #'r rename'
+            and details.hl_group == 'DoraUnderline' then
+            rename_underlined = true
         end
         if row == 3 and col == #'alpha.txt → alpha(1).txt' and details.hl_group == 'DoraWarn' then
             suffix_warn = true
@@ -2553,8 +2549,7 @@ do
     end
     assert(warn, 'the centered conflict count should be highlighted')
     assert_eq(hint_keys, 2, 'both mnemonic keys should be highlighted')
-    assert(hint_middot, 'the hint middot should be muted')
-    assert(keep_bold, 'keep-both mode should bold the keep segment')
+    assert(rename_underlined, 'keep-both mode should underline the rename name')
     assert(divider_muted, 'the header divider should be muted')
     assert(suffix_warn, 'each conflict row should tag its fate in the warning color')
     assert(not arrow_muted, 'the rename preview arrow should read in the normal color')
@@ -2562,7 +2557,7 @@ do
 
     -- `o` switches to overwrite mode in place: the border keeps warning, the
     -- rename preview collapses to the conflicting name (still tagged), the static
-    -- hint is unchanged, and bold moves to the overwrite segment.
+    -- hint is unchanged, and the underline moves to the overwrite name.
     vim.api.nvim_feedkeys('o', 'xt', false)
     assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
         'overwrite mode should keep the warning border')
@@ -2573,16 +2568,16 @@ do
         'the both-keys hint should not change with the mode')
     assert_eq(overwrite_lines[4], 'alpha.txt (overwrite)',
         'overwrite mode should drop the preview and tag the row as overwritten')
-    local overwrite_bold = false
+    local overwrite_underlined = false
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(0, -1, 0, -1, {details = true})) do
         local row, col, details = mark[2], mark[3], mark[4]
         ---@cast details -nil
-        if row == 1 and col == key_o and details.end_col == hint_pad + #hint_str
-            and details.hl_group == 'DoraBold' then
-            overwrite_bold = true
+        if row == 1 and col == hint_pad + #'r rename   o ' and details.end_col == hint_pad + #hint_str
+            and details.hl_group == 'DoraUnderline' then
+            overwrite_underlined = true
         end
     end
-    assert(overwrite_bold, 'overwrite mode should bold the overwrite segment')
+    assert(overwrite_underlined, 'overwrite mode should underline the overwrite name')
     vim.api.nvim_feedkeys('r', 'xt', false)
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, -1, false)[4], 'alpha.txt → alpha(1).txt (rename)',
         'r should switch back to keep-both mode')
