@@ -1899,8 +1899,11 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     local progress = {files = 0, bytes = 0}
     local stop_spinner = start_paste_spinner(progress)
     state.paste_in_progress = true
+    -- Drive the statusline's busy indicator.
+    vim.o.busy = vim.o.busy + 1
     fs.paste_async(ops, dest_dir, state.cwd, progress, overwrite, function(ok, result)
         state.paste_in_progress = false
+        vim.o.busy = vim.o.busy - 1
         stop_spinner()
         if not ok then
             util.err(result)
