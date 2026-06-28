@@ -100,10 +100,10 @@ require('dora').setup {
         ['<']    = 'first_sibling',      -- First sibling
         [']m']   = 'next_mark',          -- Next paste mark
         ['[m']   = 'prev_mark',          -- Previous paste mark
-        o        = 'expand',             -- Expand directory
-        O        = 'expand_recursive',   -- Expand directory recursively
-        u        = 'collapse',           -- Collapse directory
-        U        = 'collapse_recursive', -- Collapse directory recursively
+        o        = 'fold_out',           -- Fold out directory
+        O        = 'fold_out_recursive', -- Fold out directory recursively
+        i        = 'fold_in',            -- Fold in directory
+        I        = 'fold_in_recursive',  -- Fold in directory recursively
         ['<BS>'] = 'close_dir',          -- Close directory
         gp       = 'parent_dir',         -- Go to parent directory
         gh       = 'home_dir',           -- Go to home directory
@@ -140,7 +140,7 @@ require('dora').setup {
         -- View
         f         = 'filter',              -- Filter visible files
         F         = 'clear_filter',        -- Clear filter
-        i         = 'file_info',           -- Show file info
+        gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
         ['<C-r>'] = 'reload',              -- Reload listing
 

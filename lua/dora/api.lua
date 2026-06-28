@@ -1641,7 +1641,7 @@ function M.open_external_visual()
     end
 end
 
-function M.expand()
+function M.fold_out()
     local state = store.get()
     local row = current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
@@ -1660,7 +1660,7 @@ function M.expand()
     end
 end
 
-function M.expand_recursive()
+function M.fold_out_recursive()
     local state = store.get()
     local row = current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
@@ -1673,7 +1673,7 @@ function M.expand_recursive()
     end
 end
 
-function M.collapse()
+function M.fold_in()
     local state = store.get()
     local row = current_row(state)
     local path, target_depth = collapse_target(state, row)
@@ -1698,7 +1698,7 @@ function M.collapse()
     end
 end
 
-function M.collapse_recursive()
+function M.fold_in_recursive()
     local state = store.get()
     local row = current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
@@ -1751,19 +1751,19 @@ local function visual_dir_rows_op(op)
     end
 end
 
-function M.expand_visual()
+function M.fold_out_visual()
     visual_dir_rows_op(expand_next_level)
 end
 
-function M.expand_recursive_visual()
+function M.fold_out_recursive_visual()
     visual_dir_rows_op(expand_all_dirs)
 end
 
-function M.collapse_recursive_visual()
+function M.fold_in_recursive_visual()
     visual_dir_rows_op(clear_expanded_subtree)
 end
 
-function M.collapse_visual()
+function M.fold_in_visual()
     local state = store.get()
     local start_line, end_line = visual_line_range()
     local anchor_row = state.rows and state.rows[start_line] or nil

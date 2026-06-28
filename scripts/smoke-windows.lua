@@ -58,7 +58,7 @@ vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
 assert(vim.api.nvim_buf_get_var(0, 'is_dora'), 'Dora buffer should be identified')
 assert(row_line('alpha.txt'), 'Dora should render files')
 set_cursor('sub')
-api.expand()
+api.fold_out()
 assert(row_line('sub/child.txt'), 'Dora should expand directories')
 
 set_cursor('alpha.txt')
