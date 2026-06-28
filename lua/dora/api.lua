@@ -2280,7 +2280,13 @@ function M.undo()
             render(other)
         end
     end)
-    set_cursor_path(state, restored[1])
+    -- Jump to the first restored file that has a row in the focused window;
+    -- restored[1] may have come from outside this window's cwd and have no row.
+    for _, path in ipairs(restored) do
+        if set_cursor_path(state, path) then
+            break
+        end
+    end
 
     local label = #restored == 1 and 'item' or 'items'
     if missing > 0 then
