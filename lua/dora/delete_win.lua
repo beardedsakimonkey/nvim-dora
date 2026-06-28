@@ -20,24 +20,24 @@ local MIN_NAME_WIDTH = 3
 -- Muted full-width rule separating the header from the file list.
 local DIVIDER_CHAR = '─'
 -- Per-conflict-row tag of what the chosen mode does to that entry.
-local KEEP_SUFFIX = ' (keep)'
+local RENAME_SUFFIX = ' (rename)'
 local OVERWRITE_SUFFIX = ' (overwrite)'
 local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 
 -- The mode-key hint shown beneath the warning, advertising both keys: `o`
--- overwrites the conflicting entries, `k` keeps both (renaming around them). The
+-- overwrites the conflicting entries, `r` renames around them (keeping both). The
 -- text never changes -- only which mode's segment is bolded -- so it is built
 -- once alongside the 0-indexed byte ranges each highlight needs.
 local HINT = (function()
-    local overwrite, keep, middot = 'o overwrite', 'k keep', '·'
+    local overwrite, rename, middot = 'o overwrite', 'r rename', '·'
     local sep = ' ' .. middot .. ' '
-    local overwrite_col = #keep + #sep
+    local overwrite_col = #rename + #sep
     return {
-        text = keep .. sep .. overwrite,
-        keep_range = {0, #keep},                     -- bolded in keep mode
+        text = rename .. sep .. overwrite,
+        rename_range = {0, #rename},                 -- bolded in keep mode
         overwrite_range = {overwrite_col, overwrite_col + #overwrite}, -- bolded in overwrite mode
-        key_cols = {0, overwrite_col},               -- the `k` and `o` mnemonics
-        middot_range = {#keep + 1, #keep + 1 + #middot},
+        key_cols = {0, overwrite_col},               -- the `r` and `o` mnemonics
+        middot_range = {#rename + 1, #rename + 1 + #middot},
     }
 end)()
 
@@ -63,7 +63,7 @@ end)()
 ---@field dest? string Destination directory shown beneath the file list
 ---@field base? string Show listed paths relative to this directory
 ---@field renames? table<string, string> Source path -> free name shown for a kept-both paste
----@field allow_overwrite? boolean Offer `o`/`k` to toggle overwrite vs the default keep-both, passed to cb's second arg
+---@field allow_overwrite? boolean Offer `o`/`r` to toggle overwrite vs the default keep-both, passed to cb's second arg
 ---@field error? string A blocking error heading the window: the border turns red and the confirm keys only dismiss it
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
@@ -221,7 +221,7 @@ local function truncate_parts(parts, overwrite, target)
     local fixed = (parts.icon and vim.fn.strdisplaywidth(parts.icon) + 1 or 0)
         + (parts.is_dir and 1 or 0)
     if parts.rename ~= nil then
-        fixed = fixed + vim.fn.strdisplaywidth(overwrite and OVERWRITE_SUFFIX or KEEP_SUFFIX)
+        fixed = fixed + vim.fn.strdisplaywidth(overwrite and OVERWRITE_SUFFIX or RENAME_SUFFIX)
     end
     if show_rename then
         -- The arrow plus, for a directory, the trailing '/' on the previewed name.
@@ -344,7 +344,7 @@ end
 ---@param overwrite boolean
 ---@return string
 local function conflict_suffix(overwrite)
-    return overwrite and OVERWRITE_SUFFIX or KEEP_SUFFIX
+    return overwrite and OVERWRITE_SUFFIX or RENAME_SUFFIX
 end
 
 -- Number of leading spaces that horizontally centers `text` within `width`.
@@ -497,7 +497,7 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
         -- the middot; the rest reads normally. Bold and the key color set
         -- different attributes, so they layer on the active key.
         local pad = center_pad(hint, width)
-        local active = overwrite and HINT.overwrite_range or HINT.keep_range
+        local active = overwrite and HINT.overwrite_range or HINT.rename_range
         api.nvim_buf_set_extmark(buf, ns, offset, pad + active[1], {
             end_col = pad + active[2],
             hl_group = 'DoraBold',
@@ -762,12 +762,12 @@ function M.delete(paths, cb, opts)
         end
     end
     -- A keep-both confirm renames around conflicts; `o` overwrites the existing
-    -- destinations instead and `k` switches back to keeping both.
+    -- destinations instead and `r` switches back to renaming (keeping both).
     if opts.allow_overwrite then
         for _, lhs in ipairs({'o', 'O'}) do
             vim.keymap.set('n', lhs, function() set_overwrite(true) end, {buffer = buf, silent = true, nowait = true})
         end
-        for _, lhs in ipairs({'k', 'K'}) do
+        for _, lhs in ipairs({'r', 'R'}) do
             vim.keymap.set('n', lhs, function() set_overwrite(false) end, {buffer = buf, silent = true, nowait = true})
         end
         vim.keymap.set('n', 'd', '<Nop>', {buffer = buf, silent = true, nowait = true})
