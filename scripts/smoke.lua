@@ -1003,7 +1003,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_line('nvim%-dora/$')
-    api.expand()
+    api.fold_out()
     set_cursor_line('existing%.txt$')
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -1035,7 +1035,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_line('nvim%-dora/$')
-    api.expand()
+    api.fold_out()
     set_cursor_line('existing%.txt$')
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -1168,7 +1168,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('root')
-    api.expand()
+    api.fold_out()
     set_cursor_line('child/$')
 
     local old_input = prompt.input
@@ -1197,7 +1197,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('root')
-    api.expand_recursive()
+    api.fold_out_recursive()
     set_cursor_line('existing%.txt$')
 
     local old_input = prompt.input
@@ -1257,9 +1257,9 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('beta')
-    api.expand()
+    api.fold_out()
 
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
@@ -1314,7 +1314,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('secret')
-    api.expand()
+    api.fold_out()
     assert(find_line_index(lines(), '%(not permitted%)$'),
         'expanding an unreadable directory should show the not-permitted placeholder')
     assert(not find_line_index(lines(), 'hidden%.txt$'),
@@ -1332,7 +1332,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('root')
-    api.expand()
+    api.fold_out()
     set_cursor_line('%(empty%)$')
 
     local old_input = prompt.input
@@ -1397,7 +1397,7 @@ do
     local parent = fs.get_parent_dir(alpha)
 
     set_cursor_pos('one')
-    api.expand()
+    api.fold_out()
     assert(state.expanded_dirs[alpha .. '/one'], 'setup should expand a nested subtree')
     assert(find_line_index(lines(), 'file%.txt$'), 'setup should show the expanded nested file')
 
@@ -1433,7 +1433,7 @@ do
     assert(state.expanded_dirs[start], 'counted up directory should expand each visited directory')
     assert(state.expanded_dirs[b], 'counted up directory should expand each visited directory')
     -- Clear the pending count so it doesn't leak into later blocks that call
-    -- api.expand()/api.collapse() directly; those read vim.v.count1 and would
+    -- api.fold_out()/api.fold_in() directly; those read vim.v.count1 and would
     -- otherwise inherit this 2 as an ambient count.
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
 
@@ -1457,9 +1457,9 @@ do
     assert_eq(vim.fn.maparg('gp', 'x', false, true).desc, 'Go to parent directory')
     assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste')
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('one')
-    api.expand()
+    api.fold_out()
 
     set_cursor_line('file%.txt$')
     api.parent_dir()
@@ -1472,7 +1472,7 @@ do
     assert(state.expanded_dirs[root .. '/alpha'], 'parent jump should not collapse visited parent directories')
 
     set_cursor_pos('two')
-    api.expand()
+    api.fold_out()
     set_cursor_line('deep%.txt$')
     vim.api.nvim_feedkeys('3gp', 'xt', false)
     assert_match(current_line(), 'alpha/$', 'counted parent jump should move up the requested number of parents')
@@ -1505,9 +1505,9 @@ do
     local root = fs.realpath(tmp)
     assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Close directory')
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('one')
-    api.expand()
+    api.fold_out()
 
     set_cursor_line('^alpha/$')
     api.close_dir()
@@ -1516,7 +1516,7 @@ do
     assert(state.expanded_dirs[root .. '/alpha/one'], 'close should not touch expanded subdirectories')
     assert(not find_line_index(lines(), 'one/$'), 'close should hide the directory children')
 
-    api.expand()
+    api.fold_out()
     assert(find_line_index(lines(), 'file%.txt$'), 're-expanding a closed directory should restore its expanded subtree')
 
     set_cursor_line('file%.txt$')
@@ -1762,7 +1762,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('nested')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('inner.txt')
     local origin_win = vim.api.nvim_get_current_win()
     local cursor = vim.api.nvim_win_get_cursor(origin_win)
@@ -2166,7 +2166,7 @@ do
     set_cursor_line('alpha%.txt$')
     api.toggle_copy()
     set_cursor_pos('dest')
-    api.expand()
+    api.fold_out()
     set_cursor_line('beta%.txt$')
     api.paste_under()
     vim.api.nvim_feedkeys('y', 'xt', false)
@@ -2189,7 +2189,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('sub')
-    api.expand()
+    api.fold_out()
     set_cursor_line('a%.c$')
     api.toggle_copy()
     set_cursor_pos('dest')
@@ -2374,7 +2374,7 @@ do
     set_cursor_line('^alpha%.txt$')
     api.toggle_copy()
     set_cursor_pos('dest')
-    api.expand()
+    api.fold_out()
     set_cursor_line('alpha%.txt$')
     local origin_win = vim.api.nvim_get_current_win()
     local cursor = vim.api.nvim_win_get_cursor(origin_win)
@@ -2840,7 +2840,7 @@ do
     assert_eq(marked_path_count(state), 2)
 
     set_cursor_pos('dest')
-    api.expand()
+    api.fold_out()
     api.paste_under()
     vim.api.nvim_feedkeys('y', 'xt', false)
     wait_for_paste()
@@ -2992,9 +2992,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_pos('dir')
-    api.expand()
+    api.fold_out()
     set_cursor_line('child/$')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('dir')
 
     local old_input = prompt.input
@@ -3104,7 +3104,7 @@ do
     local state = store.get()
     local dora_buf = state.buf
     set_cursor_line('^dir/$')
-    api.expand()
+    api.fold_out()
     set_cursor_line('^dir/$')
     for lhs, desc in pairs({
         l = 'Open',
@@ -3167,7 +3167,7 @@ do
     assert_eq(state.bookmarks.paths.a.hovered_path, project, 'ma should record the hovered file')
 
     set_cursor_line('^other/$')
-    api.expand()
+    api.fold_out()
     assert(state.expanded_dirs[root .. '/other'], 'setup should expand a directory before quitting')
 
     set_cursor_line('^project/$')
@@ -3258,7 +3258,7 @@ do
     assert(find_line_index(lines(), '^└── nested/$'),
         'restored expanded directories should be visible after returning to their parent')
     set_cursor_line('^other/$')
-    api.collapse_recursive()
+    api.fold_in_recursive()
     assert_eq(reopened_state.expanded_dirs[root .. '/other'], nil)
     api.quit()
 
@@ -3266,7 +3266,7 @@ do
     assert_eq(store.get().expanded_dirs[root .. '/other'], nil,
         'collapsed directories should remain collapsed after reopening Dora')
     set_cursor_line('^other/$')
-    api.expand()
+    api.fold_out()
     api.quit()
 
     vim.api.nvim_set_current_win(other_win)
@@ -3298,7 +3298,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_line('^sub/$')
-    api.expand()
+    api.fold_out()
     set_cursor_line('file%.txt$')
     api.open()
     assert_eq(vim.api.nvim_buf_get_name(0), sub .. '/file.txt', 'open should edit the selected file')
@@ -3715,7 +3715,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     set_cursor_pos('dir')
-    api.expand()
+    api.fold_out()
     set_cursor_line('archive%.tar%.gz$')
     local expected_path = fs.realpath(tmp) .. '/dir/archive.tar.gz'
     local expected_yank_text = current_line()
@@ -3858,7 +3858,7 @@ do
         end
     end
     set_cursor_line('^dir/$')
-    api.expand()
+    api.fold_out()
     set_cursor_line('^dir/$')
     assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, 'Open externally')
     vim.api.nvim_feedkeys('V4jgx', 'xt', false)
@@ -4081,7 +4081,7 @@ do
     assert_eq(ctx.type, 'file', 'function keymap context should report file rows')
 
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('(empty)')
     vim.api.nvim_feedkeys('e', 'xt', false)
     assert_eq(ctx.cwd, root, 'function keymap context should include cwd on placeholder rows')
@@ -4129,9 +4129,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
 
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_line('nested/$')
-    api.expand()
+    api.fold_out()
 
     set_cursor_pos('alpha')
     api.next_sibling()
@@ -4192,7 +4192,7 @@ do
     vim.api.nvim_feedkeys('2K', 'xt', false)
     assert_eq(current_line(), 'alpha/', 'counted previous sibling should move the requested number of siblings')
     -- Clear the pending count so it doesn't leak into later blocks that call
-    -- api.expand()/api.collapse() directly; those read vim.v.count1 and would
+    -- api.fold_out()/api.fold_in() directly; those read vim.v.count1 and would
     -- otherwise inherit this 2 as an ambient count.
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'nx', false)
 
@@ -4216,7 +4216,7 @@ do
     local root = state.cwd
 
     set_cursor_pos('root')
-    api.expand_recursive()
+    api.fold_out_recursive()
     assert(vim.tbl_contains(lines(), '├ a/'), 'custom tree indentation should apply to child directories')
     assert(vim.tbl_contains(lines(), '│ └ b/'), 'custom tree indentation should apply to nested directories')
     assert(vim.tbl_contains(lines(), '│   └ file.txt'), 'custom tree indentation should apply to nested files')
@@ -4228,14 +4228,14 @@ do
     assert(state.expanded_dirs[root .. '/root/empty'], 'recursive expand should expand empty descendants')
 
     set_cursor_pos('root')
-    api.collapse_recursive()
+    api.fold_in_recursive()
     assert(not state.expanded_dirs[root .. '/root'], 'recursive collapse should clear selected directory')
     assert(not state.expanded_dirs[root .. '/root/a'], 'recursive collapse should clear descendants')
     assert(not state.expanded_dirs[root .. '/root/a/b'], 'recursive collapse should clear nested descendants')
     assert(not state.expanded_dirs[root .. '/root/empty'], 'recursive collapse should clear empty descendants')
     assert(not vim.tbl_contains(lines(), '├ a/'), 'recursive collapse should hide children')
 
-    api.expand()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '├ a/'), 'expand after recursive collapse should show one level')
     assert(not vim.tbl_contains(lines(), '│ └ b/'), 'expand after recursive collapse should not restore recursive state')
 
@@ -4259,7 +4259,7 @@ do
     local root = state.cwd
 
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '├── one/'), 'first expand should show alpha children')
     assert(vim.tbl_contains(lines(), '└── two/'), 'first expand should show all alpha children')
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'first expand should not expand grandchildren')
@@ -4272,7 +4272,7 @@ do
     assert_cursor_tree_highlights(state, 2)
     assert_eq(state.rows[vim.api.nvim_win_get_cursor(0)[1]].tree_connector_start_col, 0)
 
-    api.expand()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 'second expand should expand another level')
     assert_cursor_tree_highlights(state, 3)
 
@@ -4283,47 +4283,47 @@ do
     assert_eq(state.marked_paths[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
     set_cursor_pos('alpha')
-    api.collapse()
+    api.fold_in()
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should keep the hovered directory open')
     assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapse should hide the deepest visible level')
     assert(state.expanded_dirs[root .. '/alpha'], 'collapse should leave the hovered directory expanded')
     assert(not state.expanded_dirs[root .. '/alpha/one'], 'collapse should fold deepest expanded descendants')
 
-    api.expand()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 're-expand should restore previous tree state')
 
     set_cursor_line('file%.txt$')
-    api.collapse()
+    api.fold_in()
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapsing file should hide sibling rows below its parent directory')
     assert(state.expanded_dirs[root .. '/alpha'], 'collapsing file should leave grandparent expanded')
     assert(not state.expanded_dirs[root .. '/alpha/one'], 'collapsing file should fold its parent directory')
     assert_match(current_line(), 'one/$', 'collapsing file should move cursor to its parent directory')
 
-    api.collapse()
+    api.fold_in()
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapsing a directory with no visible descendants should be a no-op')
     assert(state.expanded_dirs[root .. '/alpha'], 'collapsing a directory with no visible descendants should leave ancestors expanded')
     assert_match(current_line(), 'one/$', 'collapsing a directory with no visible descendants should keep the cursor')
 
     set_cursor_pos('alpha')
-    api.collapse()
+    api.fold_in()
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should remove the deepest remaining descendant level first')
     assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
     assert(not vim.tbl_contains(lines(), '    └── (empty)'), 'collapse should hide empty placeholders at the deepest level')
     assert(state.expanded_dirs[root .. '/alpha'], 'collapse should leave the hovered directory expanded while descendants remain visible')
     assert(not state.expanded_dirs[root .. '/alpha/two'], 'collapse should fold deepest empty descendants')
 
-    api.collapse()
+    api.fold_in()
     assert(not vim.tbl_contains(lines(), '├── one/'), 'collapsing one visible level should fold the hovered directory')
     assert(not state.expanded_dirs[root .. '/alpha'], 'collapsing one visible level should clear the hovered directory expansion')
     assert_match(current_line(), 'alpha/$', 'collapsing one visible level should keep cursor on the hovered directory')
 
-    api.expand()
-    api.expand()
+    api.fold_out()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '│   └── file.txt'), 'recursive state should be restorable after parent fallback collapse')
 
     set_cursor_line('one/$')
-    api.collapse()
+    api.fold_in()
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapsing child should hide child contents')
     assert(state.expanded_dirs[root .. '/alpha'], 'collapsing child should leave parent expanded')
 
@@ -4340,12 +4340,12 @@ do
     local state = store.get()
 
     set_cursor_pos('empty')
-    api.expand()
+    api.fold_out()
     assert(vim.tbl_contains(lines(), '└── (empty)'), 'empty directories should render a placeholder')
     assert(has_highlight(state, 'DoraTree'), 'empty placeholder should be highlighted as tree text')
 
     set_cursor_pos('empty')
-    api.collapse()
+    api.fold_in()
     assert(not vim.tbl_contains(lines(), '└── (empty)'), 'collapsing empty directory should hide placeholder')
 
     api.quit()
@@ -4368,7 +4368,7 @@ do
     end
 
     set_cursor_pos('unreadable')
-    local ok, msg = pcall(api.expand)
+    local ok, msg = pcall(api.fold_out)
     fs.list = old_list
     assert(ok, msg)
     assert(vim.tbl_contains(lines(), '└── (not permitted)'), 'unreadable directories should render a placeholder')
@@ -4399,9 +4399,9 @@ do
     assert_eq(vim.fn.maparg('F', 'n', false, true).desc, 'Clear filter')
 
     set_cursor_pos('alpha')
-    api.expand()
+    api.fold_out()
     set_cursor_pos('gamma')
-    api.expand()
+    api.fold_out()
 
     vim.api.nvim_win_set_cursor(origin_win, {#state.rows, 0})
     vim.api.nvim_win_call(origin_win, function()
@@ -4795,7 +4795,7 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('sub')
-    api.expand()
+    api.fold_out()
     assert(find_line_index(lines(), 'seed%.txt$'), 'setup should show the expanded directory contents')
 
     -- The cached listing should refresh via the directory watcher when the
