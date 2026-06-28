@@ -2100,9 +2100,15 @@ function M.yank_name_clipboard()
     M.yank_name('+')
 end
 
+-- Stack of trashes that can be undone, newest last. Each entry is the batch of
+-- {original, trashed} pairs from a single trash action (one file, or several in
+-- a visual selection). Shared across every dora window, like the system trash.
+---@type {original: string, trashed: string}[][]
+local trash_history = {}
+
 ---@param state DoraState
 ---@param paths string[]
----@param operation fun(path: string)
+---@param operation fun(path: string): string|false|nil
 ---@param action string
 ---@param anchor? DoraFloatAnchor
 local function remove_paths(state, paths, operation, action, anchor)
@@ -2111,9 +2117,17 @@ local function remove_paths(state, paths, operation, action, anchor)
             return
         end
         local removed_paths = {}
+        -- Trash returns the entry it moved the file to; collect those so the
+        -- batch can be undone. A permanent delete returns nil and is skipped.
+        local undo_batch = {}
         for _, path in ipairs(paths) do
             local ok, result = pcall(operation, path)
             if not ok then
+                -- Files already moved to the trash before the failure are real,
+                -- so keep them undoable even though the batch was cut short.
+                if #undo_batch > 0 then
+                    trash_history[#trash_history+1] = undo_batch
+                end
                 if #removed_paths > 0 then
                     for _, removed_path in ipairs(removed_paths) do
                         clear_marked_paths_under(state, removed_path)
@@ -2127,6 +2141,12 @@ local function remove_paths(state, paths, operation, action, anchor)
             if result ~= false then
                 removed_paths[#removed_paths+1] = path
             end
+            if type(result) == 'string' then
+                undo_batch[#undo_batch+1] = {original = path, trashed = result}
+            end
+        end
+        if #undo_batch > 0 then
+            trash_history[#trash_history+1] = undo_batch
         end
         if #removed_paths > 0 then
             for _, removed_path in ipairs(removed_paths) do
@@ -2192,6 +2212,82 @@ end
 
 function M.delete_visual()
     remove_visual_paths(fs.delete, 'Delete')
+end
+
+-- Expand every ancestor of `path` up to state.cwd so a row for it can be
+-- rendered, e.g. after restoring a file into a collapsed directory. Paths
+-- outside the window's cwd have no row to reveal, so they are left alone.
+---@param state DoraState
+---@param path string
+local function expand_ancestors(state, path)
+    local prefix = state.cwd == '/' and '/' or state.cwd .. '/'
+    if not vim.startswith(path, prefix) then
+        return
+    end
+    local dir = fs.parent_dir(path)
+    while dir and dir ~= state.cwd and #dir > #state.cwd do
+        state.expanded_dirs[dir] = true
+        local parent = fs.parent_dir(dir)
+        if parent == dir then
+            break
+        end
+        dir = parent
+    end
+end
+
+-- Restore the most recent trash. Pulls the newest batch off the trash history
+-- and moves each entry back out of the trash to where it came from. Entries
+-- whose trash file is gone (the trash was emptied) are reported and skipped.
+function M.undo()
+    local batch = trash_history[#trash_history]
+    if not batch then
+        util.err('No trash to undo')
+        return
+    end
+    trash_history[#trash_history] = nil
+
+    local restored = {}
+    local missing = 0
+    for _, entry in ipairs(batch) do
+        if not fs.exists(entry.trashed) then
+            missing = missing + 1
+        else
+            local ok, result = pcall(fs.untrash, entry.trashed, entry.original)
+            if not ok then
+                util.err(result)
+                break
+            end
+            restored[#restored+1] = result
+        end
+    end
+
+    if #restored == 0 then
+        if missing > 0 then
+            util.err('Trashed files are no longer available')
+        end
+        return
+    end
+
+    local state = store.get()
+    -- Reveal the restored files in the focused window, then rescan and redraw
+    -- every dora window so none keep showing the gap the trash left behind.
+    for _, path in ipairs(restored) do
+        expand_ancestors(state, path)
+    end
+    store.each(function(other)
+        if api.nvim_buf_is_valid(other.buf) then
+            clear_listings(other)
+            render(other)
+        end
+    end)
+    set_cursor_path(state, restored[1])
+
+    local label = #restored == 1 and 'item' or 'items'
+    if missing > 0 then
+        util.warn(('Restored %d %s, %d no longer in the trash'):format(#restored, label, missing))
+    else
+        util.info(('Restored %d %s'):format(#restored, label))
+    end
 end
 
 ---@param prefill boolean
