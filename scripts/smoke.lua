@@ -1947,6 +1947,108 @@ do
 end
 
 do
+    -- Undo restores files out of the real trash, so point HOME/XDG at a temp
+    -- trash for the duration of the test.
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
+    local old_notify = vim.notify
+    local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+
+    write_file(tmp .. '/undo.txt', 'payload')
+    touch(tmp .. '/keep.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('undo.txt')
+    api.trash()
+    assert_match(win_title(vim.api.nvim_get_current_win()), 'Trash%?')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before undo')
+
+    api.undo()
+    assert(fs.exists(tmp .. '/undo.txt'), 'undo should restore the trashed file')
+    local fd = assert(vim.loop.fs_open(tmp .. '/undo.txt', 'r', tonumber('644', 8)))
+    local contents = vim.loop.fs_read(fd, 32, 0)
+    assert(vim.loop.fs_close(fd))
+    assert_eq(contents, 'payload', 'undo should restore the original contents')
+    assert_match(current_line(), 'undo%.txt$', 'undo should move the cursor to the restored file')
+    assert_eq(notifications[#notifications].msg, 'dora: Restored 1 item')
+    assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
+
+    -- The history is now empty, so undoing again reports nothing to restore.
+    api.undo()
+    assert_eq(notifications[#notifications].msg, 'dora: No trash to undo')
+    assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
+
+    -- When the original name has been taken again, undo restores to a free
+    -- sibling rather than clobbering the new file.
+    set_cursor_pos('undo.txt')
+    api.trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    write_file(tmp .. '/undo.txt', 'newer')
+    api.undo()
+    assert(fs.exists(tmp .. '/undo.txt'), 'undo should leave the file that took the original name')
+    assert(fs.exists(tmp .. '/undo(1).txt'), 'undo should restore to a non-clobbering name when the original is taken')
+
+    api.quit()
+    vim.notify = old_notify
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A visual trash records one batch, so a single undo brings every file back.
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
+    local old_notify = vim.notify
+    local notifications = {}
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg, level)
+        notifications[#notifications+1] = {msg = msg, level = level}
+    end
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    touch(tmp .. '/a')
+    touch(tmp .. '/b')
+    touch(tmp .. '/c')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('a$')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
+    assert_match(win_title(vim.api.nvim_get_current_win()), 'Trash 2 files%?')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(not fs.exists(tmp .. '/a'), 'visual trash should remove a')
+    assert(not fs.exists(tmp .. '/b'), 'visual trash should remove b')
+
+    api.undo()
+    assert(fs.exists(tmp .. '/a'), 'undo should restore the first file in the batch')
+    assert(fs.exists(tmp .. '/b'), 'undo should restore the whole trashed batch')
+    assert(fs.exists(tmp .. '/c'), 'undo should leave files that were never trashed')
+    assert_eq(notifications[#notifications].msg, 'dora: Restored 2 items')
+    assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
+
+    api.quit()
+    vim.notify = old_notify
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/alpha')

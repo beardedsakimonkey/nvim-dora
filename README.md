@@ -129,6 +129,7 @@ require('dora').setup {
         R     = 'rename_empty',   -- Rename file with empty prompt
         d     = 'trash',          -- Move file to trash (Mac/Linux)
         D     = 'delete',         -- Delete file permanently
+        u     = 'undo',           -- Restore the most recently trashed files
         x     = 'toggle_cut',     -- Toggle cut mark
         X     = 'clear_cut',      -- Clear all cut marks
         c     = 'toggle_copy',    -- Toggle copy mark

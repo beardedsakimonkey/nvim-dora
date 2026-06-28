@@ -368,8 +368,11 @@ function M.delete(path)
     vim.fs.rm(path, {recursive = M.is_dir(path)})
 end
 
+-- Move `path` into the system trash, returning the trash entry it landed at so
+-- the move can later be undone (see M.untrash). Returns false when trashing is
+-- unsupported (Windows), so callers can distinguish "skipped" from "trashed".
 ---@param path string
----@return boolean?
+---@return string|false dest
 function M.trash(path)
     assert(M.exists(path), ("%s doesn't exist"):format(path))
     local sysname = uv.os_uname().sysname
@@ -384,7 +387,27 @@ function M.trash(path)
         trash_dir = vim.fs.joinpath(data_home, 'Trash/files')
     end
     assert(vim.fn.mkdir(trash_dir, 'p') == 1)
-    move(path, M.nonclobber_dest(vim.fs.joinpath(trash_dir, M.basename(path))))
+    local dest = M.nonclobber_dest(vim.fs.joinpath(trash_dir, M.basename(path)))
+    move(path, dest)
+    return dest
+end
+
+-- Restore a trashed entry to where it came from, undoing M.trash. The original
+-- location may now be occupied (something new took the name) or its parent dir
+-- may have been removed since, so restore to a non-clobbering sibling and
+-- recreate any missing parents. Returns the path it was restored to.
+---@param trashed string Entry inside the trash directory
+---@param original string Path it was trashed from
+---@return string dest
+function M.untrash(trashed, original)
+    assert(M.exists(trashed), ("%s is no longer in the trash"):format(trashed))
+    local parent = M.parent_dir(original)
+    if not M.exists(parent) then
+        assert(vim.fn.mkdir(parent, 'p') == 1)
+    end
+    local dest = M.nonclobber_dest(original)
+    move(trashed, dest)
+    return dest
 end
 
 ---@param path string
