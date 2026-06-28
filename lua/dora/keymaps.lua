@@ -434,20 +434,24 @@ end
 
 ---@param prefix string
 ---@param rows DoraKeymapHintRow[]
+---@param has_direct? boolean prefix also has a standalone action, so keep
+---  honoring 'timeoutlen' to let that action fire instead of waiting forever
 ---@return string?
-function M.read_hint_key(prefix, rows)
+function M.read_hint_key(prefix, rows, has_direct)
     local timeout = math.max(0, vim.o.timeoutlen)
     local delay = math.min(timeout, HINT_DELAY)
     local key = read_key(delay)
     if not key and delay < timeout then
-        local buf, win
         if #rows > 0 then
-            buf, win = M.open_hint_window(prefix, rows)
+            local buf, win = M.open_hint_window(prefix, rows)
             vim.cmd.redraw()
-        end
-        key = read_key(timeout - delay)
-        if buf and win then
+            -- Once the hint window is up, leave it open until the user picks a
+            -- key rather than dismissing it when 'timeoutlen' elapses. Prefixes
+            -- that also have a standalone action keep timing out so it can fire.
+            key = read_key(has_direct and (timeout - delay) or math.huge)
             window.close(buf, win)
+        else
+            key = read_key(timeout - delay)
         end
     end
     return key
@@ -492,7 +496,12 @@ end
 local function show_keymap_hints(prefix, group, direct)
     local key = M.read_hint_key(prefix, vim.tbl_map(function(entry)
         return {lhs=entry.lhs, desc=entry.desc, key=entry.key}
-    end, group))
+    end, group), direct ~= nil)
+    if key == '\27' then
+        -- The hint window now persists past 'timeoutlen', so treat <Esc> as an
+        -- explicit cancel instead of firing the direct action or feeding keys.
+        return
+    end
     for _, entry in ipairs(group) do
         if key == entry.key then
             dispatch_keymap_action(entry.action)
