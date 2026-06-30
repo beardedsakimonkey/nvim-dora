@@ -2235,17 +2235,11 @@ local function expand_ancestors(state, path)
     end
 end
 
--- Restore the most recent trash. Pulls the newest batch off the trash history
--- and moves each entry back out of the trash to where it came from. Entries
--- whose trash file is gone (the trash was emptied) are reported and skipped.
-function M.undo()
-    local batch = trash_history[#trash_history]
-    if not batch then
-        util.err('No trash to undo')
-        return
-    end
-    trash_history[#trash_history] = nil
-
+-- Move every entry in `batch` back out of the trash to where it came from.
+-- Entries whose trash file is gone (the trash was emptied) are reported and
+-- skipped. Reveals the restored files and jumps to the first one in view.
+---@param batch {original: string, trashed: string}[]
+local function restore_trash(batch)
     local restored = {}
     local missing = 0
     for _, entry in ipairs(batch) do
@@ -2294,6 +2288,49 @@ function M.undo()
     else
         util.info(('Restored %d %s'):format(#restored, label))
     end
+end
+
+-- Restore the most recent trash after a confirmation listing the files that
+-- will be brought back. The newest batch is only pulled off the history once
+-- confirmed, so cancelling leaves it undoable.
+function M.undo()
+    local batch = trash_history[#trash_history]
+    if not batch then
+        util.err('No trash to undo')
+        return
+    end
+
+    -- Preview each entry at the location it will be restored to (its original
+    -- path); its own location is empty until then, so the confirmation takes the
+    -- file-type icon from the trashed copy that still exists.
+    local paths = {}
+    local types = {}
+    for _, entry in ipairs(batch) do
+        paths[#paths+1] = entry.original
+        types[entry.original] = entry.trashed
+    end
+
+    local state = store.get()
+    delete_win.delete(paths, function(confirmed)
+        if not confirmed then
+            return
+        end
+        -- Drop this batch wherever it sits in the history now that its restore is
+        -- going ahead, so it can't be undone twice. The confirmation blocks other
+        -- trashing, so in practice it is still the newest entry.
+        for i = #trash_history, 1, -1 do
+            if trash_history[i] == batch then
+                table.remove(trash_history, i)
+                break
+            end
+        end
+        restore_trash(batch)
+    end, {
+        action = 'Undo trash',
+        base = state.cwd,
+        types = types,
+        expanded = state.expanded_dirs,
+    })
 end
 
 ---@param prefill boolean

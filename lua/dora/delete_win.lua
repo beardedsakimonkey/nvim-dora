@@ -69,6 +69,7 @@ end)()
 ---@field error? string A blocking error heading the window: the border turns red and the confirm keys only dismiss it
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
+---@field types? table<string, string> Path -> an existing path whose file type and icon to use, for previewing entries (e.g. restores) whose own location is empty
 
 ---@param path string
 ---@return string
@@ -155,15 +156,20 @@ end
 ---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
+---@param types? table<string, string> Path -> existing path whose file type and icon to use
 ---@return table
-local function item_parts(path, base, renames, operations, expanded)
+local function item_parts(path, base, renames, operations, expanded, types)
     -- Show the path relative to base, falling back to the absolute path for
     -- marks outside it (e.g. above the current root).
     local relative = base and (vim.fs.relpath(base, path) or path) or fs.basename(path)
     local dir_len = dir_prefix_len(relative)
-    local hl = file_hl(path)
+    -- A restore preview lists each entry at the location it will return to,
+    -- which is still empty; take its file type and icon from the trashed copy
+    -- that does exist (types[path]) while keeping the original name.
+    local type_path = types and types[path] or path
+    local hl = file_hl(type_path)
     local is_expanded = expanded and expanded[path] or nil
-    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(path), path, is_expanded)
+    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(type_path), type_path, is_expanded)
     return {
         icon = icon,
         icon_hl = icon_hl or 'DoraIcon',
@@ -286,14 +292,15 @@ end
 ---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
+---@param types? table<string, string> Path -> existing path whose file type and icon to use
 ---@param limit integer Maximum number of paths to render before overflowing
 ---@param overwrite boolean Current mode, deciding which suffix and preview each line carries
 ---@param target? integer Display columns each line may occupy; names are elided to fit
 ---@return DoraDeleteConfirmItem[]
-local function items(paths, base, renames, operations, expanded, limit, overwrite, target)
+local function items(paths, base, renames, operations, expanded, types, limit, overwrite, target)
     local ret = {}
     for i = 1, math.min(#paths, limit) do
-        local parts = item_parts(paths[i], base, renames, operations, expanded)
+        local parts = item_parts(paths[i], base, renames, operations, expanded, types)
         if target then
             parts = truncate_parts(parts, overwrite, target)
         end
@@ -305,8 +312,8 @@ end
 -- How many paths to list before overflowing into "... and N more". A
 -- superimposed confirmation aligns one line per removed row, so it lists every
 -- path that fits; it only overflows when the float (including its border)
--- genuinely cannot show them all. Other confirmations (paste, centered) keep
--- the fixed cap.
+-- genuinely cannot show them all. Other confirmations (paste, undo) keep the
+-- fixed cap.
 ---@param anchor? DoraFloatAnchor
 ---@param count integer Number of paths to confirm
 ---@return integer
@@ -333,6 +340,11 @@ local function get_title(count, action, err)
     end
     if count == 1 then
         return action .. '?'
+    end
+    -- Undo trash keeps its action phrase whole and trails the count in parens,
+    -- since "Undo trash 3 files?" reads worse than the single-verb confirms.
+    if action == 'Undo trash' then
+        return string.format('%s? (%d files)', action, count)
     end
     return string.format('%s %d files?', action, count)
 end
@@ -584,11 +596,11 @@ end
 ---@param win integer
 ---@return DoraFloatAnchor
 local function cursor_anchor(win)
-    local cursor = api.nvim_win_get_cursor(win)
     return {
         win = win,
-        line = cursor[1],
-        col = cursor[2],
+        line = api.nvim_win_get_cursor(win)[1],
+        col = 0,
+        superimpose = true,
     }
 end
 
@@ -628,6 +640,7 @@ function M.delete(paths, cb, opts)
     local renames = opts.renames
     local operations = opts.operations
     local expanded = opts.expanded
+    local types = opts.types
     local err = opts.error
     -- Paste confirmations start in keep-both mode; `o` switches to overwrite and
     -- `k` switches back, retagging each row. A conflict count and a static
@@ -649,12 +662,16 @@ function M.delete(paths, cb, opts)
     local border = 'DoraPromptBorderInvalid'
     if opts.action == 'Paste' and not err then
         border = opts.allow_overwrite and 'DoraPromptBorderWarn' or 'DoraPromptBorder'
+    elseif opts.action == 'Undo trash' and not err then
+        -- Undoing a trash only recovers files, so it reads as a normal prompt
+        -- rather than the red delete/overwrite confirm.
+        border = 'DoraPromptBorder'
     end
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded) or nil
     local max_paths = path_limit(opts.anchor, #paths)
-    local confirm_items = items(paths, base, renames, operations, expanded, max_paths, overwrite)
+    local confirm_items = items(paths, base, renames, operations, expanded, types, max_paths, overwrite)
     local overflow = math.max(0, #paths - #confirm_items)
     local confirm_title = get_title(#paths, opts.action, err)
     -- Size the window to fit either mode (overwrite tags are shorter than the
@@ -687,7 +704,7 @@ function M.delete(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, renames, operations, expanded, max_paths, overwrite, target)
+        confirm_items = items(paths, base, renames, operations, expanded, types, max_paths, overwrite, target)
         -- win_width is fixed for the window's lifetime, so the centered header
         -- never moves as the mode (and the list content) changes.
         rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
@@ -699,13 +716,18 @@ function M.delete(paths, cb, opts)
     refresh()
     vim.bo[buf].modifiable = false
 
+    local function confirm_anchor()
+        if opts.anchor then
+            return superimpose_anchor(opts.anchor, confirm_items)
+        end
+        return cursor_anchor(origin_win)
+    end
     local function layout()
         return window.layout({
             title = confirm_title,
             width = win_width,
             height = #rendered_lines,
-            anchor = opts.anchor and superimpose_anchor(opts.anchor, confirm_items)
-                or cursor_anchor(origin_win),
+            anchor = confirm_anchor(),
         })
     end
 
