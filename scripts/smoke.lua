@@ -259,19 +259,21 @@ do
         paths[#paths+1] = tmp .. '/dir/file-' .. i .. '.txt'
     end
     local origin_cursor = vim.api.nvim_win_get_cursor(origin_win)
-    local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], origin_cursor[2] + 1)
+    -- No anchor: the confirmation superimposes flush left of the text, so measure
+    -- column 0 of the cursor line, not the cursor cell.
+    local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], 1)
 
     delete_win.delete(paths, function(confirmed)
         vim.g.dora_smoke_confirm_delete = confirmed
     end)
     local confirm_win = vim.api.nvim_get_current_win()
     local confirm_buf = vim.api.nvim_get_current_buf()
-    local confirm_cfg = vim.api.nvim_win_get_config(confirm_win)
     local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
 
     assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderInvalid')
-    assert_eq(confirm_cfg.row, origin_pos.row, 'delete confirmation should anchor to the cursor by default')
-    assert_eq(confirm_cfg.col, origin_pos.col - 1, 'delete confirmation should anchor to the cursor by default')
+    local content_pos = vim.fn.screenpos(confirm_win, 1, 1)
+    assert_eq(content_pos.row, origin_pos.row, 'delete confirmation should sit on the cursor line by default')
+    assert_eq(content_pos.col, origin_pos.col, 'delete confirmation should align left of the text by default')
     assert_match(win_title(confirm_win), 'Delete 12 files%?')
     assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
     assert_eq(confirm_lines[1], 'foo.js')
@@ -1974,8 +1976,26 @@ do
     vim.api.nvim_feedkeys('y', 'xt', false)
     assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before undo')
 
+    -- Undo lists the files it will restore and only restores once confirmed; its
+    -- confirmation superimposes flush left of the text on the cursor line.
+    local tree_win = vim.api.nvim_get_current_win()
+    local tree_cursor = vim.api.nvim_win_get_cursor(tree_win)
+    local line_start_pos = vim.fn.screenpos(tree_win, tree_cursor[1], 1)
     api.undo()
-    assert(fs.exists(tmp .. '/undo.txt'), 'undo should restore the trashed file')
+    local undo_win = vim.api.nvim_get_current_win()
+    local undo_buf = vim.api.nvim_get_current_buf()
+    local undo_lines = vim.api.nvim_buf_get_lines(undo_buf, 0, -1, false)
+    assert_match(win_title(undo_win), 'Undo trash%?')
+    assert_match(vim.wo[undo_win].winhighlight, 'FloatBorder:DoraPromptBorder$')
+    assert_eq(undo_lines[1], 'undo.txt', 'undo confirmation should list the file being restored')
+    local content_pos = vim.fn.screenpos(undo_win, 1, 1)
+    assert_eq(content_pos.row, line_start_pos.row,
+        'undo confirmation content should sit on the cursor line, not below it')
+    assert_eq(content_pos.col, line_start_pos.col,
+        'undo confirmation content should align just right of the line number')
+    assert(not fs.exists(tmp .. '/undo.txt'), 'undo should not restore until confirmed')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(tmp .. '/undo.txt'), 'undo should restore the trashed file once confirmed')
     local fd = assert(vim.loop.fs_open(tmp .. '/undo.txt', 'r', tonumber('644', 8)))
     local contents = vim.loop.fs_read(fd, 32, 0)
     assert(vim.loop.fs_close(fd))
@@ -1989,13 +2009,21 @@ do
     assert_eq(notifications[#notifications].msg, 'dora: No trash to undo')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
-    -- When the original name has been taken again, undo restores to a free
-    -- sibling rather than clobbering the new file.
+    -- Cancelling the confirmation restores nothing and leaves the batch on the
+    -- history, so a later undo can still bring it back.
     set_cursor_pos('undo.txt')
     api.trash()
     vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before the cancelled undo')
+    api.undo()
+    vim.api.nvim_feedkeys('n', 'xt', false)
+    assert(not fs.exists(tmp .. '/undo.txt'), 'cancelling undo should not restore the file')
+
+    -- When the original name has been taken again, undo restores to a free
+    -- sibling rather than clobbering the new file.
     write_file(tmp .. '/undo.txt', 'newer')
     api.undo()
+    vim.api.nvim_feedkeys('y', 'xt', false)
     assert(fs.exists(tmp .. '/undo.txt'), 'undo should leave the file that took the original name')
     assert(fs.exists(tmp .. '/undo(1).txt'), 'undo should restore to a non-clobbering name when the original is taken')
 
@@ -2034,7 +2062,14 @@ do
     assert(not fs.exists(tmp .. '/a'), 'visual trash should remove a')
     assert(not fs.exists(tmp .. '/b'), 'visual trash should remove b')
 
+    -- The confirmation titles the whole batch and lists every file it restores.
     api.undo()
+    local undo_win = vim.api.nvim_get_current_win()
+    local undo_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)
+    assert_match(win_title(undo_win), 'Undo trash%? %(2 files%)')
+    assert_eq(undo_lines[1], 'a', 'undo confirmation should list the first file in the batch')
+    assert_eq(undo_lines[2], 'b', 'undo confirmation should list the whole batch')
+    vim.api.nvim_feedkeys('y', 'xt', false)
     assert(fs.exists(tmp .. '/a'), 'undo should restore the first file in the batch')
     assert(fs.exists(tmp .. '/b'), 'undo should restore the whole trashed batch')
     assert(fs.exists(tmp .. '/c'), 'undo should leave files that were never trashed')
@@ -2043,6 +2078,38 @@ do
 
     api.quit()
     vim.notify = old_notify
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A restored directory is previewed at its original (now empty) location, so
+    -- its trailing '/' comes from the trashed copy's type, not the empty target.
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
+
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    assert(vim.loop.fs_mkdir(tmp .. '/mydir', tonumber('755', 8)))
+    touch(tmp .. '/mydir/inner')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('mydir')
+    api.trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(not fs.exists(tmp .. '/mydir'), 'trash should remove the directory before undo')
+
+    api.undo()
+    local undo_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)
+    assert_eq(undo_lines[1], 'mydir/', 'undo confirmation should mark a restored directory with a trailing slash')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(tmp .. '/mydir/inner'), 'undo should restore the directory and its contents')
+
+    api.quit()
     vim.env.HOME = old_home
     vim.env.XDG_DATA_HOME = old_data_home
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
