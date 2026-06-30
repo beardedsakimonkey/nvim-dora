@@ -3,18 +3,17 @@
 Dora is a directory explorer for Neovim 0.12+ focused on usability. It was born
 from a desire for a modern netrw-style plugin with a tree view. It includes:
 
-- 🌳 A tree view that can be expanded/collapsed one level at a time (or
+- 🪾 A tree view that can be folded in/out one level at a time (or
   all the way) for quick exploration.
 - 🩻 "Transparent" floating windows positioned over selected files (at the
   [locus of attention](https://raskincenter.org/jef/humane-interface/)).
 - ✅ Floating window border colors that provide validation feedback while typing.
-- ⚠️ A paste confirmation window that previews changes, detects conflicts, and
-  provides customizable conflict resolution.
-- 🔎 A filename filter that persists when navigating directories.
-- 📚 A persistent "last directory" bookmark that can reopen your last Dora
-  directory from the previous session.
+- ⚠️ A paste confirmation window that detects conflicts and enables conflict
+  resolution.
+- ↩️ Undoable "trash" operation for Mac/Linux.
+- 📚 A "last directory" bookmark that persists across sessions.
 - 💡 Built-in [which-key](https://github.com/folke/which-key.nvim)-style hints to
-  make two-letter keymaps more discoverable (`g*`, `y*`, `,*`).
+  make two-letter keymaps more discoverable.
 
 Dora does *not* currently include:
 - File previews
@@ -129,7 +128,7 @@ require('dora').setup {
         R     = 'rename_empty',   -- Rename file with empty prompt
         d     = 'trash',          -- Move file to trash (Mac/Linux)
         D     = 'delete',         -- Delete file permanently
-        u     = 'undo',           -- Restore the most recently trashed files
+        u     = 'undo_trash',     -- Restore the most recently trashed files
         x     = 'toggle_cut',     -- Toggle cut mark
         X     = 'clear_cut',      -- Clear all cut marks
         c     = 'toggle_copy',    -- Toggle copy mark
