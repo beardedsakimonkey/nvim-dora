@@ -119,4 +119,4 @@ assert_eq(vim.fs.normalize(vim.api.nvim_buf_get_name(0)), fs.realpath(vim.fs.joi
 vim.cmd'bdelete!'
 
 assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-print('dora: Windows smoke ok\n')
+print('Windows smoke ok\n')
