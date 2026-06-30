@@ -2293,7 +2293,7 @@ end
 -- Restore the most recent trash after a confirmation listing the files that
 -- will be brought back. The newest batch is only pulled off the history once
 -- confirmed, so cancelling leaves it undoable.
-function M.undo()
+function M.undo_trash()
     local batch = trash_history[#trash_history]
     if not batch then
         util.err('No trash to undo')

@@ -1981,7 +1981,7 @@ do
     local tree_win = vim.api.nvim_get_current_win()
     local tree_cursor = vim.api.nvim_win_get_cursor(tree_win)
     local line_start_pos = vim.fn.screenpos(tree_win, tree_cursor[1], 1)
-    api.undo()
+    api.undo_trash()
     local undo_win = vim.api.nvim_get_current_win()
     local undo_buf = vim.api.nvim_get_current_buf()
     local undo_lines = vim.api.nvim_buf_get_lines(undo_buf, 0, -1, false)
@@ -2005,7 +2005,7 @@ do
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
 
     -- The history is now empty, so undoing again reports nothing to restore.
-    api.undo()
+    api.undo_trash()
     assert_eq(notifications[#notifications].msg, 'dora: No trash to undo')
     assert_eq(notifications[#notifications].level, vim.log.levels.ERROR)
 
@@ -2015,14 +2015,14 @@ do
     api.trash()
     vim.api.nvim_feedkeys('y', 'xt', false)
     assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before the cancelled undo')
-    api.undo()
+    api.undo_trash()
     vim.api.nvim_feedkeys('n', 'xt', false)
     assert(not fs.exists(tmp .. '/undo.txt'), 'cancelling undo should not restore the file')
 
     -- When the original name has been taken again, undo restores to a free
     -- sibling rather than clobbering the new file.
     write_file(tmp .. '/undo.txt', 'newer')
-    api.undo()
+    api.undo_trash()
     vim.api.nvim_feedkeys('y', 'xt', false)
     assert(fs.exists(tmp .. '/undo.txt'), 'undo should leave the file that took the original name')
     assert(fs.exists(tmp .. '/undo(1).txt'), 'undo should restore to a non-clobbering name when the original is taken')
@@ -2063,7 +2063,7 @@ do
     assert(not fs.exists(tmp .. '/b'), 'visual trash should remove b')
 
     -- The confirmation titles the whole batch and lists every file it restores.
-    api.undo()
+    api.undo_trash()
     local undo_win = vim.api.nvim_get_current_win()
     local undo_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)
     assert_match(win_title(undo_win), 'Undo trash%? %(2 files%)')
@@ -2103,7 +2103,7 @@ do
     vim.api.nvim_feedkeys('y', 'xt', false)
     assert(not fs.exists(tmp .. '/mydir'), 'trash should remove the directory before undo')
 
-    api.undo()
+    api.undo_trash()
     local undo_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)
     assert_eq(undo_lines[1], 'mydir/', 'undo confirmation should mark a restored directory with a trailing slash')
     vim.api.nvim_feedkeys('y', 'xt', false)
