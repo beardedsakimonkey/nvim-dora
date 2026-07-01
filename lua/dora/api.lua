@@ -6,6 +6,7 @@ local delete_win = require'dora.delete_win'
 local filter_win = require'dora.filter_win'
 local info_win = require'dora.info_win'
 local keymaps = require'dora.keymaps'
+local preview_win = require'dora.preview_win'
 local prompt = require'dora.prompt'
 local store = require'dora.store'
 local sorter = require'dora.sort'
@@ -120,6 +121,7 @@ end
 ---@field filter_inverted boolean when true, the filter keeps non-matching rows
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
+---@field preview? DoraPreviewWindow
 ---@field bookmarks DoraBookmarks
 
 -- Render ----------------------------------------------------------------------
@@ -463,6 +465,24 @@ local function update_tree_cursor_highlight(state)
 end
 
 
+-- Refresh an open preview to the hovered row. Called from the cursor motion
+-- autocmds and from every render: navigation can put a different row under a
+-- cursor that doesn't move, which fires no CursorMoved.
+---@param state DoraState
+local function update_preview(state)
+    if not state.preview then
+        return
+    end
+    -- The window showing state.buf, which isn't the current window when a
+    -- render comes from an async callback or another dora window's action.
+    local win = vim.fn.bufwinid(state.buf)
+    if win == -1 then
+        return
+    end
+    local line = api.nvim_win_get_cursor(win)[1]
+    preview_win.update(state, state.rows and state.rows[line] or nil)
+end
+
 ---@param state DoraState
 function render(state)
     local buf, ns = state.buf, state.ns
@@ -565,6 +585,7 @@ function render(state)
         end
     end
     update_tree_cursor_highlight(state)
+    update_preview(state)
     -- Rewriting the buffer drops the window's topfill, which is what reveals the
     -- filter float's spacer line. Restore it here (a no-op unless scrolled to the
     -- top, where the spacer lives) so render callers don't each have to.
@@ -1100,6 +1121,7 @@ local function setup_autocmds(buf)
             local ok, state = pcall(store.get, args.buf)
             if ok then
                 update_tree_cursor_highlight(state)
+                update_preview(state)
                 -- Native motions like `gg` scroll to the top and reset the
                 -- topfill spacer the filter float sits over, so restore it.
                 if state.filter_window then
@@ -1117,6 +1139,7 @@ local function setup_autocmds(buf)
             local ok, state = pcall(store.get, args.buf)
             if ok then
                 close_filter(state)
+                preview_win.close(state)
                 clear_listings(state)
                 store.remove(args.buf)
             end
@@ -1154,6 +1177,7 @@ end
 ---@param state DoraState
 local function cleanup(state)
     close_filter(state)
+    preview_win.close(state)
     clear_listings(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
@@ -1463,6 +1487,11 @@ function M.file_info()
         return
     end
     info_win.open(path, current_name_anchor(row))
+end
+
+function M.toggle_preview()
+    local state = store.get()
+    preview_win.toggle(state, current_row(state))
 end
 
 ---@param cmd? DoraOpenCommand
@@ -2657,6 +2686,7 @@ function M.initialize(dir, from_au)
         filter_window = nil,
         filter_editing = false,
         filter_inverted = false,
+        preview = nil,
         marked_paths = global_marked_paths,
         bookmarks = bookmarks.new(load_previous_directory(win)),
     }

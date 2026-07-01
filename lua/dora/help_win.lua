@@ -37,7 +37,7 @@ local SECTIONS = {
     },
     {
         name = 'View',
-        actions = {'filter', 'clear_filter', 'file_info', 'toggle_hidden_files', 'reload'},
+        actions = {'filter', 'clear_filter', 'file_info', 'toggle_hidden_files', 'toggle_preview', 'reload'},
     },
     {
         name = 'Yank',

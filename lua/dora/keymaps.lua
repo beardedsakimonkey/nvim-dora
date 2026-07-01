@@ -60,6 +60,7 @@ local ACTION_DESCRIPTIONS = {
     open_external = 'Open externally',
     shell_cmd = 'Shell command on file',
     toggle_hidden_files = 'Toggle hidden files',
+    toggle_preview = 'Toggle file preview',
     help = 'Show help',
     yank_filename = 'Yank filename',
     yank_file_path = 'Yank full path',
