@@ -29,6 +29,7 @@ local M = {}
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
 ---@field prompt_insert_esc_closes boolean
+---@field preview_split 'left'|'right'|'above'|'below'
 
 ---@type DoraConfig
 M.config = {
@@ -47,6 +48,8 @@ M.config = {
     sort_order = 'name',
     -- Whether <Esc> in insert mode closes prompts.
     prompt_insert_esc_closes = true,
+    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    preview_split = 'right',
     -- Key mappings
     keymaps = {
         -- General
@@ -105,6 +108,7 @@ M.config = {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+        ['<C-p>'] = 'toggle_preview',      -- Toggle file preview
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank

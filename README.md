@@ -16,7 +16,7 @@ from a desire for a modern netrw-style plugin with a tree view. It includes:
   make two-letter keymaps more discoverable.
 
 Dora does *not* currently include:
-- File previews
+- SSH support
 - Git integration
 - LSP integration
 
@@ -84,6 +84,8 @@ require('dora').setup {
     sort_order = 'name',
     -- Whether <Esc> in insert mode closes prompts.
     prompt_insert_esc_closes = true,
+    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    preview_split = 'right',
     -- Key mappings
     keymaps = {
         -- General
@@ -142,6 +144,7 @@ require('dora').setup {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+        ['<C-p>'] = 'toggle_preview',      -- Toggle file preview
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank

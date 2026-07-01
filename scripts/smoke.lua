@@ -4951,6 +4951,82 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+do
+    -- Preview: opens a split without stealing focus, reads only enough of huge
+    -- files to fill a window, follows the cursor, and loads the real buffer
+    -- when focused.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    tmp = fs.realpath(tmp)
+    assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    write_file(tmp .. '/small.txt', 'alpha\nbeta\n')
+    write_file(tmp .. '/bin.dat', 'binary\0data')
+    local big_line_count = vim.o.lines + 500
+    local big_lines = {}
+    for i = 1, big_line_count do
+        big_lines[i] = 'line ' .. i
+    end
+    write_file(tmp .. '/big.txt', table.concat(big_lines, '\n') .. '\n')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local dora_state = store.get()
+    local dora_win = vim.api.nvim_get_current_win()
+    set_cursor_pos('small.txt')
+    api.toggle_preview()
+    local preview = assert(dora_state.preview, 'toggle_preview should open a preview')
+    assert(vim.api.nvim_win_is_valid(preview.win), 'preview window should be open')
+    assert_eq(vim.api.nvim_get_current_win(), dora_win, 'preview should not steal focus')
+    assert_eq(preview.path, tmp .. '/small.txt')
+    assert_eq(table.concat(buf_lines(vim.api.nvim_win_get_buf(preview.win)), '\n'), 'alpha\nbeta')
+
+    set_cursor_pos('big.txt')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    local shown = buf_lines(vim.api.nvim_win_get_buf(preview.win))
+    assert_eq(preview.path, tmp .. '/big.txt', 'preview should follow the cursor')
+    assert_eq(shown[1], 'line 1')
+    assert_eq(#shown, vim.o.lines, 'preview should read only enough lines to fill a window')
+
+    set_cursor_pos('dir')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    assert_eq(buf_lines(vim.api.nvim_win_get_buf(preview.win))[1], '(directory)',
+        'directories should show a placeholder instead of content')
+
+    set_cursor_pos('bin.dat')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    assert_eq(buf_lines(vim.api.nvim_win_get_buf(preview.win))[1], '(binary)',
+        'binary files should show a placeholder instead of content')
+
+    set_cursor_pos('big.txt')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    vim.api.nvim_set_current_win(preview.win)
+    assert(preview.full, 'focusing the preview should load the full buffer')
+    local full_buf = vim.api.nvim_win_get_buf(preview.win)
+    assert_eq(vim.api.nvim_buf_get_name(full_buf), tmp .. '/big.txt')
+    assert_eq(vim.api.nvim_buf_line_count(full_buf), big_line_count,
+        'focusing the preview should load the whole file')
+
+    vim.api.nvim_set_current_win(dora_win)
+    set_cursor_pos('small.txt')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    assert_eq(preview.path, tmp .. '/small.txt')
+    assert(not preview.full, 'moving to another file should return to a partial preview')
+
+    api.toggle_preview()
+    assert_eq(dora_state.preview, nil, 'toggle should close an open preview')
+    assert(not vim.api.nvim_win_is_valid(preview.win), 'toggle should close the preview window')
+    api.toggle_preview()
+    vim.api.nvim_win_close(assert(dora_state.preview).win, true)
+    assert_eq(dora_state.preview, nil, 'closing the preview window by hand should clear the state')
+
+    api.toggle_preview()
+    local preview_win_id = assert(dora_state.preview).win
+    api.quit()
+    assert(not vim.api.nvim_win_is_valid(preview_win_id), 'quitting dora should close the preview')
+    clear_persisted_view_state()
+    pcall(vim.api.nvim_buf_delete, full_buf, {force = true})
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
 local state = store.get()
 assert_eq(state.cwd, fs.realpath(cwd))

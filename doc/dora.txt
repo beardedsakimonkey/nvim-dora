@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 June 30
+                                 For Neovim 0.12+    Last change: 2026 July 01
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -29,7 +29,7 @@ from a desire for a modern netrw-style plugin with a tree view. It includes:
 - 💡 Built-in which-key <https://github.com/folke/which-key.nvim>-style hints to
     make two-letter keymaps more discoverable.
 
-Dora does _not_ currently include: - File previews - Git integration - LSP
+Dora does _not_ currently include: - SSH support - Git integration - LSP
 integration
 
 🚧 It is currently in early development so expect breaking changes.
@@ -90,6 +90,8 @@ Here are the defaults:
         sort_order = 'name',
         -- Whether <Esc> in insert mode closes prompts.
         prompt_insert_esc_closes = true,
+        -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+        preview_split = 'right',
         -- Key mappings
         keymaps = {
             -- General
@@ -148,6 +150,7 @@ Here are the defaults:
             F         = 'clear_filter',        -- Clear filter
             gi        = 'file_info',           -- Show file info
             ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+            ['<C-p>'] = 'toggle_preview',      -- Toggle file preview
             ['<C-r>'] = 'reload',              -- Reload listing
     
             -- Yank
