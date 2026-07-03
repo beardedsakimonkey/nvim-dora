@@ -2,6 +2,7 @@
 -- filesystem watchers), tree/filter row building, rendering (buffer text +
 -- extmarks), and cursor placement onto rendered rows. Nothing here is a
 -- user-facing action; those live in dora/api.lua and call into this module.
+local buffer = require'dora.buffer'
 local fs = require'dora.fs'
 local icons = require'dora.icons'
 local preview_win = require'dora.preview_win'
@@ -10,7 +11,7 @@ local util = require'dora.util'
 local config = require'dora'.config
 
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local M = {}
 
@@ -145,16 +146,6 @@ function M.visible_files(state, dir)
     return entry.files, entry.placeholder_label
 end
 
----@param segments DoraTreeSegment[]
----@return DoraTreeSegment[]
-local function copy_tree_segments(segments)
-    local ret = {}
-    for _, segment in ipairs(segments) do
-        ret[#ret+1] = segment
-    end
-    return ret
-end
-
 ---@param state DoraState
 ---@param path string
 ---@return string
@@ -188,7 +179,7 @@ function M.build_tree_rows(state)
                 type = 'placeholder',
                 depth = depth,
                 tree_prefix_len = #tree_prefix,
-                tree_continuation_segments = copy_tree_segments(continuation_segments),
+                tree_continuation_segments = vim.list_slice(continuation_segments),
                 tree_connector_start_col = #prefix,
                 name_start_col = #tree_prefix,
                 name_end_col = #tree_prefix + #placeholder_label,
@@ -205,7 +196,7 @@ function M.build_tree_rows(state)
                 or prefix .. (is_last and tree_spacer or tree_continuation)
             local child_continuation_segments = continuation_segments
             if depth > 0 then
-                child_continuation_segments = copy_tree_segments(continuation_segments)
+                child_continuation_segments = vim.list_slice(continuation_segments)
                 if not is_last then
                     child_continuation_segments[#child_continuation_segments+1] = {
                         parent_path = dir,
@@ -233,7 +224,7 @@ function M.build_tree_rows(state)
                 type = file.type,
                 depth = depth,
                 tree_prefix_len = #tree_prefix,
-                tree_continuation_segments = copy_tree_segments(continuation_segments),
+                tree_continuation_segments = vim.list_slice(continuation_segments),
                 tree_connector_start_col = depth > 0 and #prefix or nil,
                 icon = icon,
                 icon_start_col = icon and #tree_prefix or nil,
@@ -405,7 +396,7 @@ function M.render(state)
     local rows = build_filtered_rows(state, tree_rows)
     state.tree_rows = tree_rows
     state.rows = rows
-    util.set_lines(buf, vim.tbl_map(function(f)
+    buffer.set_lines(buf, vim.tbl_map(function(f)
         return f.display_name
     end, rows))
     -- Add virttext and highlights

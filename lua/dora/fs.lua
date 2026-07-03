@@ -1,3 +1,4 @@
+local buffer = require'dora.buffer'
 local util = require'dora.util'
 local uv = vim.uv
 
@@ -60,6 +61,11 @@ local function copy_any(src, dest)
     end
 end
 
+-- NOTE: This deliberately reaches into the editor layer: any buffer editing
+-- `src` is renamed to follow the file, so open buffers stay attached after a
+-- rename/move. The async variant (move_a below) runs in a libuv fast context
+-- where that isn't allowed, so it returns the pending rename for paste_async's
+-- completion handler to apply instead.
 ---@param src string
 ---@param dest string
 local function move(src, dest)
@@ -75,7 +81,7 @@ local function move(src, dest)
         M.delete(src)
     end
     if not src_is_dir then
-        util.rename_buffers(src, dest)
+        buffer.rename_buffers(src, dest)
     end
 end
 
@@ -748,7 +754,7 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
         vim.schedule(function()
             if ok then
                 for _, rename in ipairs(buffer_renames) do
-                    util.rename_buffers(rename.src, rename.dest)
+                    buffer.rename_buffers(rename.src, rename.dest)
                 end
             end
             on_done(ok, result)

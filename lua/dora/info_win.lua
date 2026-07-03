@@ -1,5 +1,5 @@
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local window = require'dora.window'
 local fs = require'dora.fs'

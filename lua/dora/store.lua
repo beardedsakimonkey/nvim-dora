@@ -27,18 +27,18 @@ local M = {}
 ---@field preview? DoraPreviewWindow
 ---@field bookmarks DoraBookmarks
 
----@type table<string, DoraState>
+---@type table<integer, DoraState>
 local buf_states = {}
 
 ---@param buf integer
 ---@param state DoraState
 function M.set(buf, state)
-    buf_states[tostring(buf)] = state
+    buf_states[buf] = state
 end
 
 ---@param buf integer
 function M.remove(buf)
-    buf_states[tostring(buf)] = nil
+    buf_states[buf] = nil
 end
 
 ---@param buf? integer
@@ -46,7 +46,7 @@ end
 function M.get(buf)
     buf = buf or vim.api.nvim_get_current_buf()
     assert(buf ~= -1)
-    local state = assert(buf_states[tostring(buf)])
+    local state = assert(buf_states[buf])
     return state
 end
 

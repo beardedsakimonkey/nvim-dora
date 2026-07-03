@@ -19,7 +19,7 @@ local dora = require'dora'
 local bookmarks = require'dora.bookmarks'
 local fs = require'dora.fs'
 local config = dora.config
-local delete_win = require'dora.delete_win'
+local confirm_win = require'dora.confirm_win'
 local keymaps = require'dora.keymaps'
 local prompt = require'dora.prompt'
 local api = require'dora.api'
@@ -263,7 +263,7 @@ do
     -- column 0 of the cursor line, not the cursor cell.
     local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], 1)
 
-    delete_win.delete(paths, function(confirmed)
+    confirm_win.show(paths, function(confirmed)
         vim.g.dora_smoke_confirm_delete = confirmed
     end)
     local confirm_win = vim.api.nvim_get_current_win()
@@ -327,7 +327,7 @@ do
     local anchor_col = math.max(0, vim.o.columns - 12)
     local anchor_pos = vim.fn.screenpos(anchor_win, 1, anchor_col + 1)
 
-    delete_win.delete({tmp .. '/' .. rel_path}, function() end, {
+    confirm_win.show({tmp .. '/' .. rel_path}, function() end, {
         anchor = {win = anchor_win, line = 1, col = anchor_col},
     })
     local confirm_win = vim.api.nvim_get_current_win()
@@ -365,7 +365,7 @@ do
     local path = tmp .. '/' .. long_file
     touch(path)
 
-    delete_win.delete({path}, function() end)
+    confirm_win.show({path}, function() end)
     local confirm_win = vim.api.nvim_get_current_win()
     local confirm_buf = vim.api.nvim_get_current_buf()
     local confirm_cfg = vim.api.nvim_win_get_config(confirm_win)
@@ -393,7 +393,7 @@ do
     touch(path)
     local rename = 'a-really-quite-long-file-name-that-will-never-fit-the-confirmation-window-at-all (1).txt'
 
-    delete_win.delete({path}, function() end, {
+    confirm_win.show({path}, function() end, {
         action = 'Paste',
         base = tmp,
         dest = tmp,
@@ -449,7 +449,7 @@ do
     assert_eq(vim.fn.mkdir(tmp .. '/' .. long_dir, 'p'), 1)
     touch(tmp .. '/' .. rel_path)
 
-    delete_win.delete({tmp .. '/' .. rel_path}, function() end, {base = tmp})
+    confirm_win.show({tmp .. '/' .. rel_path}, function() end, {base = tmp})
     local confirm_win = vim.api.nvim_get_current_win()
     local confirm_buf = vim.api.nvim_get_current_buf()
     local width = vim.api.nvim_win_get_config(confirm_win).width
@@ -488,7 +488,7 @@ do
         end,
     }
 
-    delete_win.delete({tmp .. '/icon.txt'}, function() end)
+    confirm_win.show({tmp .. '/icon.txt'}, function() end)
     local confirm_buf = vim.api.nvim_get_current_buf()
     local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
     assert_eq(confirm_lines[1], '[del] icon.txt', 'delete confirmation should render file icons when enabled')
@@ -522,13 +522,13 @@ do
     config.icons = true
 
     -- A directory left expanded in the tree keeps its open-folder icon.
-    delete_win.delete({dir}, function() end, {expanded = {[dir] = true}})
+    confirm_win.show({dir}, function() end, {expanded = {[dir] = true}})
     local expanded_line = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)[1]
     assert_eq(expanded_line, '\238\151\190 subdir/', 'delete confirmation should preserve the expanded directory icon')
     vim.api.nvim_feedkeys('n', 'xt', false)
 
     -- Without expansion it falls back to the collapsed icon.
-    delete_win.delete({dir}, function() end)
+    confirm_win.show({dir}, function() end)
     local collapsed_line = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)[1]
     assert_eq(collapsed_line, '\238\151\191 subdir/', 'delete confirmation should use the collapsed icon for unexpanded directories')
     vim.api.nvim_feedkeys('n', 'xt', false)
@@ -664,7 +664,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
 
-    delete_win.delete({tmp .. '/enter.txt'}, function(confirmed)
+    confirm_win.show({tmp .. '/enter.txt'}, function(confirmed)
         vim.g.dora_smoke_enter_confirm_delete = confirmed
     end)
 
@@ -682,7 +682,7 @@ do
     touch(tmp .. '/leave.txt')
 
     vim.g.dora_smoke_leave_confirm_delete = nil
-    delete_win.delete({tmp .. '/leave.txt'}, function(confirmed)
+    confirm_win.show({tmp .. '/leave.txt'}, function(confirmed)
         vim.g.dora_smoke_leave_confirm_delete = confirmed
     end)
     local confirm_win = vim.api.nvim_get_current_win()

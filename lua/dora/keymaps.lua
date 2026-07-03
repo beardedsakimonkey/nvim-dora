@@ -2,7 +2,7 @@ local actions = require'dora.actions'
 local window = require'dora.window'
 
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local M = {}
 
@@ -47,17 +47,27 @@ local function keymap_context()
     return ctx
 end
 
+-- Resolve a string action name to its dora/api.lua function, or nil when the
+-- string is a plain Vim RHS rather than a built-in action name. api.lua is
+-- required lazily: it requires this module at load time, so a top-level
+-- require here would create a cycle.
+---@param action DoraKeymapAction
+---@return function?
+local function api_action(action)
+    if type(action) ~= 'string' then
+        return nil
+    end
+    local fn = require'dora.api'[action]
+    return type(fn) == 'function' and fn or nil
+end
+
 ---@param action DoraKeymapAction
 ---@return function|string
 local function map_keymap_action(action)
     if type(action) ~= 'string' then
         return function() action(keymap_context()) end
     end
-    local api_action = require'dora.api'[action]
-    if type(api_action) == 'function' then
-        return api_action
-    end
-    return action
+    return api_action(action) or action
 end
 
 ---@param action DoraKeymapAction
@@ -66,9 +76,9 @@ local function dispatch_keymap_action(action)
         action(keymap_context())
         return
     end
-    local api_action = require'dora.api'[action]
-    if type(api_action) == 'function' then
-        api_action()
+    local fn = api_action(action)
+    if fn then
+        fn()
         return
     end
     api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), 'nx', false)

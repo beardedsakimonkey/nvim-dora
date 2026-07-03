@@ -1,7 +1,8 @@
 local fs = require'dora.fs'
 local bookmarks = require'dora.bookmarks'
+local buffer = require'dora.buffer'
 local help_win = require'dora.help_win'
-local delete_win = require'dora.delete_win'
+local confirm_win = require'dora.confirm_win'
 local filter_win = require'dora.filter_win'
 local info_win = require'dora.info_win'
 local keymaps = require'dora.keymaps'
@@ -15,7 +16,7 @@ local view = require'dora.view'
 local config = require'dora'.config
 
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local M = {}
 
@@ -447,7 +448,7 @@ local function change_cwd(state, path, cursor_pattern, or_top)
         -- Only rename when the cwd changed; create_buf_name() counts the
         -- current buffer as a collision, so renaming to the same cwd would
         -- append a spurious ' [1]' suffix.
-        util.update_buf_name(state.cwd)
+        buffer.update_buf_name(state.cwd)
     end
     view.render(state)
     -- A committed filter persists across navigation, re-applying to the new
@@ -464,9 +465,9 @@ function M.quit()
     local state = store.get()
     save_previous_directory(state)
     if state.alt_buf then
-        util.set_current_buf(state.alt_buf)
+        buffer.set_current_buf(state.alt_buf)
     end
-    util.set_current_buf(state.origin_buf)
+    buffer.set_current_buf(state.origin_buf)
     cleanup(state)
 end
 
@@ -720,7 +721,7 @@ function M.open(cmd)
             end
         else
             save_previous_directory(state)
-            util.set_current_buf(state.origin_buf)  -- update the altfile
+            buffer.set_current_buf(state.origin_buf)  -- update the altfile
             vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
             cleanup(state)
         end
@@ -762,7 +763,7 @@ local function open_selected_files(cmd, stay)
         return
     end
     save_previous_directory(state)
-    util.set_current_buf(state.origin_buf)  -- update the altfile
+    buffer.set_current_buf(state.origin_buf)  -- update the altfile
     for _, path in ipairs(paths) do
         vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
     end
@@ -1223,12 +1224,12 @@ local function paste_to_directory(state, row, dest_dir, entries)
     }
     if error_count > 0 then
         opts.error = paste_error_message(error_count)
-        delete_win.delete(paste_paths, function() end, opts)
+        confirm_win.show(paste_paths, function() end, opts)
         return
     end
     opts.renames = renames
     opts.allow_overwrite = has_conflict
-    delete_win.delete(paste_paths, function(confirmed, overwrite)
+    confirm_win.show(paste_paths, function(confirmed, overwrite)
         if confirmed and api.nvim_buf_is_valid(state.buf) then
             paste_entries(state, entries, dest_dir, overwrite)
         end
@@ -1346,7 +1347,7 @@ local trash_history = {}
 ---@param action string
 ---@param anchor? DoraFloatAnchor
 local function remove_paths(state, paths, operation, action, anchor)
-    delete_win.delete(paths, function(confirmed)
+    confirm_win.show(paths, function(confirmed)
         if not confirmed or not api.nvim_buf_is_valid(state.buf) then
             return
         end
@@ -1524,7 +1525,7 @@ function M.undo_trash()
     end
 
     local state = store.get()
-    delete_win.delete(paths, function(confirmed)
+    confirm_win.show(paths, function(confirmed)
         if not confirmed then
             return
         end
@@ -1587,7 +1588,7 @@ local function rename(prefill)
             view.set_cursor_path(state, dest)
         end
         if fs.exists(dest) and not fs.same_file(path, dest) then
-            delete_win.delete({dest}, function(confirmed)
+            confirm_win.show({dest}, function(confirmed)
                 if confirmed and api.nvim_buf_is_valid(state.buf) then
                     perform_rename()
                 end
@@ -1752,44 +1753,13 @@ function M.sort_by(order)
     end
 end
 
-function M.sort_by_name()
-    M.sort_by('name')
-end
-
-function M.sort_by_name_desc()
-    M.sort_by('name_desc')
-end
-
-function M.sort_by_modified()
-    M.sort_by('modified')
-end
-
-function M.sort_by_modified_desc()
-    M.sort_by('modified_desc')
-end
-
-function M.sort_by_created()
-    M.sort_by('created')
-end
-
-function M.sort_by_created_desc()
-    M.sort_by('created_desc')
-end
-
-function M.sort_by_size()
-    M.sort_by('size')
-end
-
-function M.sort_by_size_desc()
-    M.sort_by('size_desc')
-end
-
-function M.sort_by_extension()
-    M.sort_by('extension')
-end
-
-function M.sort_by_extension_desc()
-    M.sort_by('extension_desc')
+-- Generate the parameterless wrappers (sort_by_name, sort_by_size_desc, ...)
+-- that keymaps and the action registry refer to by name.
+for _, order in ipairs({
+    'name', 'name_desc', 'modified', 'modified_desc', 'created', 'created_desc',
+    'size', 'size_desc', 'extension', 'extension_desc',
+}) do
+    M['sort_by_' .. order] = function() M.sort_by(order) end
 end
 
 function M.reload()
@@ -1834,7 +1804,7 @@ function M.initialize(dir, from_au)
     local reuse_prior = prior_ok and (not from_au or prior_state.win == win)
     if reuse_prior then
         local dir_buf = from_au and api.nvim_get_current_buf() or nil
-        util.set_current_buf(origin_buf)
+        buffer.set_current_buf(origin_buf)
         if dir_buf and dir_buf ~= origin_buf and api.nvim_buf_is_valid(dir_buf) then
             api.nvim_buf_delete(dir_buf, {force=true})
         end
@@ -1847,7 +1817,7 @@ function M.initialize(dir, from_au)
     local cwd = getcwd(dir)
     local origin_filename = vim.fn.expand'%:p:t' ---@type string?
     origin_filename = origin_filename ~= '' and origin_filename or nil
-    local buf = util.create_buf(cwd)
+    local buf = buffer.create_buf(cwd)
     local ns = api.nvim_create_namespace('dora.' .. buf)
     local cursor_ns = api.nvim_create_namespace('dora/cursor.' .. buf)
     local state = {

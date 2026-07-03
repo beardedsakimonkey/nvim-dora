@@ -1,5 +1,5 @@
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local window = require'dora.window'
 local fs = require'dora.fs'
@@ -8,7 +8,7 @@ local config = require'dora'.config
 
 local M = {}
 
-local MAX_DELETE_PATHS = 10
+local MAX_CONFIRM_PATHS = 10
 local RIGHT_PADDING = 1
 -- Arrow joining a conflicting name to the free name a keep-both paste would use.
 local RENAME_ARROW = ' → '
@@ -43,7 +43,7 @@ local HINT = (function()
     }
 end)()
 
----@class DoraDeleteConfirmItem
+---@class DoraConfirmItem
 ---@field display string
 ---@field icon_start_col? integer
 ---@field icon_end_col? integer
@@ -59,7 +59,7 @@ end)()
 ---@field rename? string Free name a keep-both paste would use, shown after an arrow
 ---@field operation? DoraPasteOperation
 
----@class DoraDeleteOptions
+---@class DoraConfirmOptions
 ---@field anchor? DoraFloatAnchor
 ---@field action? string
 ---@field dest? string Destination directory shown beneath the file list
@@ -185,7 +185,7 @@ end
 -- Assemble the display string and its byte-column highlight ranges from
 -- (possibly truncated) raw pieces.
 ---@param parts table
----@return DoraDeleteConfirmItem
+---@return DoraConfirmItem
 local function build_item(parts)
     local icon_prefix = parts.icon and parts.icon .. ' ' or ''
     local display = icon_prefix .. parts.dir_part .. parts.basename
@@ -282,7 +282,7 @@ end
 ---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
----@return DoraDeleteConfirmItem
+---@return DoraConfirmItem
 local function item(path, base, renames, operations, expanded)
     return build_item(item_parts(path, base, renames, operations, expanded))
 end
@@ -296,7 +296,7 @@ end
 ---@param limit integer Maximum number of paths to render before overflowing
 ---@param overwrite boolean Current mode, deciding which suffix and preview each line carries
 ---@param target? integer Display columns each line may occupy; names are elided to fit
----@return DoraDeleteConfirmItem[]
+---@return DoraConfirmItem[]
 local function items(paths, base, renames, operations, expanded, types, limit, overwrite, target)
     local ret = {}
     for i = 1, math.min(#paths, limit) do
@@ -320,7 +320,7 @@ end
 local function path_limit(anchor, count)
     local capacity = window.superimpose_capacity(anchor)
     if not capacity then
-        return MAX_DELETE_PATHS
+        return MAX_CONFIRM_PATHS
     end
     if count <= capacity then
         return count
@@ -376,9 +376,9 @@ local function center(text, width)
     return string.rep(' ', center_pad(text, width)) .. text
 end
 
----@param confirm_items DoraDeleteConfirmItem[]
+---@param confirm_items DoraConfirmItem[]
 ---@param overflow integer
----@param dest_item? DoraDeleteConfirmItem
+---@param dest_item? DoraConfirmItem
 ---@param overwrite boolean Drop the keep-both rename previews while overwriting
 ---@param warning? string Conflict count centered on the first line
 ---@param hint? string Mode-key hint centered below the warning, above a spacer
@@ -430,7 +430,7 @@ end
 
 -- A cut/copy mark recolors the filename red/green, matching how the marked file
 -- appears in the tree; otherwise it keeps its file-type color.
----@param confirm_item DoraDeleteConfirmItem
+---@param confirm_item DoraConfirmItem
 ---@return string
 local function name_hl(confirm_item)
     return confirm_item.operation and OPERATION_HL[confirm_item.operation]
@@ -440,7 +440,7 @@ end
 ---@param buf integer
 ---@param ns integer
 ---@param row integer 0-indexed
----@param confirm_item DoraDeleteConfirmItem
+---@param confirm_item DoraConfirmItem
 local function render_item(buf, ns, row, confirm_item)
     if confirm_item.icon_start_col then
         api.nvim_buf_set_extmark(buf, ns, row, confirm_item.icon_start_col, {
@@ -472,9 +472,9 @@ end
 
 ---@param buf integer
 ---@param ns integer
----@param confirm_items DoraDeleteConfirmItem[]
+---@param confirm_items DoraConfirmItem[]
 ---@param overflow integer
----@param dest_item? DoraDeleteConfirmItem
+---@param dest_item? DoraConfirmItem
 ---@param overwrite boolean
 ---@param warning? string
 ---@param hint? string
@@ -609,7 +609,7 @@ end
 -- prefix shown before the basename (none for a bare basename), letting the icon
 -- sit flush against the border like the rename prompt.
 ---@param anchor DoraFloatAnchor
----@param confirm_items DoraDeleteConfirmItem[]
+---@param confirm_items DoraConfirmItem[]
 ---@return DoraFloatAnchor
 local function superimpose_anchor(anchor, confirm_items)
     if anchor.superimpose == false then
@@ -629,8 +629,8 @@ end
 
 ---@param paths string[]
 ---@param cb fun(confirmed: boolean, overwrite?: boolean)
----@param opts? DoraDeleteOptions
-function M.delete(paths, cb, opts)
+---@param opts? DoraConfirmOptions
+function M.show(paths, cb, opts)
     if #paths == 0 then
         cb(false)
         return
@@ -698,7 +698,7 @@ function M.delete(paths, cb, opts)
     local autocmds = {}
     local closed = false
     local buf = api.nvim_create_buf(false, true)
-    local ns = api.nvim_create_namespace('dora/delete_win.' .. buf)
+    local ns = api.nvim_create_namespace('dora/confirm_win.' .. buf)
 
     vim.bo[buf].buftype = 'nofile'
     vim.bo[buf].bufhidden = 'wipe'

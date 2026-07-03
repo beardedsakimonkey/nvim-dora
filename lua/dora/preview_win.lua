@@ -3,7 +3,7 @@ local util = require'dora.util'
 local config = require'dora'.config
 
 local api = vim.api
-local uv = vim.loop
+local uv = vim.uv
 
 local M = {}
 
