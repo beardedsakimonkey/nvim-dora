@@ -739,25 +739,29 @@ function M.open(cmd)
 end
 
 ---@param state DoraState
+---@param include_dirs boolean
 ---@return string[] paths
-local function selected_file_paths(state)
+local function selected_paths(state, include_dirs)
     local paths = {}
     for _, row in ipairs(selected_rows(state)) do
         local path, msg = fs.try_realpath(row.path)
         if not path then
             util.err(msg)
-        elseif not fs.is_dir(path) then
+        elseif include_dirs or not fs.is_dir(path) then
             paths[#paths+1] = path
         end
     end
     return paths
 end
 
+-- Directories are only included for window-creating commands: they open a new
+-- dora session in the split/tab, whereas :edit-ing one would replace this
+-- session mid-loop.
 ---@param cmd DoraOpenCommand
 ---@param stay boolean
-local function open_selected_files(cmd, stay)
+local function open_selected(cmd, stay)
     local state = store.get()
-    local paths = selected_file_paths(state)
+    local paths = selected_paths(state, --[[include_dirs]]cmd ~= 'edit')
     if #paths == 0 then
         return
     end
@@ -781,31 +785,31 @@ local function open_selected_files(cmd, stay)
 end
 
 function M.open_visual()
-    open_selected_files('edit', false)
+    open_selected('edit', false)
 end
 
 function M.open_split_visual()
-    open_selected_files('split', false)
+    open_selected('split', false)
 end
 
 function M.open_vsplit_visual()
-    open_selected_files('vsplit', false)
+    open_selected('vsplit', false)
 end
 
 function M.open_tab_visual()
-    open_selected_files('tabedit', false)
+    open_selected('tabedit', false)
 end
 
 function M.open_split_stay_visual()
-    open_selected_files('split', true)
+    open_selected('split', true)
 end
 
 function M.open_vsplit_stay_visual()
-    open_selected_files('vsplit', true)
+    open_selected('vsplit', true)
 end
 
 function M.open_tab_stay_visual()
-    open_selected_files('tabedit', true)
+    open_selected('tabedit', true)
 end
 
 ---@param cmd DoraOpenCommand

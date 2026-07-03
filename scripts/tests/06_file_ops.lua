@@ -201,6 +201,73 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/sub/inner.txt')
+    touch(tmp .. '/file.txt')
+    local real_tmp = fs.realpath(tmp)
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local dora_win = vim.api.nvim_get_current_win()
+    local dora_buf = vim.api.nvim_get_current_buf()
+
+    -- Visual edit-open still skips directories: a directory-only selection
+    -- opens nothing.
+    set_cursor_pos('sub')
+    vim.api.nvim_feedkeys('V', 'xt', false)
+    api.open_visual()
+    assert_eq(vim.api.nvim_get_current_buf(), dora_buf, 'visual edit-open should skip directories')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
+
+    -- Visual split-open includes directories: the directory opens as a new
+    -- dora session in its own split, alongside the selected file.
+    set_cursor_pos('sub')
+    local existing_wins = vim.api.nvim_tabpage_list_wins(0)
+    vim.api.nvim_feedkeys('Vj', 'xt', false)
+    api.open_vsplit_stay_visual()
+    assert_eq(vim.api.nvim_get_mode().mode, 'n', 'visual open should leave visual mode')
+    assert_eq(vim.api.nvim_get_current_win(), dora_win, 'stay-open should keep focus in Dora')
+    local new_wins = vim.iter(vim.api.nvim_tabpage_list_wins(0)):filter(function(win)
+        return not vim.tbl_contains(existing_wins, win)
+    end):totable()
+    assert_eq(#new_wins, 2, 'visual vsplit-open should open one window per selected row')
+    local dir_win, file_win
+    for _, win in ipairs(new_wins) do
+        local buf = vim.api.nvim_win_get_buf(win)
+        if vim.b[buf].is_dora then
+            dir_win = win
+        elseif vim.api.nvim_buf_get_name(buf) == real_tmp .. '/file.txt' then
+            file_win = win
+        end
+    end
+    assert(dir_win, 'visual vsplit-open should open the directory in a Dora split')
+    assert_eq(store.get(vim.api.nvim_win_get_buf(dir_win)).cwd, real_tmp .. '/sub',
+        'the directory split should browse the selected directory')
+    assert(file_win, 'visual vsplit-open should open the file in a split')
+
+    vim.api.nvim_set_current_win(dir_win)
+    api.quit()
+    vim.api.nvim_win_close(file_win, true)
+    vim.api.nvim_set_current_win(dora_win)
+
+    -- Non-stay split-open also includes directories, and ends the
+    -- originating session like any non-stay open.
+    set_cursor_pos('sub')
+    vim.api.nvim_feedkeys('V', 'xt', false)
+    api.open_split_visual()
+    assert(vim.b.is_dora, 'non-stay visual open of a directory should land in its dora session')
+    assert_eq(store.get().cwd, real_tmp .. '/sub',
+        'the non-stay split should browse the selected directory')
+    assert(not vim.api.nvim_buf_is_valid(dora_buf),
+        'non-stay visual open should clean up the originating session')
+    api.quit()
+    vim.cmd('only')
+    pcall(vim.cmd --[[@as function]], 'bdelete! ' .. vim.fn.fnameescape(real_tmp .. '/file.txt'))
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/trashed.txt')
     local old_trash = fs.trash
     ---@diagnostic disable-next-line: duplicate-set-field
