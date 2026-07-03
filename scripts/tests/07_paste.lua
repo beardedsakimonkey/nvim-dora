@@ -47,16 +47,16 @@ do
     assert_eq(marked_path_count(state), 3)
 
     set_cursor_line('alpha%.txt$')
-    api.next_mark()
+    api.next_paste_mark()
     assert_match(current_line(), 'bravo%.txt$', 'next mark should jump to the first paste mark below the cursor')
-    api.next_mark()
+    api.next_paste_mark()
     assert_match(current_line(), 'delta%.txt$', 'next mark should skip unmarked rows to the following mark')
-    api.next_mark()
+    api.next_paste_mark()
     assert_match(current_line(), 'echo%.txt$', 'next mark should jump to copy marks as well as cut marks')
-    api.next_mark()
+    api.next_paste_mark()
     assert_match(current_line(), 'echo%.txt$', 'next mark should stay put when no further mark exists')
 
-    api.prev_mark()
+    api.prev_paste_mark()
     assert_match(current_line(), 'delta%.txt$', 'previous mark should jump to the closest mark above the cursor')
 
     set_cursor_line('alpha%.txt$')

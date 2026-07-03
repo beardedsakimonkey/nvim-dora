@@ -557,11 +557,11 @@ function M.first_sibling()
     move_sibling_edge(-1)
 end
 
-function M.next_mark()
+function M.next_paste_mark()
     move_to_mark(1)
 end
 
-function M.prev_mark()
+function M.prev_paste_mark()
     move_to_mark(-1)
 end
 

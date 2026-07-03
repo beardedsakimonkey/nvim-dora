@@ -26,7 +26,7 @@ local M = {}
 ---@field keymaps table<string, DoraKeymapSpec>
 ---@field show_keymap_hints boolean
 ---@field show_hidden_files boolean
----@field is_file_hidden fun(file: DoraFile, files: DoraFile[], dir: string): boolean
+---@field is_hidden_file fun(file: DoraFile, files: DoraFile[], dir: string): boolean
 ---@field icons DoraIconConfig
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
@@ -48,7 +48,7 @@ M.config = {
     -- Whether hidden files should be shown by default
     show_hidden_files = true,
     -- Function used to determine what files should be hidden
-    is_file_hidden = function(file) return vim.startswith(file.name, '.') end,
+    is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
     -- Whether <Esc> in insert mode closes prompts.
@@ -68,8 +68,6 @@ M.config = {
         K        = 'prev_sibling',       -- Previous sibling
         ['>']    = 'last_sibling',       -- Last sibling
         ['<']    = 'first_sibling',      -- First sibling
-        [']m']   = 'next_mark',          -- Next paste mark
-        ['[m']   = 'prev_mark',          -- Previous paste mark
         o        = 'fold_out',           -- Fold out directory
         O        = 'fold_out_recursive', -- Fold out directory recursively
         i        = 'fold_in',            -- Fold in directory
@@ -79,6 +77,8 @@ M.config = {
         gh       = 'home_dir',           -- Go to home directory
         m        = 'set_bookmark',       -- Set bookmark
         ["'"]    = 'jump_bookmark',      -- Jump to bookmark
+        [']m']   = 'next_paste_mark',    -- Next paste mark
+        ['[m']   = 'prev_paste_mark',    -- Previous paste mark
 
         -- Open
         ['<CR>']  = 'open',             -- Open

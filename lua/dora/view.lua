@@ -72,7 +72,7 @@ local function filter_and_sort(state, all_files, dir)
         if state.show_hidden_files then
             return true
         else
-            return not config.is_file_hidden(file, all_files, dir)
+            return not config.is_hidden_file(file, all_files, dir)
         end
     end, all_files)
     sorter.files(files, state.sort_order)
