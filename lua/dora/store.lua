@@ -1,5 +1,32 @@
 local M = {}
 
+---@alias DoraPasteOperation 'copy'|'cut'
+
+---@class DoraState
+---@field buf integer
+---@field win integer
+---@field origin_buf integer
+---@field alt_buf? integer
+---@field cwd string
+---@field ns integer
+---@field cursor_ns integer
+---@field show_hidden_files boolean
+---@field sort_order DoraSortOrder
+---@field hovered_files table<string, string>
+---@field listings table<string, DoraListingEntry>
+---@field expanded_dirs table<string, true>
+---@field tree_rows DoraTreeRow[]
+---@field rows DoraTreeRow[]
+---@field filter_text? string
+---@field filter_preview? string
+---@field filter_window? DoraFilterWindow
+---@field filter_editing boolean
+---@field filter_inverted boolean when true, the filter keeps non-matching rows
+---@field marked_paths table<string, DoraPasteOperation>
+---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
+---@field preview? DoraPreviewWindow
+---@field bookmarks DoraBookmarks
+
 ---@type table<string, DoraState>
 local buf_states = {}
 

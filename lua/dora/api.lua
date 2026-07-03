@@ -1,5 +1,4 @@
 local fs = require'dora.fs'
-local icons = require'dora.icons'
 local bookmarks = require'dora.bookmarks'
 local help_win = require'dora.help_win'
 local delete_win = require'dora.delete_win'
@@ -10,7 +9,9 @@ local preview_win = require'dora.preview_win'
 local prompt = require'dora.prompt'
 local store = require'dora.store'
 local sorter = require'dora.sort'
+local tree = require'dora.tree'
 local util = require'dora.util'
+local view = require'dora.view'
 local config = require'dora'.config
 
 local api = vim.api
@@ -30,9 +31,6 @@ local global_marked_paths = {}
 
 local PROMPT_WIDTH = 32
 local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
-local EMPTY_LABEL = '(empty)'
-local NOT_PERMITTED_LABEL = '(not permitted)'
-local TREE_VERTICAL = '│'
 
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
@@ -70,584 +68,6 @@ local function start_paste_spinner(progress)
     end
 end
 
----@alias DoraPasteOperation 'copy'|'cut'
-
----@class DoraTreeSegment
----@field parent_path string
----@field start_col integer
----@field end_col integer
-
----@class DoraTreeRow
----@field name string
----@field display_name string
----@field path? string
----@field parent_path? string
----@field type DoraFileType|'placeholder'
----@field depth integer
----@field tree_prefix_len integer
----@field tree_continuation_segments DoraTreeSegment[]
----@field tree_connector_start_col? integer
----@field icon? string
----@field icon_start_col? integer
----@field icon_end_col? integer
----@field icon_hl? string
----@field name_start_col? integer
----@field name_end_col? integer
----@field directory_suffix_col? integer
----@field filter_directory_start_col? integer
----@field filter_directory_end_col? integer
----@field filter_match_start_col? integer
----@field filter_match_end_col? integer
-
----@class DoraState
----@field buf integer
----@field win integer
----@field origin_buf integer
----@field alt_buf? integer
----@field cwd string
----@field ns integer
----@field cursor_ns integer
----@field show_hidden_files boolean
----@field sort_order DoraSortOrder
----@field hovered_files table<string, string>
----@field listings table<string, DoraListingEntry>
----@field expanded_dirs table<string, true>
----@field tree_rows DoraTreeRow[]
----@field rows DoraTreeRow[]
----@field filter_text? string
----@field filter_preview? string
----@field filter_window? DoraFilterWindow
----@field filter_editing boolean
----@field filter_inverted boolean when true, the filter keeps non-matching rows
----@field marked_paths table<string, DoraPasteOperation>
----@field paste_in_progress? boolean Guards against starting a second async paste while one runs
----@field preview? DoraPreviewWindow
----@field bookmarks DoraBookmarks
-
--- Render ----------------------------------------------------------------------
-
----@param msg any
----@return boolean
-local function is_permission_error(msg)
-    msg = tostring(msg)
-    return msg:match('EPERM') ~= nil
-        or msg:lower():match('operation not permitted') ~= nil
-        or msg:lower():match('permission denied') ~= nil
-end
-
-local render
-local scroll_filter_results_to_top
-local keep_filter_spacer
-
----@class DoraListingEntry
----@field raw DoraFile[]? unfiltered listing; nil when the listing failed
----@field files DoraFile[] filtered and sorted files
----@field placeholder_label string?
----@field show_hidden boolean
----@field sort_order DoraSortOrder
----@field unwatch fun()?
-
----@param state DoraState
----@param all_files DoraFile[]
----@param dir string
----@return DoraFile[]
-local function filter_and_sort(state, all_files, dir)
-    local files = vim.tbl_filter(function(file)
-        if state.show_hidden_files then
-            return true
-        else
-            return not config.is_file_hidden(file, all_files, dir)
-        end
-    end, all_files)
-    sorter.files(files, state.sort_order)
-    return files
-end
-
--- Watch for external changes so the cached listing doesn't go stale: the
--- first change drops the cache entry, and the rescan on the following
--- render starts a new watch.
----@param state DoraState
----@param dir string
----@return fun()? unwatch
-local function watch_directory(state, dir)
-    return fs.watch_dir(dir, function()
-        if state.listings[dir] then
-            state.listings[dir] = nil
-            if api.nvim_buf_is_valid(state.buf) then
-                render(state)
-            end
-        end
-    end)
-end
-
--- Drop all cached listings and their watchers; the next render rescans.
----@param state DoraState
-local function clear_listings(state)
-    for dir, entry in pairs(state.listings) do
-        if entry.unwatch then
-            entry.unwatch()
-        end
-        state.listings[dir] = nil
-    end
-end
-
----@param state DoraState
----@param dir string
----@return DoraFile[] files
----@return string? placeholder_label
-local function visible_files(state, dir)
-    local entry = state.listings[dir]
-    if entry then
-        if entry.show_hidden ~= state.show_hidden_files or entry.sort_order ~= state.sort_order then
-            -- Only the view settings changed; refilter and resort the
-            -- listing we already have instead of rescanning.
-            if entry.raw then
-                entry.files = filter_and_sort(state, entry.raw, dir)
-            end
-            entry.show_hidden = state.show_hidden_files
-            entry.sort_order = state.sort_order
-        end
-        return entry.files, entry.placeholder_label
-    end
-    entry = {
-        files = {},
-        show_hidden = state.show_hidden_files,
-        sort_order = state.sort_order,
-    }
-    local ok, all_files = pcall(fs.list, dir)
-    if not ok then
-        if is_permission_error(all_files) then
-            entry.placeholder_label = NOT_PERMITTED_LABEL
-        else
-            util.warn(tostring(all_files))
-        end
-    else
-        entry.raw = all_files
-        entry.files = filter_and_sort(state, all_files, dir)
-    end
-    entry.unwatch = watch_directory(state, dir)
-    state.listings[dir] = entry
-    return entry.files, entry.placeholder_label
-end
-
----@param segments DoraTreeSegment[]
----@return DoraTreeSegment[]
-local function copy_tree_segments(segments)
-    local ret = {}
-    for _, segment in ipairs(segments) do
-        ret[#ret+1] = segment
-    end
-    return ret
-end
-
----@param state DoraState
----@param path string
----@return string
-local function relative_child_path(state, path)
-    return assert(vim.fs.relpath(state.cwd, path))
-end
-
----@param state DoraState
----@return DoraTreeRow[]
-local function build_tree_rows(state)
-    local rows = {}
-    local tree_indent = math.max(2, math.floor(config.tree_indent))
-    local connector_suffix = string.rep('─', tree_indent - 2) .. ' '
-    local tree_continuation = TREE_VERTICAL .. string.rep(' ', tree_indent - 1)
-    local tree_spacer = string.rep(' ', tree_indent)
-
-    ---@param dir string
-    ---@param prefix string
-    ---@param depth integer
-    ---@param continuation_segments DoraTreeSegment[]
-    local function add_dir(dir, prefix, depth, continuation_segments)
-        local files, placeholder_label = visible_files(state, dir)
-        if depth > 0 and (#files == 0 or placeholder_label) then
-            placeholder_label = placeholder_label or EMPTY_LABEL
-            local tree_prefix = prefix .. '└' .. connector_suffix
-            rows[#rows+1] = {
-                name = placeholder_label,
-                display_name = tree_prefix .. placeholder_label,
-                path = nil,
-                parent_path = dir,
-                type = 'placeholder',
-                depth = depth,
-                tree_prefix_len = #tree_prefix,
-                tree_continuation_segments = copy_tree_segments(continuation_segments),
-                tree_connector_start_col = #prefix,
-                name_start_col = #tree_prefix,
-                name_end_col = #tree_prefix + #placeholder_label,
-            }
-            return
-        end
-        for i, file in ipairs(files) do
-            local is_last = i == #files
-            local connector = depth == 0
-                and ''
-                or (is_last and '└' or '├') .. connector_suffix
-            local child_prefix = depth == 0
-                and ''
-                or prefix .. (is_last and tree_spacer or tree_continuation)
-            local child_continuation_segments = continuation_segments
-            if depth > 0 then
-                child_continuation_segments = copy_tree_segments(continuation_segments)
-                if not is_last then
-                    child_continuation_segments[#child_continuation_segments+1] = {
-                        parent_path = dir,
-                        start_col = #prefix,
-                        end_col = #prefix + #TREE_VERTICAL,
-                    }
-                end
-            end
-            local path = vim.fs.joinpath(dir, file.name)
-            local tree_prefix = prefix .. connector
-            local expanded = file.type == 'directory' and state.expanded_dirs[path] or nil
-            local icon, icon_hl = icons.get(config.icons, file, path, expanded)
-            local icon_prefix = icon and icon .. ' ' or ''
-            local display_name = tree_prefix .. icon_prefix .. file.name
-            local directory_suffix_col
-            if file.type == 'directory' then
-                directory_suffix_col = #display_name
-                display_name = display_name .. '/'
-            end
-            rows[#rows+1] = {
-                name = file.name,
-                display_name = display_name,
-                path = path,
-                parent_path = dir,
-                type = file.type,
-                depth = depth,
-                tree_prefix_len = #tree_prefix,
-                tree_continuation_segments = copy_tree_segments(continuation_segments),
-                tree_connector_start_col = depth > 0 and #prefix or nil,
-                icon = icon,
-                icon_start_col = icon and #tree_prefix or nil,
-                icon_end_col = icon and #tree_prefix + #icon or nil,
-                icon_hl = icon_hl or 'DoraIcon',
-                name_start_col = #tree_prefix + #icon_prefix,
-                name_end_col = #tree_prefix + #icon_prefix + #file.name,
-                directory_suffix_col = directory_suffix_col,
-            }
-            if expanded then
-                add_dir(path, child_prefix, depth + 1, child_continuation_segments)
-            end
-        end
-    end
-
-    add_dir(state.cwd, '', 0, {})
-    return rows
-end
-
----@param state DoraState
----@return string?
-local function active_filter(state)
-    local filter = state.filter_preview
-    if filter == nil then
-        filter = state.filter_text
-    end
-    return filter ~= '' and filter or nil
-end
-
----@param state DoraState
----@param tree_rows DoraTreeRow[]
----@return DoraTreeRow[]
-local function build_filtered_rows(state, tree_rows)
-    local filter = active_filter(state)
-    if not filter then
-        return tree_rows
-    end
-
-    local rows = {}
-    -- The filter is a Vim regex, so users can anchor (e.g. `lua$`), use
-    -- character classes, etc. vim.regex is always case-sensitive regardless of
-    -- 'ignorecase', so prepend `\c` to keep matching case-insensitive by
-    -- default; a `\C` in the user's own pattern still wins to force case.
-    local ok, regex = pcall(vim.regex, '\\c' .. filter)
-    if not ok then
-        -- Incomplete or invalid pattern (common while typing); show nothing.
-        return rows
-    end
-    local inverted = state.filter_inverted
-    for _, row in ipairs(tree_rows) do
-        local matched, match_start, match_end = false, nil, nil
-        if row.path then
-            -- Match the lowered name so Unicode case folding (e.g. 'İ' → 'i',
-            -- which `\c` alone does not do) still matches, then map the lowered
-            -- byte offsets back to the original name's bytes via character
-            -- indices, which tolower() preserves even when byte lengths change.
-            local lowered_name = vim.fn.tolower(row.name)
-            local lowered_start, lowered_end = regex:match_str(lowered_name)
-            if lowered_start then
-                matched = true
-                local char_start = vim.fn.charidx(lowered_name, lowered_start)
-                local matched_chars = vim.fn.strchars(lowered_name:sub(lowered_start + 1, lowered_end))
-                match_start = vim.fn.byteidx(row.name, char_start)
-                match_end = vim.fn.byteidx(row.name, char_start + matched_chars)
-            end
-        end
-        -- Keep matching rows; when inverted, keep the non-matching rows instead
-        -- (which have no basename span to highlight).
-        if row.path and matched ~= inverted then
-            local relative_path = relative_child_path(state, row.path)
-            local icon_prefix = row.icon and row.icon .. ' ' or ''
-            local display_name = icon_prefix .. relative_path
-            local basename_start_col = #icon_prefix + #relative_path - #row.name
-            local directory_suffix_col
-            if row.type == 'directory' then
-                directory_suffix_col = #display_name
-                display_name = display_name .. '/'
-            end
-            rows[#rows+1] = {
-                name = row.name,
-                display_name = display_name,
-                path = row.path,
-                parent_path = row.parent_path,
-                type = row.type,
-                depth = row.depth,
-                tree_prefix_len = 0,
-                tree_continuation_segments = {},
-                icon = row.icon,
-                icon_start_col = row.icon and 0 or nil,
-                icon_end_col = row.icon and #row.icon or nil,
-                icon_hl = row.icon_hl,
-                name_start_col = #icon_prefix,
-                name_end_col = #icon_prefix + #relative_path,
-                directory_suffix_col = directory_suffix_col,
-                filter_directory_start_col = basename_start_col > #icon_prefix and #icon_prefix or nil,
-                filter_directory_end_col = basename_start_col > #icon_prefix and basename_start_col or nil,
-                filter_match_start_col = match_start and basename_start_col + match_start or nil,
-                filter_match_end_col = match_end and basename_start_col + match_end or nil,
-            }
-        end
-    end
-    return rows
-end
-
----@param state DoraState
-local function prune_deleted_marked_paths(state)
-    for marked_path in pairs(state.marked_paths) do
-        if not fs.exists(marked_path) then
-            state.marked_paths[marked_path] = nil
-        end
-    end
-end
-
----@param state DoraState
-local function update_tree_cursor_highlight(state)
-    local buf, ns = state.buf, state.cursor_ns
-    api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-    if active_filter(state) or api.nvim_get_current_buf() ~= buf then
-        return
-    end
-    local row_nr = api.nvim_win_get_cursor(0)[1]
-    local row = state.rows and state.rows[row_nr] or nil
-    if not row or not row.parent_path then
-        return
-    end
-    for i, sibling in ipairs(state.rows) do
-        for _, segment in ipairs(sibling.tree_continuation_segments) do
-            if segment.parent_path == row.parent_path then
-                api.nvim_buf_set_extmark(buf, ns, i - 1, segment.start_col, {
-                    end_col = segment.end_col,
-                    hl_group = 'DoraTreeActive',
-                    priority = 10001,
-                })
-            end
-        end
-        if sibling.parent_path == row.parent_path and sibling.tree_connector_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i - 1, sibling.tree_connector_start_col, {
-                end_col = sibling.tree_prefix_len,
-                hl_group = 'DoraTreeActive',
-                priority = 10001,
-            })
-        end
-    end
-end
-
-
--- Refresh an open preview to the hovered row. Called from the cursor motion
--- autocmds and from every render: navigation can put a different row under a
--- cursor that doesn't move, which fires no CursorMoved.
----@param state DoraState
-local function update_preview(state)
-    if not state.preview then
-        return
-    end
-    -- The window showing state.buf, which isn't the current window when a
-    -- render comes from an async callback or another dora window's action.
-    local win = vim.fn.bufwinid(state.buf)
-    if win == -1 then
-        return
-    end
-    local line = api.nvim_win_get_cursor(win)[1]
-    preview_win.update(state, state.rows and state.rows[line] or nil)
-end
-
----@param state DoraState
-function render(state)
-    local buf, ns = state.buf, state.ns
-    prune_deleted_marked_paths(state)
-    local tree_rows = build_tree_rows(state)
-    local rows = build_filtered_rows(state, tree_rows)
-    state.tree_rows = tree_rows
-    state.rows = rows
-    util.set_lines(buf, vim.tbl_map(function(f)
-        return f.display_name
-    end, rows))
-    -- Add virttext and highlights
-    api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-    if state.filter_editing or state.filter_window then
-        api.nvim_buf_set_extmark(buf, ns, 0, 0, {
-            virt_lines = {{{'', 'Normal'}}},
-            virt_lines_above = true,
-        })
-    end
-    for i, file in ipairs(rows) do
-        local path = file.path
-        ---@cast path string  -- only placeholder rows lack a path, and they don't reach the fs calls below
-        local virttext, hl
-        if file.type == 'directory' then
-            virttext, hl = nil, 'DoraDirectory'
-        elseif file.type == 'placeholder' then
-            virttext, hl = nil, 'DoraTree'
-        elseif file.type == 'link' then
-            local link = uv.fs_readlink(path)
-            local target = link and fs.display_symlink_target(path, link) or nil
-            virttext = '@ → ' .. (target and util.display_path(target) or '???')
-            hl = 'DoraSymlink'
-        elseif uv.fs_access(path, 'X') then
-            virttext, hl = '*', 'DoraExecutable'
-        else
-            virttext, hl = nil, 'DoraFile'
-        end
-        api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
-            end_col = #file.display_name,
-            hl_group = hl,
-            priority = 100,  -- Below vim.highlight.on_yank's default priority.
-        })
-        if virttext then
-            api.nvim_buf_set_extmark(buf, ns, i-1, #file.display_name, {
-                virt_text = {{virttext, 'DoraVirtText'}},
-                virt_text_pos = 'overlay',
-                hl_mode = 'combine',
-            })
-        end
-        if file.tree_prefix_len > 0 then
-            api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
-                end_col = file.tree_prefix_len,
-                hl_group = 'DoraTree',
-                priority = 10000,
-            })
-        end
-        if file.icon_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i-1, file.icon_start_col, {
-                end_col = file.icon_end_col,
-                hl_group = file.icon_hl,
-                priority = 10000,
-            })
-        end
-        if file.directory_suffix_col then
-            api.nvim_buf_set_extmark(buf, ns, i-1, file.directory_suffix_col, {
-                end_col = #file.display_name,
-                hl_group = 'DoraVirtText',
-                priority = 10000,
-            })
-        end
-        if file.filter_directory_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i-1, file.filter_directory_start_col, {
-                end_col = file.filter_directory_end_col,
-                hl_group = 'DoraFilterPath',
-                priority = 10000,
-            })
-        end
-        if file.filter_match_start_col then
-            api.nvim_buf_set_extmark(buf, ns, i-1, file.filter_match_start_col, {
-                end_col = file.filter_match_end_col,
-                hl_group = 'DoraFilterMatch',
-                priority = 10001,
-            })
-        end
-        local mark_operation = path and state.marked_paths[path] or nil
-        if mark_operation then
-            local sign_hl = 'DoraCopy'
-            if mark_operation == 'cut' then
-                sign_hl = 'DoraCut'
-            end
-            api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
-                sign_text = '▌',
-                sign_hl_group = sign_hl,
-            })
-            api.nvim_buf_set_extmark(buf, ns, i-1, file.name_start_col, {
-                end_col = file.name_end_col,
-                hl_group = sign_hl,
-                priority = 10000,
-            })
-        end
-    end
-    update_tree_cursor_highlight(state)
-    update_preview(state)
-    -- Rewriting the buffer drops the window's topfill, which is what reveals the
-    -- filter float's spacer line. Restore it here (a no-op unless scrolled to the
-    -- top, where the spacer lives) so render callers don't each have to.
-    if state.filter_editing or state.filter_window then
-        keep_filter_spacer(state.win)
-    end
-end
-
----@param state DoraState
----@return DoraTreeRow?
-local function current_row(state)
-    local row = api.nvim_win_get_cursor(0)[1]
-    return state.rows and state.rows[row] or nil
-end
-
----@param state DoraState
----@param path string
----@return boolean
-local function set_cursor_path(state, path)
-    if vim.endswith(path, '/') then
-        path = path:sub(1, -2)
-    end
-    -- Target the window showing state.buf, not the current window: when called
-    -- from an async paste callback the user may have moved focus elsewhere, and
-    -- a row index into state.rows is out of range for some other buffer.
-    local win = api.nvim_get_current_win()
-    if api.nvim_win_get_buf(win) ~= state.buf then
-        win = vim.fn.bufwinid(state.buf)
-    end
-    for i, row in ipairs(state.rows or {}) do
-        if row.path == path then
-            if win ~= -1 and api.nvim_win_is_valid(win) then
-                api.nvim_win_set_cursor(win, {i, 0})
-                update_tree_cursor_highlight(state)
-            end
-            return true
-        end
-    end
-    return false
-end
-
----@param state DoraState
----@param pattern string?
----@param or_top? boolean
-local function set_cursor_pos(state, pattern, or_top)
-    local line = or_top and 1 or nil
-    if pattern then
-        for i, row in ipairs(state.rows or {}) do
-            if row.display_name == pattern
-                    or row.name == pattern
-                    or row.name .. '/' == pattern then
-                line = i
-                break
-            end
-        end
-    end
-    if line then
-        api.nvim_win_set_cursor(0, {line, 0})
-    end
-    update_tree_cursor_highlight(state)
-end
-
 ---@param state DoraState
 ---@param row DoraTreeRow?
 ---@param under_directory? boolean
@@ -657,7 +77,7 @@ local function create_parent_default(state, row, under_directory)
         return nil
     end
     if under_directory and row.type == 'directory' and row.path then
-        return relative_child_path(state, row.path) .. '/'
+        return view.relative_child_path(state, row.path) .. '/'
     end
     -- Placeholder rows have no path of their own; create inside the
     -- directory that shows them.
@@ -665,60 +85,7 @@ local function create_parent_default(state, row, under_directory)
     if not parent or parent == state.cwd then
         return nil
     end
-    return relative_child_path(state, parent) .. '/'
-end
-
----@param state DoraState
----@param row DoraTreeRow?
----@return string?
----@return integer?
-local function collapse_target(state, row)
-    if not row or not row.path then
-        return nil
-    end
-    if row.type == 'directory' then
-        return row.path, row.depth
-    end
-    local parent = fs.get_parent_dir(row.path)
-    if parent == state.cwd then
-        return nil
-    end
-    for _, candidate in ipairs(state.tree_rows or {}) do
-        if candidate.path == parent then
-            return parent, candidate.depth
-        end
-    end
-end
-
----@param path string
----@param prefix string
----@return integer?
-local function relative_dir_depth(path, prefix)
-    if not vim.startswith(path, prefix .. '/') then
-        return nil
-    end
-    local rest = path:sub(#prefix + 2)
-    return select(2, rest:gsub('/', '')) + 1
-end
-
----@param row DoraTreeRow
----@param path string
----@return boolean
-local function row_under_path(row, path)
-    if row.path then
-        return row.path == path or vim.startswith(row.path, path .. '/')
-    end
-    return row.parent_path == path or vim.startswith(row.parent_path or '', path .. '/')
-end
-
----@param state DoraState
----@param line integer
-local function move_to_line(state, line)
-    if line < 1 or line > #state.rows then
-        return
-    end
-    api.nvim_win_set_cursor(0, {line, 0})
-    update_tree_cursor_highlight(state)
+    return view.relative_child_path(state, parent) .. '/'
 end
 
 ---@param state DoraState
@@ -730,7 +97,7 @@ local function sibling_line(state, line, step)
     if not row or not row.path then
         return nil
     end
-    if active_filter(state) then
+    if view.active_filter(state) then
         local next_line = line + step
         if next_line < 1 or next_line > #state.rows then
             return nil
@@ -753,7 +120,7 @@ local function sibling_edge_line(state, line, step)
     if not row or not row.path then
         return nil
     end
-    if active_filter(state) then
+    if view.active_filter(state) then
         return step > 0 and #state.rows or 1
     end
     for i = step > 0 and #state.rows or 1, line, -step do
@@ -778,7 +145,7 @@ local function move_sibling(step)
         end
         line = target
     end
-    move_to_line(state, line)
+    view.move_to_line(state, line)
 end
 
 ---@param step integer 1 for last, -1 for first
@@ -791,7 +158,7 @@ local function move_sibling_edge(step)
     end
     local target = sibling_edge_line(state, line, step)
     if target then
-        move_to_line(state, target)
+        view.move_to_line(state, target)
     end
 end
 
@@ -819,7 +186,7 @@ local function move_to_mark(step)
         end
         line = target
     end
-    move_to_line(state, line)
+    view.move_to_line(state, line)
 end
 
 ---@param path string
@@ -858,7 +225,7 @@ end
 ---@return string? path
 ---@return string? error
 local function current_path(state)
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row then
         return nil, 'Empty filename'
     end
@@ -976,129 +343,6 @@ local function rename_marked_paths_under(state, old_path, new_path)
 end
 
 ---@param state DoraState
----@param path string
----@return boolean changed
-local function expand_next_level(state, path)
-    if not state.expanded_dirs[path] then
-        state.expanded_dirs[path] = true
-        return true
-    end
-
-    local frontier = {}
-    local frontier_depth
-
-    ---@param dir string
-    ---@param depth integer
-    local function visit(dir, depth)
-        for _, file in ipairs(visible_files(state, dir)) do
-            if file.type == 'directory' then
-                local child_path = vim.fs.joinpath(dir, file.name)
-                if state.expanded_dirs[child_path] then
-                    visit(child_path, depth + 1)
-                elseif not frontier_depth or depth < frontier_depth then
-                    frontier_depth = depth
-                    frontier = {child_path}
-                elseif depth == frontier_depth then
-                    frontier[#frontier+1] = child_path
-                end
-            end
-        end
-    end
-
-    visit(path, 1)
-    for _, dir in ipairs(frontier) do
-        state.expanded_dirs[dir] = true
-    end
-    return #frontier > 0
-end
-
----@param state DoraState
----@param path string
----@return boolean changed
-local function expand_all_dirs(state, path)
-    local changed = not state.expanded_dirs[path]
-    state.expanded_dirs[path] = true
-    for _, file in ipairs(visible_files(state, path)) do
-        if file.type == 'directory' then
-            local child_path = vim.fs.joinpath(path, file.name)
-            if expand_all_dirs(state, child_path) then
-                changed = true
-            end
-        end
-    end
-    return changed
-end
-
----@param state DoraState
----@param path string
----@return boolean changed
-local function clear_expanded_subtree(state, path)
-    local prefix = path .. '/'
-    local changed = false
-    for expanded_path in pairs(state.expanded_dirs) do
-        if expanded_path == path or vim.startswith(expanded_path, prefix) then
-            state.expanded_dirs[expanded_path] = nil
-            changed = true
-        end
-    end
-    return changed
-end
-
----@param state DoraState
----@param path string
----@param target_depth integer
----@return boolean changed
-local function collapse_deepest_visible_dirs(state, path, target_depth)
-    local max_depth = 0
-    for _, row in ipairs(state.tree_rows or {}) do
-        if row_under_path(row, path) then
-            max_depth = math.max(max_depth, row.depth - target_depth)
-        end
-    end
-    if max_depth < 1 then
-        return false
-    end
-
-    local collapse_depth = max_depth - 1
-    local collapsed = {}
-    if collapse_depth == 0 then
-        if state.expanded_dirs[path] then
-            collapsed[#collapsed+1] = path
-        end
-    else
-        for expanded_path in pairs(state.expanded_dirs) do
-            if relative_dir_depth(expanded_path, path) == collapse_depth then
-                collapsed[#collapsed+1] = expanded_path
-            end
-        end
-    end
-    for _, expanded_path in ipairs(collapsed) do
-        state.expanded_dirs[expanded_path] = nil
-    end
-    return #collapsed > 0
-end
-
----@param state DoraState
----@param old_path string
----@param new_path string
-local function rename_expanded_subtree(state, old_path, new_path)
-    local old_prefix = old_path .. '/'
-    local updated = {}
-    for expanded_path in pairs(state.expanded_dirs) do
-        if expanded_path == old_path then
-            updated[new_path] = true
-            state.expanded_dirs[expanded_path] = nil
-        elseif vim.startswith(expanded_path, old_prefix) then
-            updated[new_path .. expanded_path:sub(#old_path + 1)] = true
-            state.expanded_dirs[expanded_path] = nil
-        end
-    end
-    for expanded_path in pairs(updated) do
-        state.expanded_dirs[expanded_path] = true
-    end
-end
-
----@param state DoraState
 local function close_filter(state)
     state.filter_text = nil
     state.filter_preview = nil
@@ -1120,12 +364,12 @@ local function setup_autocmds(buf)
         callback = function(args)
             local ok, state = pcall(store.get, args.buf)
             if ok then
-                update_tree_cursor_highlight(state)
-                update_preview(state)
+                view.update_tree_cursor_highlight(state)
+                view.update_preview(state)
                 -- Native motions like `gg` scroll to the top and reset the
                 -- topfill spacer the filter float sits over, so restore it.
                 if state.filter_window then
-                    keep_filter_spacer(state.win)
+                    view.keep_filter_spacer(state.win)
                 end
             end
         end,
@@ -1140,7 +384,7 @@ local function setup_autocmds(buf)
             if ok then
                 close_filter(state)
                 preview_win.close(state)
-                clear_listings(state)
+                view.clear_listings(state)
                 store.remove(args.buf)
             end
         end,
@@ -1153,7 +397,7 @@ end
 ---@param state DoraState
 local function save_previous_directory(state)
     if api.nvim_win_is_valid(state.win) then
-        local row = current_row(state)
+        local row = view.current_row(state)
         api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, {
             directory = state.cwd,
             hovered_path = row and row.path or nil,
@@ -1178,14 +422,14 @@ end
 local function cleanup(state)
     close_filter(state)
     preview_win.close(state)
-    clear_listings(state)
+    view.clear_listings(state)
     api.nvim_buf_delete(state.buf, {force=true})
     store.remove(state.buf)
 end
 
 ---@param state DoraState
 local function remember_hovered_file(state)
-    local row = current_row(state)
+    local row = view.current_row(state)
     if row then
         state.hovered_files[state.cwd] = row.name
     end
@@ -1197,7 +441,7 @@ end
 ---@param or_top? boolean
 local function change_cwd(state, path, cursor_pattern, or_top)
     if state.cwd ~= path then
-        local row = current_row(state)
+        local row = view.current_row(state)
         bookmarks.record_previous_directory(state.bookmarks, state.cwd, row and row.path or nil)
         state.cwd = path
         -- Only rename when the cwd changed; create_buf_name() counts the
@@ -1205,14 +449,14 @@ local function change_cwd(state, path, cursor_pattern, or_top)
         -- append a spurious ' [1]' suffix.
         util.update_buf_name(state.cwd)
     end
-    render(state)
+    view.render(state)
     -- A committed filter persists across navigation, re-applying to the new
     -- directory. Show its results from the top so the first match isn't hidden
     -- behind the filter window.
-    if active_filter(state) then
-        scroll_filter_results_to_top(state.win)
+    if view.active_filter(state) then
+        view.scroll_filter_results_to_top(state.win)
     else
-        set_cursor_pos(state, cursor_pattern, or_top)
+        view.set_cursor_pos(state, cursor_pattern, or_top)
     end
 end
 
@@ -1274,12 +518,12 @@ end
 function M.parent_dir()
     local state = store.get()
     for _ = 1, vim.v.count1 do
-        local row = current_row(state)
+        local row = view.current_row(state)
         if not row or not row.parent_path then
             return
         end
         local cursor = api.nvim_win_get_cursor(0)
-        set_cursor_path(state, row.parent_path)
+        view.set_cursor_path(state, row.parent_path)
         if vim.deep_equal(api.nvim_win_get_cursor(0), cursor) then
             return
         end
@@ -1315,48 +559,9 @@ function M.help()
     help_win.open(config, ok and bookmarks.help_rows(state.bookmarks) or nil)
 end
 
----@param win integer
-local function reveal_filter_spacer(win)
-    if not api.nvim_win_is_valid(win) then
-        return
-    end
-    api.nvim_win_call(win, function()
-        local view = vim.fn.winsaveview()
-        view.topline = 1
-        view.topfill = 1
-        vim.fn.winrestview(view)
-    end)
-end
-
----@param win integer
-function scroll_filter_results_to_top(win)
-    if not api.nvim_win_is_valid(win) then
-        return
-    end
-    api.nvim_win_set_cursor(win, {1, 0})
-    reveal_filter_spacer(win)
-end
-
--- Re-show the spacer's filler line after a re-render cleared it, without
--- moving the user's scroll position. The spacer only exists above the first
--- line, so there is nothing to restore unless results are scrolled to the top.
----@param win integer
-function keep_filter_spacer(win)
-    if not api.nvim_win_is_valid(win) then
-        return
-    end
-    api.nvim_win_call(win, function()
-        local view = vim.fn.winsaveview()
-        if view.topline == 1 then
-            view.topfill = 1
-            vim.fn.winrestview(view)
-        end
-    end)
-end
-
 function M.filter()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local cursor_path = row and row.path or nil
     local initial_text = state.filter_text or ''
     local origin_win = api.nvim_get_current_win()
@@ -1365,8 +570,8 @@ function M.filter()
     local original_inverted = state.filter_inverted
     state.filter_preview = initial_text
     state.filter_editing = true
-    render(state)
-    scroll_filter_results_to_top(origin_win)
+    view.render(state)
+    view.scroll_filter_results_to_top(origin_win)
 
     local opts = {
         origin_win = origin_win,
@@ -1374,13 +579,13 @@ function M.filter()
         inverted = state.filter_inverted,
         on_change = function(text)
             state.filter_preview = text
-            render(state)
-            scroll_filter_results_to_top(origin_win)
+            view.render(state)
+            view.scroll_filter_results_to_top(origin_win)
         end,
         on_toggle_invert = function(inverted)
             state.filter_inverted = inverted
-            render(state)
-            scroll_filter_results_to_top(origin_win)
+            view.render(state)
+            view.scroll_filter_results_to_top(origin_win)
         end,
         on_confirm = function(text)
             state.filter_preview = nil
@@ -1390,10 +595,10 @@ function M.filter()
                 state.filter_window = nil
                 state.filter_inverted = false
             end
-            render(state)
-            set_cursor_pos(state, nil, --[[or_top]]true)
+            view.render(state)
+            view.set_cursor_pos(state, nil, --[[or_top]]true)
             if state.filter_text then
-                scroll_filter_results_to_top(origin_win)
+                view.scroll_filter_results_to_top(origin_win)
             end
             return state.filter_text ~= nil
         end,
@@ -1404,12 +609,12 @@ function M.filter()
             if not state.filter_text then
                 state.filter_window = nil
             end
-            render(state)
-            if not cursor_path or not set_cursor_path(state, cursor_path) then
-                set_cursor_pos(state, nil, --[[or_top]]true)
+            view.render(state)
+            if not cursor_path or not view.set_cursor_path(state, cursor_path) then
+                view.set_cursor_pos(state, nil, --[[or_top]]true)
             end
             if state.filter_text then
-                reveal_filter_spacer(origin_win)
+                view.reveal_filter_spacer(origin_win)
             end
             return state.filter_text
         end,
@@ -1418,9 +623,9 @@ function M.filter()
             state.filter_preview = nil
             state.filter_editing = false
             if api.nvim_buf_is_valid(state.buf) then
-                render(state)
-                if not cursor_path or not set_cursor_path(state, cursor_path) then
-                    set_cursor_pos(state, nil, --[[or_top]]true)
+                view.render(state)
+                if not cursor_path or not view.set_cursor_path(state, cursor_path) then
+                    view.set_cursor_pos(state, nil, --[[or_top]]true)
                 end
             end
         end,
@@ -1435,18 +640,18 @@ end
 
 function M.clear_filter()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local cursor_path = row and row.path or nil
     close_filter(state)
-    render(state)
-    if not cursor_path or not set_cursor_path(state, cursor_path) then
-        set_cursor_pos(state, nil, --[[or_top]]true)
+    view.render(state)
+    if not cursor_path or not view.set_cursor_path(state, cursor_path) then
+        view.set_cursor_pos(state, nil, --[[or_top]]true)
     end
 end
 
 function M.set_bookmark()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     bookmarks.set_current_directory(state.bookmarks, state.cwd, row and row.path or nil)
 end
 
@@ -1474,13 +679,13 @@ function M.jump_bookmark()
     remember_hovered_file(state)
     change_cwd(state, realpath, state.hovered_files[realpath], --[[or_top]]true)
     if hovered_path then
-        set_cursor_path(state, hovered_path)
+        view.set_cursor_path(state, hovered_path)
     end
 end
 
 function M.file_info()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -1491,13 +696,13 @@ end
 
 function M.toggle_preview()
     local state = store.get()
-    preview_win.toggle(state, current_row(state))
+    preview_win.toggle(state, view.current_row(state))
 end
 
 ---@param cmd? DoraOpenCommand
 function M.open(cmd)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path then
         return
     end
@@ -1595,7 +800,7 @@ end
 ---@param cmd DoraOpenCommand
 local function open_stay(cmd)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path then
         return
     end
@@ -1638,7 +843,7 @@ end
 
 function M.open_external()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path or not fs.exists(row.path) then
         return
     end
@@ -1672,77 +877,77 @@ end
 
 function M.fold_out()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
     local changed = false
     for _ = 1, vim.v.count1 do
-        if not expand_next_level(state, row.path) then
+        if not tree.expand_next_level(state, row.path) then
             break
         end
         changed = true
     end
     if changed then
-        render(state)
-        set_cursor_path(state, row.path)
+        view.render(state)
+        view.set_cursor_path(state, row.path)
     end
 end
 
 function M.fold_out_recursive()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
-    local changed = expand_all_dirs(state, row.path)
+    local changed = tree.expand_all_dirs(state, row.path)
     if changed then
-        render(state)
-        set_cursor_path(state, row.path)
+        view.render(state)
+        view.set_cursor_path(state, row.path)
     end
 end
 
 function M.fold_in()
     local state = store.get()
-    local row = current_row(state)
-    local path, target_depth = collapse_target(state, row)
+    local row = view.current_row(state)
+    local path, target_depth = tree.collapse_target(state, row)
     if not row or not row.path or not path or not target_depth then
         return
     end
     local changed = false
     for _ = 1, vim.v.count1 do
-        if not collapse_deepest_visible_dirs(state, path, target_depth) then
+        if not tree.collapse_deepest_visible_dirs(state, path, target_depth) then
             break
         end
         changed = true
-        -- collapse_deepest_visible_dirs reads state.tree_rows to find the deepest
+        -- tree.collapse_deepest_visible_dirs reads state.tree_rows to find the deepest
         -- level, so refresh it between iterations before collapsing the next one.
-        state.tree_rows = build_tree_rows(state)
+        state.tree_rows = view.build_tree_rows(state)
     end
     if changed then
-        render(state)
-        if not set_cursor_path(state, row.path) then
-            set_cursor_path(state, path)
+        view.render(state)
+        if not view.set_cursor_path(state, row.path) then
+            view.set_cursor_path(state, path)
         end
     end
 end
 
 function M.fold_in_recursive()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
-    local changed = clear_expanded_subtree(state, row.path)
+    local changed = tree.clear_expanded_subtree(state, row.path)
     if changed then
-        render(state)
-        set_cursor_path(state, row.path)
+        view.render(state)
+        view.set_cursor_path(state, row.path)
     end
 end
 
 function M.close_dir()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
@@ -1750,8 +955,8 @@ function M.close_dir()
     -- on the next expand.
     if state.expanded_dirs[row.path] then
         state.expanded_dirs[row.path] = nil
-        render(state)
-        set_cursor_path(state, row.path)
+        view.render(state)
+        view.set_cursor_path(state, row.path)
     end
 end
 
@@ -1773,23 +978,23 @@ local function visual_dir_rows_op(op)
     end
     exit_visual_mode()
     if changed then
-        render(state)
-        if not (anchor_row and anchor_row.path and set_cursor_path(state, anchor_row.path)) and first_path then
-            set_cursor_path(state, first_path)
+        view.render(state)
+        if not (anchor_row and anchor_row.path and view.set_cursor_path(state, anchor_row.path)) and first_path then
+            view.set_cursor_path(state, first_path)
         end
     end
 end
 
 function M.fold_out_visual()
-    visual_dir_rows_op(expand_next_level)
+    visual_dir_rows_op(tree.expand_next_level)
 end
 
 function M.fold_out_recursive_visual()
-    visual_dir_rows_op(expand_all_dirs)
+    visual_dir_rows_op(tree.expand_all_dirs)
 end
 
 function M.fold_in_recursive_visual()
-    visual_dir_rows_op(clear_expanded_subtree)
+    visual_dir_rows_op(tree.clear_expanded_subtree)
 end
 
 function M.fold_in_visual()
@@ -1800,7 +1005,7 @@ function M.fold_in_visual()
     local seen = {}
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        local path, target_depth = collapse_target(state, row)
+        local path, target_depth = tree.collapse_target(state, row)
         if path and target_depth and not seen[path] then
             seen[path] = true
             targets[#targets+1] = {path = path, depth = target_depth}
@@ -1810,15 +1015,15 @@ function M.fold_in_visual()
     -- and duplicate targets collapse a single level rather than compounding.
     local changed = false
     for _, target in ipairs(targets) do
-        if collapse_deepest_visible_dirs(state, target.path, target.depth) then
+        if tree.collapse_deepest_visible_dirs(state, target.path, target.depth) then
             changed = true
         end
     end
     exit_visual_mode()
     if changed then
-        render(state)
-        if not (anchor_row and anchor_row.path and set_cursor_path(state, anchor_row.path)) then
-            set_cursor_path(state, targets[1].path)
+        view.render(state)
+        if not (anchor_row and anchor_row.path and view.set_cursor_path(state, anchor_row.path)) then
+            view.set_cursor_path(state, targets[1].path)
         end
     end
 end
@@ -1826,7 +1031,7 @@ end
 local function render_marked_windows()
     store.each(function(state)
         if api.nvim_buf_is_valid(state.buf) then
-            render(state)
+            view.render(state)
         end
     end)
 end
@@ -1949,17 +1154,17 @@ local function paste_entries(state, entries, dest_dir, overwrite)
         -- stale cut/copy highlights until a manual reload.
         store.each(function(other)
             if other.buf ~= state.buf and api.nvim_buf_is_valid(other.buf) then
-                clear_listings(other)
-                render(other)
+                view.clear_listings(other)
+                view.render(other)
             end
         end)
         -- The user may have closed the dora window while the copy ran.
         if not api.nvim_buf_is_valid(state.buf) then
             return
         end
-        clear_listings(state)
-        render(state)
-        set_cursor_path(state, result)
+        view.clear_listings(state)
+        view.render(state)
+        view.set_cursor_path(state, result)
         local item_label = #entries == 1 and 'item' or 'items'
         util.info(('Pasted %d %s to %s'):format(#entries, item_label, util.display_path(dest_dir)))
     end)
@@ -2038,7 +1243,7 @@ local function paste_at(resolve_dest)
         util.err('Nothing to paste')
         return
     end
-    local row = current_row(state)
+    local row = view.current_row(state)
     local dest_dir = row and resolve_dest(row)
     if not row or not dest_dir then
         util.err('No paste destination')
@@ -2093,7 +1298,7 @@ function M.yank_filename(reg)
         util.err(msg)
         return
     end
-    local row = current_row(state)
+    local row = view.current_row(state)
     ---@cast row -nil  -- current_path() returned a path, so there is a row
     local filename = fs.basename(path)
     util.copy_value(filename, reg, reg == '+' and 'Yanked filename to clipboard' or 'Yanked filename', {
@@ -2117,7 +1322,7 @@ function M.yank_name(reg)
     local filename = fs.basename(path)
     local name = vim.fn.fnamemodify(filename, ':r')
     local message = reg == '+' and 'Yanked name without extension to clipboard' or 'Yanked name without extension'
-    local row = current_row(state)
+    local row = view.current_row(state)
     ---@cast row -nil  -- current_path() returned a path, so there is a row
     util.copy_value(name, reg, message, {
         line = api.nvim_win_get_cursor(0)[1],
@@ -2161,8 +1366,8 @@ local function remove_paths(state, paths, operation, action, anchor)
                     for _, removed_path in ipairs(removed_paths) do
                         clear_marked_paths_under(state, removed_path)
                     end
-                    clear_listings(state)
-                    render(state)
+                    view.clear_listings(state)
+                    view.render(state)
                 end
                 util.err(result)
                 return
@@ -2181,8 +1386,8 @@ local function remove_paths(state, paths, operation, action, anchor)
             for _, removed_path in ipairs(removed_paths) do
                 clear_marked_paths_under(state, removed_path)
             end
-            clear_listings(state)
-            render(state)
+            view.clear_listings(state)
+            view.render(state)
         end
     end, {
         anchor = anchor,
@@ -2195,7 +1400,7 @@ end
 ---@param action string
 local function remove_path(operation, action)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -2243,27 +1448,6 @@ function M.delete_visual()
     remove_visual_paths(fs.delete, 'Delete')
 end
 
--- Expand every ancestor of `path` up to state.cwd so a row for it can be
--- rendered, e.g. after restoring a file into a collapsed directory. Paths
--- outside the window's cwd have no row to reveal, so they are left alone.
----@param state DoraState
----@param path string
-local function expand_ancestors(state, path)
-    local prefix = state.cwd == '/' and '/' or state.cwd .. '/'
-    if not vim.startswith(path, prefix) then
-        return
-    end
-    local dir = fs.parent_dir(path)
-    while dir and dir ~= state.cwd and #dir > #state.cwd do
-        state.expanded_dirs[dir] = true
-        local parent = fs.parent_dir(dir)
-        if parent == dir then
-            break
-        end
-        dir = parent
-    end
-end
-
 -- Move every entry in `batch` back out of the trash to where it came from.
 -- Entries whose trash file is gone (the trash was emptied) are reported and
 -- skipped. Reveals the restored files and jumps to the first one in view.
@@ -2295,18 +1479,18 @@ local function restore_trash(batch)
     -- Reveal the restored files in the focused window, then rescan and redraw
     -- every dora window so none keep showing the gap the trash left behind.
     for _, path in ipairs(restored) do
-        expand_ancestors(state, path)
+        tree.expand_ancestors(state, path)
     end
     store.each(function(other)
         if api.nvim_buf_is_valid(other.buf) then
-            clear_listings(other)
-            render(other)
+            view.clear_listings(other)
+            view.render(other)
         end
     end)
     -- Jump to the first restored file that has a row in the focused window;
     -- restored[1] may have come from outside this window's cwd and have no row.
     for _, path in ipairs(restored) do
-        if set_cursor_path(state, path) then
+        if view.set_cursor_path(state, path) then
             break
         end
     end
@@ -2365,7 +1549,7 @@ end
 ---@param prefill boolean
 local function rename(prefill)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -2396,11 +1580,11 @@ local function rename(prefill)
                 util.err(err)
                 return
             end
-            rename_expanded_subtree(state, path, dest)
+            tree.rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)
-            clear_listings(state)
-            render(state)
-            set_cursor_path(state, dest)
+            view.clear_listings(state)
+            view.render(state)
+            view.set_cursor_path(state, dest)
         end
         if fs.exists(dest) and not fs.same_file(path, dest) then
             delete_win.delete({dest}, function(confirmed)
@@ -2429,7 +1613,7 @@ end
 ---@param under_directory? boolean
 local function create(under_directory)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     prompt.input({
         prompt = 'Add file or folder',
         cwd = state.cwd,
@@ -2451,7 +1635,7 @@ local function create(under_directory)
                 util.err(msg)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
-                clear_listings(state)
+                view.clear_listings(state)
                 -- Reveal the new entry by expanding the directories above it,
                 -- but leave the entry itself collapsed: `foo/bar/` expands
                 -- `foo` so `bar` shows without expanding `bar`, and `foo/`
@@ -2461,8 +1645,8 @@ local function create(under_directory)
                     state.expanded_dirs[dir] = true
                     dir = fs.parent_dir(dir)
                 end
-                render(state)
-                while cursor_path ~= state.cwd and not set_cursor_path(state, cursor_path) do
+                view.render(state)
+                while cursor_path ~= state.cwd and not view.set_cursor_path(state, cursor_path) do
                     cursor_path = fs.parent_dir(cursor_path)
                 end
             end
@@ -2480,7 +1664,7 @@ end
 
 function M.create_symlink()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -2507,19 +1691,19 @@ function M.create_symlink()
             util.err(err)
             return
         end
-        clear_listings(state)
-        render(state)
-        set_cursor_path(state, dest)
+        view.clear_listings(state)
+        view.render(state)
+        view.set_cursor_path(state, dest)
     end)
 end
 
 function M.toggle_hidden_files()
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     state.show_hidden_files = not state.show_hidden_files
-    render(state)
-    if not row or not row.path or not set_cursor_path(state, row.path) then
-        set_cursor_pos(state, row and row.display_name or nil)
+    view.render(state)
+    if not row or not row.path or not view.set_cursor_path(state, row.path) then
+        view.set_cursor_pos(state, row and row.display_name or nil)
     end
     util.info(state.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
 end
@@ -2535,7 +1719,7 @@ function M.shell_cmd()
         prompt = 'Shell command',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
-        anchor = current_name_anchor(current_row(state)),
+        anchor = current_name_anchor(view.current_row(state)),
     }, function(input)
         if not input or not api.nvim_buf_is_valid(state.buf) then
             return
@@ -2551,20 +1735,20 @@ function M.shell_cmd()
                 util.info(result:gsub('%s+$', ''))
             end
         end
-        clear_listings(state)
-        render(state)
+        view.clear_listings(state)
+        view.render(state)
     end)
 end
 
 ---@param order DoraSortOrder
 function M.sort_by(order)
     local state = store.get()
-    local row = current_row(state)
+    local row = view.current_row(state)
     local path = row and row.path or nil
     state.sort_order = sorter.normalize_order(order)
-    render(state)
+    view.render(state)
     if path then
-        set_cursor_path(state, path)
+        view.set_cursor_path(state, path)
     end
 end
 
@@ -2610,8 +1794,8 @@ end
 
 function M.reload()
     local state = store.get()
-    clear_listings(state)
-    render(state)
+    view.clear_listings(state)
+    view.render(state)
     util.info('Reloaded')
 end
 
@@ -2693,8 +1877,8 @@ function M.initialize(dir, from_au)
     keymaps.setup(buf, config)
     store.set(buf, state)
     setup_autocmds(buf)
-    render(state)
-    set_cursor_pos(state, origin_filename)
+    view.render(state)
+    view.set_cursor_pos(state, origin_filename)
 end
 
 return M
