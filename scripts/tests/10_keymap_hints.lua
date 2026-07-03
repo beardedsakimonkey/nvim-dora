@@ -233,6 +233,40 @@ do
     local old_show_keymap_hints = config.show_keymap_hints
 
     config.keymaps = {
+        zx = {function() vim.g.dora_smoke_hint_keymap = 'zx' end, desc='Xray'},
+    }
+    config.show_keymap_hints = true
+    vim.keymap.set('n', 'zt', function() vim.g.dora_smoke_global_keymap = 'zt' end, {desc='Global zt'})
+    vim.g.dora_smoke_global_keymap = nil
+    vim.g.dora_smoke_hint_keymap = nil
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
+    local prefix_map = vim.fn.maparg('z', 'n', false, true)
+    vim.api.nvim_feedkeys('t', 't', false)
+    prefix_map.callback()
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_eq(vim.g.dora_smoke_global_keymap, 'zt',
+        "keys that don't match a hint should fall through to the user's own mappings")
+    assert_eq(vim.g.dora_smoke_hint_keymap, nil, 'falling through should not dispatch a hint action')
+
+    vim.api.nvim_feedkeys('q', 't', false)
+    prefix_map.callback()
+    vim.api.nvim_feedkeys('', 'x', false)
+    assert_eq(vim.g.dora_smoke_global_keymap, 'zt',
+        'unmapped sequences should replay without remapping (and must not re-trigger the prefix)')
+    assert_eq(vim.g.dora_smoke_hint_keymap, nil, 'unmapped sequences should not dispatch a hint action')
+    api.quit()
+
+    vim.keymap.del('n', 'zt')
+    config.keymaps = old_keymaps
+    config.show_keymap_hints = old_show_keymap_hints
+end
+
+do
+    local old_keymaps = config.keymaps
+    local old_show_keymap_hints = config.show_keymap_hints
+
+    config.keymaps = {
         x = {function() vim.g.dora_smoke_hint_keymap = 'x' end, desc='Plain X'},
         xy = {function() vim.g.dora_smoke_hint_keymap = 'xy' end, desc='X Y'},
     }

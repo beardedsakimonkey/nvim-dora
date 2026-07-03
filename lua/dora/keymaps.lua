@@ -414,6 +414,17 @@ local function keymap_hint_groups(keymaps)
     return groups
 end
 
+-- Replay keys the hint reader consumed but didn't handle. Feed with
+-- remapping when a mapping exists for the sequence (e.g. a user's global
+-- ]t) so it still fires; unmapped sequences must stay unmapped, or a
+-- sequence starting with a hint prefix would re-trigger the prefix mapping
+-- and loop forever.
+---@param keys string
+local function replay_keys(keys)
+    local remap = not vim.tbl_isempty(vim.fn.maparg(keys, 'n', false, true))
+    api.nvim_feedkeys(keys, remap and 'm' or 'n', false)
+end
+
 ---@param prefix string
 ---@param group {lhs: string, key: string, action: DoraKeymapAction, desc: string}[]
 ---@param direct? {action: DoraKeymapAction, desc: string?}
@@ -435,14 +446,14 @@ local function show_keymap_hints(prefix, group, direct)
     if direct then
         dispatch_keymap_action(direct.action)
         if key then
-            api.nvim_feedkeys(key, 'n', false)
+            replay_keys(key)
         end
         return
     end
     if not key then
         return
     end
-    api.nvim_feedkeys(prefix .. key, 'n', false)
+    replay_keys(prefix .. key)
 end
 
 ---@param lhs string
