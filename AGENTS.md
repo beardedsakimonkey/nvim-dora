@@ -5,3 +5,45 @@
   filesystem watchers may repeatedly fire inside the sandbox and stall the run.
 - Regenerate README config docs with `PANVIMDOC_DIR=~/code/panvimdoc ./scripts/docs.sh`.
 - For ad hoc headless Neovim checks, set `NVIM_LOG_FILE=/dev/null` to avoid creating `nvim.log` in the repo and use `set noswapfile` to prevent swap-file errors.
+
+## Architecture
+
+Each dora window is a session: a scratch buffer named after the browsed
+directory, with a `DoraState` (cwd, cached listings, filter, marks) registered
+in `dora/store.lua`. Actions mutate that state or the filesystem, then
+re-render. The modules:
+
+- `plugin/dora.lua` — `:Dora`, highlight defaults, and the directory auto-open
+  autocmd. Requires no dora module until a command or autocmd fires.
+- `lua/dora.lua` — the config table and `setup()`. Modules capture
+  `require'dora'.config` at require time, so the table is merged in place and
+  never reassigned.
+- `lua/dora/api.lua` — every user-facing action (`M.*`), addressable by name
+  from the keymap config. Also owns session-global state: expanded
+  directories, cut/copy marks, trash history.
+- `lua/dora/actions.lua` — metadata registry for built-in actions
+  (description, help section, visual variant); keymaps.lua and help_win.lua
+  derive their tables from it.
+- `lua/dora/view.lua` — the render pipeline: listing cache (with fs watchers)
+  → tree/filter rows → buffer text + extmarks; also cursor placement.
+- `lua/dora/tree.lua` — operations on the expanded-directories set (folding,
+  and following renames/restores).
+- `lua/dora/store.lua` — dora buffer → `DoraState` registry.
+- `lua/dora/fs.lua` — filesystem ops, sync and async; renames editor buffers
+  so they follow moved files.
+- `lua/dora/buffer.lua` — dora buffer creation/naming and the
+  buffer-follows-file renames.
+- `lua/dora/keymaps.lua` — installs keymaps and prefix-hint windows; requires
+  api.lua lazily to avoid a require cycle.
+- `lua/dora/{confirm,filter,help,info,preview}_win.lua`, `prompt.lua` — UI
+  windows, sharing `window.lua` for float layout.
+
+## Adding an action
+
+1. Implement `M.<name>()` in `lua/dora/api.lua` (plus a `<name>_visual`
+   variant if it should act on visual selections).
+2. Register it in `lua/dora/actions.lua` with a description, help section,
+   and (if any) its visual variant.
+3. To ship a default mapping, add it to the keymaps in `lua/dora.lua` and
+   regenerate docs with `./scripts/docs.sh`.
+4. Cover it in the smoke suite.

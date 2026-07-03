@@ -1,3 +1,5 @@
+-- The `g?` help split: lists the configured mappings grouped into the
+-- sections defined by the action registry, plus saved bookmarks.
 local actions = require'dora.actions'
 local keymaps = require'dora.keymaps'
 local util = require'dora.util'

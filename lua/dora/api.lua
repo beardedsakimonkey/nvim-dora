@@ -1,3 +1,8 @@
+-- All user-facing actions. Every `M.*` function here can be bound by name in
+-- the keymap config (dora/actions.lua holds the registry of built-ins) and
+-- called directly via require'dora.api'. Actions read the current window's
+-- DoraState from dora/store.lua, mutate it or the filesystem, and re-render
+-- through dora/view.lua.
 local fs = require'dora.fs'
 local bookmarks = require'dora.bookmarks'
 local buffer = require'dora.buffer'
@@ -267,10 +272,15 @@ local function visual_line_range()
     return start_line, end_line
 end
 
+-- Queue an <Esc> through the typeahead to leave visual mode once the current
+-- mapping finishes. Fine for actions that stay in the dora buffer.
 local function exit_visual_mode()
     api.nvim_feedkeys(api.nvim_replace_termcodes('<Esc>', true, false, true), 'n', false)
 end
 
+-- Leave visual mode right now (:normal! runs synchronously). Needed before an
+-- action switches buffers or windows: a queued <Esc> would only fire after the
+-- switch, in whatever buffer ends up current.
 local function exit_visual_mode_now()
     vim.cmd.normal({args={api.nvim_replace_termcodes('<Esc>', true, false, true)}, bang=true})
 end

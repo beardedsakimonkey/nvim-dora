@@ -1,3 +1,6 @@
+-- The toggleable preview split: shows the head of the hovered file in a
+-- lightweight scratch buffer (highlighted without running ftplugins), and
+-- swaps in the real buffer when the preview window is focused.
 local window = require'dora.window'
 local util = require'dora.util'
 local config = require'dora'.config

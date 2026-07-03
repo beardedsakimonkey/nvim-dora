@@ -1,3 +1,5 @@
+-- Small general-purpose helpers: notifications, path display for messages,
+-- and the register-copy helper behind the yank_* actions.
 local M = {}
 
 local api = vim.api

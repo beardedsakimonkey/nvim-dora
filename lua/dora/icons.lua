@@ -1,3 +1,5 @@
+-- File icon lookup with pluggable providers (nvim-web-devicons or mini.icons)
+-- and built-in fallbacks for directories and symlinks.
 local M = {}
 
 local devicons

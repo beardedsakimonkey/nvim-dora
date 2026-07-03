@@ -1,3 +1,6 @@
+-- Installs dora's buffer-local keymaps, resolving each spec (a built-in
+-- action name, a function, or a Vim RHS string) against the action registry,
+-- and renders the which-key-style hint window for two-key prefixes.
 local actions = require'dora.actions'
 local window = require'dora.window'
 

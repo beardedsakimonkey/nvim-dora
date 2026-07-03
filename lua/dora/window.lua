@@ -1,3 +1,6 @@
+-- Shared float helpers: window/buffer validity checks and the layout that
+-- anchors dora's floats to a buffer row, centering them in the editor when
+-- the anchor is offscreen.
 local api = vim.api
 
 local M = {}

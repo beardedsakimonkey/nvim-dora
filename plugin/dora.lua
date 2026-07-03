@@ -1,3 +1,6 @@
+-- Plugin entry point: defines the Dora highlight groups, the :Dora command,
+-- and the auto-open autocmd for directory buffers. Requires no dora module
+-- until a command or autocmd fires, keeping startup cost near zero.
 if vim.g.loaded_dora then
     return
 end
@@ -56,6 +59,7 @@ api.nvim_create_user_command('Dora', function(o)
     require'dora.api'.initialize(o.args ~= '' and vim.fn.expand(o.args) or '')
 end, {bar=true, nargs='?', complete='dir'})
 
+-- Duplicated from dora/buffer.lua so startup stays require-free.
 local function buf_has_var(buf, var_name)
     local ok, ret = pcall(api.nvim_buf_get_var, buf, var_name)
     return ok and ret or false

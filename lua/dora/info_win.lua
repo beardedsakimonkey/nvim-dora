@@ -1,3 +1,5 @@
+-- The file-info float: stat details (type, size, times, permissions, owner)
+-- for the hovered entry.
 local api = vim.api
 local uv = vim.uv
 

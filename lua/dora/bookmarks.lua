@@ -1,3 +1,7 @@
+-- Directory bookmarks: `m` sets a single-key bookmark (shared by all dora
+-- windows for the session) and `'` jumps to one; the reserved `''` jumps to
+-- the previous directory, restored from a window variable so it survives
+-- :mksession sessions.
 local util = require'dora.util'
 
 local M = {}

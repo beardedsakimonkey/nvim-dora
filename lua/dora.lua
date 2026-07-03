@@ -1,3 +1,5 @@
+-- Public entry point: the plugin config and setup(). Everything else lives
+-- under lua/dora/ -- see AGENTS.md for a map of the modules.
 local M = {}
 
 ---@alias DoraFileType 'file'|'directory'|'link'
@@ -31,6 +33,9 @@ local M = {}
 ---@field prompt_insert_esc_closes boolean
 ---@field preview_split 'left'|'right'|'above'|'below'
 
+-- NOTE: Other modules capture this table at require time
+-- (`local config = require'dora'.config`), so setup() merges into it in
+-- place; the table must never be reassigned.
 ---@type DoraConfig
 M.config = {
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use

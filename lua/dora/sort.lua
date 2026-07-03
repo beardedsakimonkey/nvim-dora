@@ -1,3 +1,5 @@
+-- File sorting: natural (numeric-aware) name comparison plus the modified/
+-- created/size/extension orders, with directories always grouped first.
 local M = {}
 
 local VALID_SORT_ORDERS = {

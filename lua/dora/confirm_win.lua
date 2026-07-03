@@ -1,3 +1,6 @@
+-- Floating confirmation window shown before destructive or conflicting
+-- operations: trash/delete, paste (including keep-both vs overwrite conflict
+-- resolution), overwriting renames, and undo-trash restores.
 local api = vim.api
 local uv = vim.uv
 

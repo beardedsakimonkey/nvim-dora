@@ -1,3 +1,7 @@
+-- Filesystem operations: listing and watching directories, create/rename/
+-- delete, trash/untrash, and synchronous + asynchronous copy/move. Everything
+-- is path-based; the only editor state touched is renaming buffers to follow
+-- moved files (see move below).
 local buffer = require'dora.buffer'
 local util = require'dora.util'
 local uv = vim.uv

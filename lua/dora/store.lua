@@ -1,3 +1,6 @@
+-- Registry mapping each dora buffer to its DoraState: the per-window session
+-- state every other module reads and mutates. States are created by
+-- api.initialize() and removed when their buffer is wiped.
 local M = {}
 
 ---@alias DoraPasteOperation 'copy'|'cut'
