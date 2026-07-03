@@ -1,6 +1,11 @@
 # Repository Notes
 
-- Run the full smoke suite with `./scripts/smoke.sh`.
+- Run the full smoke suite with `./scripts/smoke.sh`. The tests live in
+  `scripts/tests/*.lua`, one file per area, run in order by
+  `scripts/smoke.lua`; run a single file with
+  `DORA_TEST_FILE=scripts/tests/<name>.lua` using the nvim invocation from
+  `scripts/smoke.sh` (later files may assume state left by earlier ones, so
+  the full suite is authoritative).
 - When running the smoke suite from Codex, use sandbox escalation. Neovim's
   filesystem watchers may repeatedly fire inside the sandbox and stall the run.
 - Regenerate README config docs with `PANVIMDOC_DIR=~/code/panvimdoc ./scripts/docs.sh`.
@@ -46,4 +51,4 @@ re-render. The modules:
    and (if any) its visual variant.
 3. To ship a default mapping, add it to the keymaps in `lua/dora.lua` and
    regenerate docs with `./scripts/docs.sh`.
-4. Cover it in the smoke suite.
+4. Cover it in the smoke suite (`scripts/tests/`).
