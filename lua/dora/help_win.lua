@@ -1,3 +1,4 @@
+local actions = require'dora.actions'
 local keymaps = require'dora.keymaps'
 local util = require'dora.util'
 local window = require'dora.window'
@@ -5,60 +6,6 @@ local window = require'dora.window'
 local api = vim.api
 
 local M = {}
-
-local SECTIONS = {
-    {
-        name = 'General',
-        actions = {'help', 'quit'},
-    },
-    {
-        name = 'Navigation',
-        actions = {
-            'up_dir', 'next_sibling', 'prev_sibling', 'last_sibling', 'first_sibling',
-            'next_mark', 'prev_mark',
-            'fold_out', 'fold_out_recursive', 'fold_in', 'fold_in_recursive', 'close_dir',
-            'parent_dir', 'home_dir', 'set_bookmark', 'jump_bookmark',
-        },
-    },
-    {
-        name = 'Open',
-        actions = {
-            'open', 'open_split', 'open_vsplit', 'open_tab',
-            'open_split_stay', 'open_vsplit_stay', 'open_tab_stay', 'open_external',
-        },
-    },
-    {
-        name = 'File Operations',
-        actions = {
-            'add_under', 'add', 'create_symlink', 'rename', 'rename_empty', 'trash', 'delete', 'undo_trash',
-            'toggle_cut', 'clear_cut', 'toggle_copy', 'clear_copy',
-            'paste_under', 'paste', 'shell_cmd',
-        },
-    },
-    {
-        name = 'View',
-        actions = {'filter', 'clear_filter', 'file_info', 'toggle_hidden_files', 'toggle_preview', 'reload'},
-    },
-    {
-        name = 'Yank',
-        actions = {
-            'yank_file_path', 'yank_file_path_clipboard',
-            'yank_dir_path', 'yank_dir_path_clipboard',
-            'yank_filename', 'yank_filename_clipboard',
-            'yank_name', 'yank_name_clipboard',
-        },
-    },
-    {
-        name = 'Sort',
-        actions = {
-            'sort_by_name', 'sort_by_name_desc',
-            'sort_by_modified', 'sort_by_modified_desc',
-            'sort_by_created', 'sort_by_created_desc',
-            'sort_by_size', 'sort_by_size_desc',
-            'sort_by_extension', 'sort_by_extension_desc',
-        },
-    },
-}
 
 ---@class DoraHelpRow
 ---@field lhs? string
@@ -70,14 +17,16 @@ local SECTIONS = {
 ---@return table<string, DoraHelpRow[]>
 local function keymap_sections(mappings)
     local sections = {}
+    for _, name in ipairs(actions.SECTIONS) do
+        sections[name] = {}
+    end
     local action_sections = {}
     local action_order = {}
-    for _, section in ipairs(SECTIONS) do
-        sections[section.name] = {}
-        for i, action in ipairs(section.actions) do
-            action_sections[action] = section.name
-            action_order[action] = i
-        end
+    local section_counts = {}
+    for _, meta in ipairs(actions.ACTIONS) do
+        action_sections[meta.name] = meta.section
+        section_counts[meta.section] = (section_counts[meta.section] or 0) + 1
+        action_order[meta.name] = section_counts[meta.section]
     end
     sections.Other = {}
 
@@ -131,8 +80,8 @@ local function rows(config, bookmark_rows)
         vim.list_extend(ret, section_rows)
     end
 
-    for _, section in ipairs(SECTIONS) do
-        add_section(section.name)
+    for _, name in ipairs(actions.SECTIONS) do
+        add_section(name)
     end
     add_section('Other')
     return ret

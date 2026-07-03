@@ -1,3 +1,4 @@
+local actions = require'dora.actions'
 local window = require'dora.window'
 
 local api = vim.api
@@ -14,98 +15,6 @@ local HINT_KEY_ORDERS = {
     y = {f=1, y=2, d=3, n=4},
 }
 
-local ACTION_DESCRIPTIONS = {
-    quit = 'Quit',
-    up_dir = 'Up directory',
-    next_sibling = 'Next sibling',
-    prev_sibling = 'Previous sibling',
-    last_sibling = 'Last sibling',
-    first_sibling = 'First sibling',
-    parent_dir = 'Go to parent directory',
-    fold_out = 'Fold out directory',
-    fold_out_recursive = 'Fold out directory recursively',
-    fold_in = 'Fold in directory',
-    fold_in_recursive = 'Fold in directory recursively',
-    close_dir = 'Close directory',
-    filter = 'Filter visible files',
-    clear_filter = 'Clear filter',
-    reload = 'Reload listing',
-    open = 'Open',
-    open_split = 'Open in split',
-    open_vsplit = 'Open in vertical split',
-    open_tab = 'Open in tab',
-    open_split_stay = 'Open in split (stay)',
-    open_vsplit_stay = 'Open in vertical split (stay)',
-    open_tab_stay = 'Open in tab (stay)',
-    file_info = 'Show file info',
-    trash = 'Move file to trash (Mac/Linux)',
-    delete = 'Delete file permanently',
-    undo_trash = 'Restore the most recently trashed files',
-    add = 'Add file',
-    add_under = 'Add file under directory',
-    create_symlink = 'Add symlink to file',
-    rename = 'Rename file',
-    rename_empty = 'Rename file with empty prompt',
-    set_bookmark = 'Set bookmark',
-    jump_bookmark = 'Jump to bookmark',
-    toggle_cut = 'Toggle cut mark',
-    toggle_copy = 'Toggle copy mark',
-    next_mark = 'Next paste mark',
-    prev_mark = 'Previous paste mark',
-    paste_under = 'Paste under directory',
-    paste = 'Paste',
-    clear_cut = 'Clear all cut marks',
-    clear_copy = 'Clear all copy marks',
-    home_dir = 'Go to home directory',
-    open_external = 'Open externally',
-    shell_cmd = 'Shell command on file',
-    toggle_hidden_files = 'Toggle hidden files',
-    toggle_preview = 'Toggle file preview',
-    help = 'Show help',
-    yank_filename = 'Yank filename',
-    yank_file_path = 'Yank full path',
-    yank_file_path_clipboard = 'Yank full path to clipboard',
-    yank_dir_path = 'Yank parent directory',
-    yank_dir_path_clipboard = 'Yank parent directory to clipboard',
-    yank_filename_clipboard = 'Yank filename to clipboard',
-    yank_name = 'Yank name without extension',
-    yank_name_clipboard = 'Yank name without extension to clipboard',
-    sort_by_name = 'Sort by name',
-    sort_by_name_desc = 'Sort by name (descending)',
-    sort_by_modified = 'Sort by modified time',
-    sort_by_modified_desc = 'Sort by modified time (descending)',
-    sort_by_created = 'Sort by creation time',
-    sort_by_created_desc = 'Sort by creation time (descending)',
-    sort_by_size = 'Sort by size',
-    sort_by_size_desc = 'Sort by size (descending)',
-    sort_by_extension = 'Sort by extension',
-    sort_by_extension_desc = 'Sort by extension (descending)',
-}
-
-local VISUAL_KEYMAP_ACTIONS = {
-    fold_in = 'fold_in_visual',
-    fold_in_recursive = 'fold_in_recursive_visual',
-    delete = 'delete_visual',
-    fold_out = 'fold_out_visual',
-    fold_out_recursive = 'fold_out_recursive_visual',
-    first_sibling = 'first_sibling',
-    last_sibling = 'last_sibling',
-    next_sibling = 'next_sibling',
-    open = 'open_visual',
-    open_split = 'open_split_visual',
-    open_split_stay = 'open_split_stay_visual',
-    open_tab = 'open_tab_visual',
-    open_tab_stay = 'open_tab_stay_visual',
-    open_vsplit = 'open_vsplit_visual',
-    open_vsplit_stay = 'open_vsplit_stay_visual',
-    open_external = 'open_external_visual',
-    parent_dir = 'parent_dir',
-    prev_sibling = 'prev_sibling',
-    toggle_copy = 'toggle_copy_visual',
-    toggle_cut = 'toggle_cut_visual',
-    trash = 'trash_visual',
-}
-
 ---@param rhs DoraKeymapSpec
 ---@return DoraKeymapAction action
 ---@return string? desc
@@ -113,17 +22,17 @@ function M.resolve(rhs)
     if type(rhs) == 'table' then
         assert(rhs[1], 'keymap table must include an action at index 1')
         local action = rhs[1]
-        local desc = rhs.desc or (type(action) == 'string' and ACTION_DESCRIPTIONS[action] or nil)
+        local desc = rhs.desc or (type(action) == 'string' and actions.descriptions[action] or nil)
         return action, desc
     end
-    local desc = type(rhs) == 'string' and ACTION_DESCRIPTIONS[rhs] or nil
+    local desc = type(rhs) == 'string' and actions.descriptions[rhs] or nil
     return rhs, desc
 end
 
 ---@param action DoraKeymapAction
 ---@return boolean
 function M.has_visual_variant(action)
-    return type(action) == 'string' and VISUAL_KEYMAP_ACTIONS[action] ~= nil
+    return type(action) == 'string' and actions.visual_variants[action] ~= nil
 end
 
 ---@return DoraKeymapContext
@@ -536,7 +445,7 @@ function M.derive_visual_keymaps(keymaps)
     local ret = {}
     for lhs, rhs in pairs(keymaps or {}) do
         local action, desc = M.resolve(rhs)
-        local visual_action = type(action) == 'string' and VISUAL_KEYMAP_ACTIONS[action] or nil
+        local visual_action = type(action) == 'string' and actions.visual_variants[action] or nil
         if visual_action then
             ret[lhs] = desc and {visual_action, desc=desc} or visual_action
         end
