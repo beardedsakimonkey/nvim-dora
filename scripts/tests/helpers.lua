@@ -63,6 +63,14 @@ local function wait_for_paste()
     end), 'paste did not finish')
 end
 
+-- Trash/delete are asynchronous like paste; pump the event loop until the
+-- in-flight removal finishes before asserting on its result.
+local function wait_for_remove()
+    assert(vim.wait(5000, function()
+        return not store.get().remove_in_progress
+    end), 'remove did not finish')
+end
+
 local function clear_persisted_view_state(win)
     pcall(vim.api.nvim_win_del_var, win or 0, 'dora_previous_directory')
 end
@@ -233,6 +241,7 @@ local H = {
     write_file = write_file,
     marked_path_count = marked_path_count,
     wait_for_paste = wait_for_paste,
+    wait_for_remove = wait_for_remove,
     clear_persisted_view_state = clear_persisted_view_state,
     lines = lines,
     buf_lines = buf_lines,

@@ -1,7 +1,7 @@
 -- Filesystem operations: listing and watching directories, create/rename/
--- delete, trash/untrash, and synchronous + asynchronous copy/move. Everything
--- is path-based; the only editor state touched is renaming buffers to follow
--- moved files (see move below).
+-- delete, trash/untrash, and synchronous + asynchronous copy/move/remove.
+-- Everything is path-based; the only editor state touched is renaming buffers
+-- to follow moved files (see move below).
 local buffer = require'dora.buffer'
 local util = require'dora.util'
 local uv = vim.uv
@@ -378,31 +378,23 @@ function M.delete(path)
     vim.fs.rm(path, {recursive = M.is_dir(path)})
 end
 
--- Move `path` into the system trash, returning the trash entry it landed at so
--- the move can later be undone (see M.untrash). Returns false when trashing is
--- unsupported (Windows), so callers can distinguish "skipped" from "trashed".
----@param path string
----@return string|false dest
-function M.trash(path)
-    assert(M.exists(path), ("%s doesn't exist"):format(path))
+-- Where trashed files go on this platform, or nil (with a message) where
+-- trashing is unsupported (Windows).
+---@return string? dir
+---@return string? err
+local function trash_dir()
     local sysname = uv.os_uname().sysname
-    local trash_dir
     if sysname:match('Windows') then
-        util.err('Trash is not currently supported on Windows')
-        return false
-    elseif sysname == 'Darwin' then
-        trash_dir = vim.fs.joinpath(assert(os.getenv'HOME'), '.Trash')
-    else
-        local data_home = os.getenv'XDG_DATA_HOME' or vim.fs.joinpath(assert(os.getenv'HOME'), '.local/share')
-        trash_dir = vim.fs.joinpath(data_home, 'Trash/files')
+        return nil, 'Trash is not currently supported on Windows'
     end
-    assert(vim.fn.mkdir(trash_dir, 'p') == 1)
-    local dest = M.nonclobber_dest(vim.fs.joinpath(trash_dir, M.basename(path)))
-    move(path, dest)
-    return dest
+    if sysname == 'Darwin' then
+        return vim.fs.joinpath(assert(os.getenv'HOME'), '.Trash')
+    end
+    local data_home = os.getenv'XDG_DATA_HOME' or vim.fs.joinpath(assert(os.getenv'HOME'), '.local/share')
+    return vim.fs.joinpath(data_home, 'Trash/files')
 end
 
--- Restore a trashed entry to where it came from, undoing M.trash. The original
+-- Restore a trashed entry to where it came from, undoing a trash. The original
 -- location may now be occupied (something new took the name) or its parent dir
 -- may have been removed since, so restore to a non-clobbering sibling and
 -- recreate any missing parents. Returns the path it was restored to.
@@ -622,6 +614,7 @@ local function a_copyfile(src, dest) return function(cb) uv.fs_copyfile(src, des
 local function a_symlink(target, dest) return function(cb) uv.fs_symlink(target, dest, nil, cb) end end
 local function a_unlink(path) return function(cb) uv.fs_unlink(path, cb) end end
 local function a_rmdir(path) return function(cb) uv.fs_rmdir(path, cb) end end
+local function a_rename(src, dest) return function(cb) uv.fs_rename(src, dest, cb) end end
 
 ---@class DoraPasteProgress
 ---@field files integer Files and symlinks copied so far
@@ -676,20 +669,23 @@ local function rm_a(path)
     end
 end
 
--- Async analogue of move(). A same-filesystem rename is instant, so it stays a
--- single synchronous call; only the cross-filesystem (EXDEV) copy+delete
--- fallback runs asynchronously. Returns a pending buffer rename to apply on the
--- main loop, mirroring move()'s util.rename_buffers call -- which can't run
--- here because this executes in a libuv "fast" callback context.
+-- Async analogue of move(). Even a same-filesystem rename goes through the
+-- async API: it is normally instant, but a stalled syscall (a network mount, a
+-- macOS privacy consultation on e.g. ~/.Trash) must not block the main loop.
+-- Returns a pending buffer rename to apply on the main loop, mirroring move()'s
+-- buffer.rename_buffers call -- which can't run here because this executes in a
+-- libuv "fast" callback context.
 ---@param src string
 ---@param dest string
 ---@param progress DoraPasteProgress
 ---@return {src: string, dest: string}?
 local function move_a(src, dest, progress)
     local src_is_dir = M.is_dir(src)
-    local ok, err, errname = uv.fs_rename(src, dest)
-    if not ok then
-        if errname ~= 'EXDEV' then
+    -- A raw yield instead of await: an EXDEV failure is expected (the rename
+    -- crossed filesystems) and falls back to copy+delete rather than erroring.
+    local err = coroutine.yield(a_rename(src, dest))
+    if err then
+        if not vim.startswith(err, 'EXDEV') then
             error(err, 0)
         end
         copy_entry_a(src, dest, progress)
@@ -762,6 +758,63 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                 end
             end
             on_done(ok, result)
+        end)
+    end)
+end
+
+-- The results of a remove_async batch, mutated in place as paths complete so a
+-- mid-batch failure still reports the entries that were removed.
+---@class DoraRemoveResults
+---@field removed string[] Paths no longer at their original location
+---@field undo_batch {original: string, trashed: string}[] Trash entries, for M.untrash
+
+-- Asynchronously trash or permanently delete each path -- the removal analogue
+-- of paste_async. The work runs through libuv's async fs API so a slow
+-- filesystem (a network mount, a macOS privacy consultation, a large recursive
+-- delete) doesn't freeze the editor.
+---@param paths string[]
+---@param mode 'trash'|'delete'
+---@param results DoraRemoveResults
+---@param on_done fun(ok: boolean, err?: string)
+function M.remove_async(paths, mode, results, on_done)
+    -- Collected outside the coroutine so buffers editing files trashed before a
+    -- mid-batch failure still follow them into the trash.
+    local buffer_renames = {}
+    run(function()
+        local dest_dir
+        if mode == 'trash' then
+            local dir, err = trash_dir()
+            if not dir then
+                error(err, 0)
+            end
+            -- Before the first await, so still on the main loop where vim.fn
+            -- is allowed.
+            assert(vim.fn.mkdir(dir, 'p') == 1)
+            dest_dir = dir
+        end
+        local progress = {files = 0, bytes = 0}
+        for _, path in ipairs(paths) do
+            assert(M.exists(path), ("%s doesn't exist"):format(path))
+            if mode == 'trash' then
+                local dest = M.nonclobber_dest(vim.fs.joinpath(dest_dir, M.basename(path)))
+                local rename = move_a(path, dest, progress)
+                if rename then
+                    buffer_renames[#buffer_renames+1] = rename
+                end
+                results.undo_batch[#results.undo_batch+1] = {original = path, trashed = dest}
+            else
+                rm_a(path)
+            end
+            results.removed[#results.removed+1] = path
+        end
+    end, function(ok, err)
+        -- libuv callbacks run in a "fast" context; defer to a normal one so the
+        -- completion handler and buffer.rename_buffers can touch the editor.
+        vim.schedule(function()
+            for _, rename in ipairs(buffer_renames) do
+                buffer.rename_buffers(rename.src, rename.dest)
+            end
+            on_done(ok, err)
         end)
     end)
 end

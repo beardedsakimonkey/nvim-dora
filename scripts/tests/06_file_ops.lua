@@ -20,6 +20,7 @@ local current_line = h.current_line
 local find_line_index = h.find_line_index
 local set_cursor_pos = h.set_cursor_pos
 local win_title = h.win_title
+local wait_for_remove = h.wait_for_remove
 
 do
     local tmp = vim.fn.tempname()
@@ -266,31 +267,40 @@ do
 end
 
 do
+    -- Trash moves files into the real trash, so point HOME/XDG at a temp trash
+    -- for the duration of the test.
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    local trash_dir = vim.loop.os_uname().sysname == 'Darwin'
+        and tmp .. '/home/.Trash'
+        or tmp .. '/data/Trash/files'
     touch(tmp .. '/trashed.txt')
-    local old_trash = fs.trash
-    ---@diagnostic disable-next-line: duplicate-set-field
-    fs.trash = function(path)
-        vim.g.dora_smoke_trashed_path = path
-        assert_eq(vim.fn.delete(path), 0)
-    end
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    local state = store.get()
     set_cursor_pos('trashed.txt')
     api.trash()
 
     local confirm_win = vim.api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Trash%?')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
 
-    assert_eq(vim.g.dora_smoke_trashed_path, state.cwd .. '/trashed.txt')
     assert(not fs.exists(tmp .. '/trashed.txt'), 'trash should remove the file from the listing source')
+    assert(fs.exists(trash_dir .. '/trashed.txt'), 'trash should move the file into the trash directory')
+
+    -- Drain the shared undo history so later undo tests start from a clean slate.
+    api.undo_trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(tmp .. '/trashed.txt'), 'undo should restore the trashed file')
 
     api.quit()
-    fs.trash = old_trash
-    vim.g.dora_smoke_trashed_path = nil
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
@@ -306,6 +316,7 @@ do
     local confirm_win = vim.api.nvim_get_current_win()
     assert_match(win_title(confirm_win), 'Delete%?')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
 
     assert(not fs.exists(tmp .. '/deleted.txt'), 'delete should permanently remove the file')
 
@@ -314,18 +325,19 @@ do
 end
 
 do
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    local trash_dir = vim.loop.os_uname().sysname == 'Darwin'
+        and tmp .. '/home/.Trash'
+        or tmp .. '/data/Trash/files'
     touch(tmp .. '/a')
     touch(tmp .. '/b')
     touch(tmp .. '/c')
-    local trashed_paths = {}
-    local old_trash = fs.trash
-    ---@diagnostic disable-next-line: duplicate-set-field
-    fs.trash = function(path)
-        trashed_paths[#trashed_paths+1] = path
-        assert_eq(vim.fn.delete(path), 0)
-    end
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
@@ -342,16 +354,23 @@ do
     assert_eq(first_item_pos.row, pos.row, 'visual trash confirmation should superimpose onto the first selected row')
     assert_eq(first_item_pos.col, pos.col, 'visual trash confirmation should superimpose onto the first selected row')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
 
-    assert_eq(#trashed_paths, 2, 'visual trash should trash each selected file')
-    assert_eq(trashed_paths[1], state.cwd .. '/a')
-    assert_eq(trashed_paths[2], state.cwd .. '/b')
     assert(not fs.exists(tmp .. '/a'), 'visual trash should remove selected file a')
     assert(not fs.exists(tmp .. '/b'), 'visual trash should remove selected file b')
     assert(fs.exists(tmp .. '/c'), 'visual trash should leave unselected files')
+    assert(fs.exists(trash_dir .. '/a'), 'visual trash should move selected file a into the trash')
+    assert(fs.exists(trash_dir .. '/b'), 'visual trash should move selected file b into the trash')
+
+    -- Drain the shared undo history so later undo tests start from a clean slate.
+    api.undo_trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(tmp .. '/a'), 'undo should restore the whole visual batch')
+    assert(fs.exists(tmp .. '/b'), 'undo should restore the whole visual batch')
 
     api.quit()
-    fs.trash = old_trash
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
@@ -381,6 +400,7 @@ do
     api.trash()
     assert_match(win_title(vim.api.nvim_get_current_win()), 'Trash%?')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
     assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before undo')
 
     -- Undo lists the files it will restore and only restores once confirmed; its
@@ -421,6 +441,7 @@ do
     set_cursor_pos('undo.txt')
     api.trash()
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
     assert(not fs.exists(tmp .. '/undo.txt'), 'trash should remove the file before the cancelled undo')
     api.undo_trash()
     vim.api.nvim_feedkeys('n', 'xt', false)
@@ -466,6 +487,7 @@ do
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('Vjd', true, false, true), 'xt', false)
     assert_match(win_title(vim.api.nvim_get_current_win()), 'Trash 2 files%?')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
     assert(not fs.exists(tmp .. '/a'), 'visual trash should remove a')
     assert(not fs.exists(tmp .. '/b'), 'visual trash should remove b')
 
@@ -508,6 +530,7 @@ do
     set_cursor_pos('mydir')
     api.trash()
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
     assert(not fs.exists(tmp .. '/mydir'), 'trash should remove the directory before undo')
 
     api.undo_trash()
@@ -544,6 +567,7 @@ do
     assert_eq(first_item_pos.row, pos.row, 'visual delete confirmation should superimpose onto the first selected row')
     assert_eq(first_item_pos.col, pos.col, 'visual delete confirmation should superimpose onto the first selected row')
     vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
 
     assert(not fs.exists(tmp .. '/alpha'), 'visual delete should remove selected file alpha')
     assert(not fs.exists(tmp .. '/beta'), 'visual delete should remove selected file beta')

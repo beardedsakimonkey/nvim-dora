@@ -98,18 +98,16 @@ assert_eq(
     'Windows symlink targets should remain unchanged'
 )
 
-local notifications = {}
-local old_notify = vim.notify
-vim.notify = function(msg, level)
-    notifications[#notifications+1] = {msg = msg, level = level}
-end
 local trash_path = vim.fs.joinpath(tmp, 'trash.txt')
 touch(trash_path)
-assert_eq(fs.trash(trash_path), false, 'trash should report unsupported on Windows')
+local trash_err
+fs.remove_async({trash_path}, 'trash', {removed = {}, undo_batch = {}}, function(ok, err)
+    trash_err = not ok and err or 'unexpected success'
+end)
+assert(vim.wait(5000, function() return trash_err ~= nil end), 'trash should finish')
 assert(fs.exists(trash_path), 'unsupported trash should leave the file in place')
-assert(notifications[#notifications].msg:find('not currently supported on Windows', 1, true) ~= nil,
+assert(trash_err:find('not currently supported on Windows', 1, true) ~= nil,
     'trash should explain that Windows is unsupported')
-vim.notify = old_notify
 
 vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
 set_cursor('alpha.txt')

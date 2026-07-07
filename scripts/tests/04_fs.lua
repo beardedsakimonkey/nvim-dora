@@ -87,14 +87,22 @@ do
     assert(vim.loop.fs_mkdir(trash_dir .. '/bar', tonumber('755', 8)))
     touch(tmp .. '/bar')
 
-    fs.trash(tmp .. '/foo')
-    fs.trash(tmp .. '/bar')
+    local results = {removed = {}, undo_batch = {}}
+    local done
+    fs.remove_async({tmp .. '/foo', tmp .. '/bar'}, 'trash', results, function(ok, err)
+        done = ok or err
+    end)
+    assert(vim.wait(5000, function() return done ~= nil end), 'trash should finish')
+    assert_eq(done, true)
     assert(not fs.exists(tmp .. '/foo'), 'trash should remove source files')
     assert(not fs.exists(tmp .. '/bar'), 'trash should remove source files when destination name collides with a directory')
     assert(fs.exists(trash_dir .. '/foo'), 'trash should preserve existing trash entries')
     assert(fs.exists(trash_dir .. '/foo(1)'), 'trash should suffix colliding file names')
     assert(fs.exists(trash_dir .. '/bar'), 'trash should preserve existing trash directories')
     assert(fs.exists(trash_dir .. '/bar(1)'), 'trash should suffix colliding directory names')
+    assert_eq(#results.removed, 2, 'trash should report each removed path')
+    assert_eq(results.undo_batch[1].trashed, trash_dir .. '/foo(1)', 'trash should pair each file with its trash entry')
+    assert_eq(results.undo_batch[2].trashed, trash_dir .. '/bar(1)', 'trash should pair each directory with its trash entry')
 
     vim.env.HOME = old_home
     vim.env.XDG_DATA_HOME = old_data_home

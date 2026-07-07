@@ -27,6 +27,7 @@ local M = {}
 ---@field filter_inverted boolean when true, the filter keeps non-matching rows
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
+---@field remove_in_progress? boolean Guards against starting a second async trash/delete while one runs
 ---@field preview? DoraPreviewWindow
 ---@field bookmarks DoraBookmarks
 

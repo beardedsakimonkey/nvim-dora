@@ -41,12 +41,13 @@ local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
 -- Shows an updating, non-blocking progress line on the command line while an
--- async paste runs, and returns a function that stops it and clears the line.
--- A timer drives the animation so the spinner keeps moving even while a single
--- large file copies (which produces no per-file progress callbacks).
----@param progress DoraPasteProgress
----@return fun()
-local function start_paste_spinner(progress)
+-- async operation runs, and returns a function that stops it and clears the
+-- line. A timer drives the animation so the spinner keeps moving even while a
+-- single large file copies (which produces no per-file progress callbacks);
+-- `message` is re-evaluated on every tick so it can report live progress.
+---@param message fun(): string
+---@return fun() stop
+local function start_spinner(message)
     -- Nothing to render to without an attached UI (e.g. headless tests).
     local timer = #api.nvim_list_uis() > 0 and uv.new_timer()
     if not timer then
@@ -54,16 +55,15 @@ local function start_paste_spinner(progress)
     end
     local frame = 1
     -- timer:stop() halts future ticks but cannot cancel a render that the timer
-    -- has already scheduled onto the main loop. A fast paste (e.g. a directory
-    -- rename, which finishes before the first tick fires) would otherwise let
-    -- that stale render repaint the line after we clear it. Guard against it.
+    -- has already scheduled onto the main loop. A fast operation (e.g. a
+    -- directory rename, which finishes before the first tick fires) would
+    -- otherwise let that stale render repaint the line after we clear it.
     local stopped = false
     timer:start(0, 100, vim.schedule_wrap(function()
         if stopped then
             return
         end
-        api.nvim_echo({{('dora: %s Pasting… %d items, %.1f MiB'):format(
-            SPINNER_FRAMES[frame], progress.files, progress.bytes / 1024 / 1024)}}, false, {})
+        api.nvim_echo({{('dora: %s %s'):format(SPINNER_FRAMES[frame], message())}}, false, {})
         frame = frame % #SPINNER_FRAMES + 1
     end))
     return function()
@@ -1146,7 +1146,9 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     -- The copy runs off the main loop; keep the editor responsive and show a
     -- live spinner until it finishes.
     local progress = {files = 0, bytes = 0}
-    local stop_spinner = start_paste_spinner(progress)
+    local stop_spinner = start_spinner(function()
+        return ('Pasting… %d items, %.1f MiB'):format(progress.files, progress.bytes / 1024 / 1024)
+    end)
     state.paste_in_progress = true
     -- Drive the statusline's busy indicator.
     vim.o.busy = vim.o.busy + 1
@@ -1357,53 +1359,49 @@ local trash_history = {}
 
 ---@param state DoraState
 ---@param paths string[]
----@param operation fun(path: string): string|false|nil
+---@param mode 'trash'|'delete'
 ---@param action string
 ---@param anchor? DoraFloatAnchor
-local function remove_paths(state, paths, operation, action, anchor)
+local function remove_paths(state, paths, mode, action, anchor)
     confirm_win.show(paths, function(confirmed)
         if not confirmed or not api.nvim_buf_is_valid(state.buf) then
             return
         end
-        local removed_paths = {}
-        -- Trash returns the entry it moved the file to; collect those so the
-        -- batch can be undone. A permanent delete returns nil and is skipped.
-        local undo_batch = {}
-        for _, path in ipairs(paths) do
-            local ok, result = pcall(operation, path)
+        if state.remove_in_progress then
+            util.err('A removal is already in progress')
+            return
+        end
+        -- The removal runs off the main loop, so a stalled syscall (a network
+        -- mount, a macOS privacy consultation) or a large recursive delete
+        -- doesn't freeze the editor with the confirmation still on screen.
+        local results = {removed = {}, undo_batch = {}}
+        local stop_spinner = start_spinner(function()
+            return mode == 'trash' and 'Trashing…' or 'Deleting…'
+        end)
+        state.remove_in_progress = true
+        -- Drive the statusline's busy indicator.
+        vim.o.busy = vim.o.busy + 1
+        fs.remove_async(paths, mode, results, function(ok, err)
+            state.remove_in_progress = false
+            vim.o.busy = vim.o.busy - 1
+            stop_spinner()
+            -- Files moved to the trash before a mid-batch failure are real, so
+            -- keep them undoable even though the batch was cut short.
+            if #results.undo_batch > 0 then
+                trash_history[#trash_history+1] = results.undo_batch
+            end
+            -- The user may have closed the dora window while the removal ran.
+            if #results.removed > 0 and api.nvim_buf_is_valid(state.buf) then
+                for _, removed_path in ipairs(results.removed) do
+                    clear_marked_paths_under(state, removed_path)
+                end
+                view.clear_listings(state)
+                view.render(state)
+            end
             if not ok then
-                -- Files already moved to the trash before the failure are real,
-                -- so keep them undoable even though the batch was cut short.
-                if #undo_batch > 0 then
-                    trash_history[#trash_history+1] = undo_batch
-                end
-                if #removed_paths > 0 then
-                    for _, removed_path in ipairs(removed_paths) do
-                        clear_marked_paths_under(state, removed_path)
-                    end
-                    view.clear_listings(state)
-                    view.render(state)
-                end
-                util.err(result)
-                return
+                util.err(err)
             end
-            if result ~= false then
-                removed_paths[#removed_paths+1] = path
-            end
-            if type(result) == 'string' then
-                undo_batch[#undo_batch+1] = {original = path, trashed = result}
-            end
-        end
-        if #undo_batch > 0 then
-            trash_history[#trash_history+1] = undo_batch
-        end
-        if #removed_paths > 0 then
-            for _, removed_path in ipairs(removed_paths) do
-                clear_marked_paths_under(state, removed_path)
-            end
-            view.clear_listings(state)
-            view.render(state)
-        end
+        end)
     end, {
         anchor = anchor,
         action = action,
@@ -1411,9 +1409,9 @@ local function remove_paths(state, paths, operation, action, anchor)
     })
 end
 
----@param operation fun(path: string)
+---@param mode 'trash'|'delete'
 ---@param action string
-local function remove_path(operation, action)
+local function remove_path(mode, action)
     local state = store.get()
     local row = view.current_row(state)
     local path, msg = current_path(state)
@@ -1421,12 +1419,12 @@ local function remove_path(operation, action)
         util.err(msg)
         return
     end
-    remove_paths(state, {path}, operation, action, current_name_anchor(row))
+    remove_paths(state, {path}, mode, action, current_name_anchor(row))
 end
 
----@param operation fun(path: string)
+---@param mode 'trash'|'delete'
 ---@param action string
-local function remove_visual_paths(operation, action)
+local function remove_visual_paths(mode, action)
     local state = store.get()
     local paths, msg = selected_non_overlapping_paths(state)
     if not paths then
@@ -1444,23 +1442,23 @@ local function remove_visual_paths(operation, action)
             break
         end
     end
-    remove_paths(state, paths, operation, action, anchor)
+    remove_paths(state, paths, mode, action, anchor)
 end
 
 function M.trash()
-    remove_path(fs.trash, 'Trash')
+    remove_path('trash', 'Trash')
 end
 
 function M.delete()
-    remove_path(fs.delete, 'Delete')
+    remove_path('delete', 'Delete')
 end
 
 function M.trash_visual()
-    remove_visual_paths(fs.trash, 'Trash')
+    remove_visual_paths('trash', 'Trash')
 end
 
 function M.delete_visual()
-    remove_visual_paths(fs.delete, 'Delete')
+    remove_visual_paths('delete', 'Delete')
 end
 
 -- Move every entry in `batch` back out of the trash to where it came from.
