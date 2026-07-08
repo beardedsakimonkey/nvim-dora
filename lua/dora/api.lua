@@ -40,6 +40,18 @@ local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
 
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
+-- Broadcast a filesystem action as a `User` autocmd so integrations can react
+-- to it -- e.g. forwarding a rename or move to the LSP via
+-- Snacks.rename.on_rename_file. Mirrors mini.files' `MiniFilesAction*` events:
+-- the pattern is `DoraAction<Kind>` and `event.data` carries `from`/`to`
+-- absolute paths (either may be absent depending on the action).
+---@param kind 'Rename'|'Move'|'Copy'|'Create'|'Delete'
+---@param data {from?: string, to?: string}
+local function emit_action(kind, data)
+    data.action = kind:lower()
+    api.nvim_exec_autocmds('User', {pattern = 'DoraAction' .. kind, data = data})
+end
+
 -- Shows an updating, non-blocking progress line on the command line while an
 -- async operation runs, and returns a function that stops it and clears the
 -- line. A timer drives the animation so the spinner keeps moving even while a
@@ -1152,10 +1164,15 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     state.paste_in_progress = true
     -- Drive the statusline's busy indicator.
     vim.o.busy = vim.o.busy + 1
-    fs.paste_async(ops, dest_dir, state.cwd, progress, overwrite, function(ok, result)
+    fs.paste_async(ops, dest_dir, state.cwd, progress, overwrite, function(ok, result, completed)
         state.paste_in_progress = false
         vim.o.busy = vim.o.busy - 1
         stop_spinner()
+        -- Report every op that finished, even on a mid-batch failure, so an
+        -- integration sees the moves/copies that did land.
+        for _, op in ipairs(completed) do
+            emit_action(op.is_move and 'Move' or 'Copy', {from = op.src, to = op.dest})
+        end
         if not ok then
             util.err(result)
             return
@@ -1390,6 +1407,11 @@ local function remove_paths(state, paths, mode, action, anchor)
             if #results.undo_batch > 0 then
                 trash_history[#trash_history+1] = results.undo_batch
             end
+            -- Emit regardless of the dora window's fate: the files are gone, so
+            -- integrations (e.g. LSP) must be told even if the buffer closed.
+            for _, removed_path in ipairs(results.removed) do
+                emit_action('Delete', {from = removed_path})
+            end
             -- The user may have closed the dora window while the removal ran.
             if #results.removed > 0 and api.nvim_buf_is_valid(state.buf) then
                 for _, removed_path in ipairs(results.removed) do
@@ -1492,6 +1514,9 @@ local function restore_trash(batch)
     -- Reveal the restored files in the focused window, then rescan and redraw
     -- every dora window so none keep showing the gap the trash left behind.
     for _, path in ipairs(restored) do
+        -- A restore brings a path back into existence, the inverse of the
+        -- Delete emitted when it was trashed.
+        emit_action('Create', {to = path})
         tree.expand_ancestors(state, path)
     end
     store.each(function(other)
@@ -1593,6 +1618,7 @@ local function rename(prefill)
                 util.err(err)
                 return
             end
+            emit_action('Rename', {from = path, to = dest})
             tree.rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)
             view.clear_listings(state)
@@ -1648,6 +1674,7 @@ local function create(under_directory)
                 util.err(msg)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
+                emit_action('Create', {to = cursor_path})
                 view.clear_listings(state)
                 -- Reveal the new entry by expanding the directories above it,
                 -- but leave the entry itself collapsed: `foo/bar/` expands
@@ -1704,6 +1731,7 @@ function M.create_symlink()
             util.err(err)
             return
         end
+        emit_action('Create', {to = dest})
         view.clear_listings(state)
         view.render(state)
         view.set_cursor_path(state, dest)

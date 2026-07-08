@@ -19,6 +19,7 @@ local test_files = {
     'scripts/tests/12_help_folds.lua',
     'scripts/tests/13_filter.lua',
     'scripts/tests/14_windows.lua',
+    'scripts/tests/15_events.lua',
 }
 
 for _, file in ipairs(test_files) do

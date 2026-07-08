@@ -706,8 +706,11 @@ end
 ---@param cwd string
 ---@param progress DoraPasteProgress
 ---@param overwrite boolean Replace existing destinations instead of keeping both
----@param on_done fun(ok: boolean, result: string)
+---@param on_done fun(ok: boolean, result: string, completed: {src: string, dest: string, is_move: boolean}[])
 function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
+    -- Collected outside the coroutine so ops that finished before a mid-batch
+    -- failure are still reported to on_done (e.g. to emit per-file events).
+    local completed = {}
     run(function()
         local first_dest
         local buffer_renames = {}
@@ -745,6 +748,7 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                 else
                     copy_entry_a(op.src, dest, progress)
                 end
+                completed[#completed + 1] = {src = op.src, dest = dest, is_move = op.is_move}
             end
         end
         return first_dest, buffer_renames
@@ -757,7 +761,7 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                     buffer.rename_buffers(rename.src, rename.dest)
                 end
             end
-            on_done(ok, result)
+            on_done(ok, result, completed)
         end)
     end)
 end

@@ -18,7 +18,6 @@ from a desire for a modern netrw-style plugin with a tree view. It includes:
 Dora does *not* currently include:
 - SSH support
 - Git integration
-- LSP integration
 
 🚧 It is currently in early development so expect breaking changes.
 
@@ -255,6 +254,34 @@ further with a `FileType` autocmd.
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
+
+## Events
+
+Dora fires a `User` autocmd for each filesystem action it performs, so other
+plugins can react to it — for example, to forward a rename to the language
+server. The pattern is `DoraAction<Kind>`, and `event.data` carries the affected
+absolute paths.
+
+- `DoraActionRename` — a file or directory was renamed (`data.from`, `data.to`).
+- `DoraActionMove` — a cut mark was pasted, moving it (`data.from`, `data.to`).
+- `DoraActionCopy` — a copy mark was pasted (`data.from`, `data.to`).
+- `DoraActionCreate` — a file, directory, or symlink was created, or a trashed
+  entry restored (`data.to`).
+- `DoraActionDelete` — a file or directory was trashed or deleted (`data.from`).
+
+For example, to keep LSP-tracked references in sync when renaming or moving a
+file with [Snacks.rename](https://github.com/folke/snacks.nvim):
+
+```lua
+for _, action in ipairs({ 'DoraActionRename', 'DoraActionMove' }) do
+  vim.api.nvim_create_autocmd('User', {
+    pattern = action,
+    callback = function(event)
+      Snacks.rename.on_rename_file(event.data.from, event.data.to)
+    end,
+  })
+end
+```
 
 ## Highlights
 
