@@ -248,6 +248,38 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/aaa', tonumber('755', 8)))
+    touch(tmp .. '/init.lua')
+    touch(tmp .. '/aaa/init.lua')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local root = store.get().cwd
+    set_cursor_pos('aaa')
+    api.fold_out()
+    api.quit()
+
+    vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/init.lua'))
+    vim.cmd('Dora')
+    local state = store.get()
+    local nested_visible = false
+    for _, row in ipairs(state.rows) do
+        if row.path == root .. '/aaa/init.lua' then
+            nested_visible = true
+            break
+        end
+    end
+    assert(nested_visible, 'setup should show the duplicate filename from the expanded subdir')
+    local cursor_row = state.rows[vim.api.nvim_win_get_cursor(0)[1]]
+    assert_eq(cursor_row.path, root .. '/init.lua',
+        'opening dora from a file should restore the cursor by full path when visible names duplicate')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))

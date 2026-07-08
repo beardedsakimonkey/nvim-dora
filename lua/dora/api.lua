@@ -454,15 +454,25 @@ end
 local function remember_hovered_file(state)
     local row = view.current_row(state)
     if row then
-        state.hovered_files[state.cwd] = row.name
+        state.hovered_files[state.cwd] = row.path or row.name
     end
 end
 
 ---@param state DoraState
----@param path string
----@param cursor_pattern? string
+---@param cursor_target? string
 ---@param or_top? boolean
-local function change_cwd(state, path, cursor_pattern, or_top)
+local function restore_cursor(state, cursor_target, or_top)
+    if cursor_target and view.set_cursor_path(state, cursor_target) then
+        return
+    end
+    view.set_cursor_pos(state, cursor_target, or_top)
+end
+
+---@param state DoraState
+---@param path string
+---@param cursor_target? string
+---@param or_top? boolean
+local function change_cwd(state, path, cursor_target, or_top)
     if state.cwd ~= path then
         local row = view.current_row(state)
         bookmarks.record_previous_directory(state.bookmarks, state.cwd, row and row.path or nil)
@@ -479,7 +489,7 @@ local function change_cwd(state, path, cursor_pattern, or_top)
     if view.active_filter(state) then
         view.scroll_filter_results_to_top(state.win)
     else
-        view.set_cursor_pos(state, cursor_pattern, or_top)
+        restore_cursor(state, cursor_target, or_top)
     end
 end
 
@@ -511,7 +521,7 @@ function M.up_dir()
         return
     end
     remember_hovered_file(state)
-    change_cwd(state, target, fs.basename(cursor_child), --[[or_top]]true)
+    change_cwd(state, target, cursor_child, --[[or_top]]true)
 end
 
 function M.home_dir()
@@ -533,7 +543,8 @@ function M.home_dir()
     remember_hovered_file(state)
     local cursor = state.hovered_files[path]
     if vim.startswith(state.cwd, path .. '/') then
-        cursor = state.cwd:sub(#path + 2):match('^[^/]+') or cursor
+        local child = state.cwd:sub(#path + 2):match('^[^/]+')
+        cursor = child and vim.fs.joinpath(path, child) or cursor
     end
     change_cwd(state, path, cursor, --[[or_top]]true)
 end
@@ -1825,6 +1836,16 @@ local function getcwd(dir)
     return resolved or fs.normalize_sep(assert(uv.cwd()))
 end
 
+---@return string?
+local function current_file_path()
+    local p = vim.fn.expand'%:p'
+    if p == '' then
+        return nil
+    end
+    local resolved = fs.try_realpath(p)
+    return resolved
+end
+
 -- Handler for the :Dora command
 ---@param dir? string
 ---@param from_au? boolean
@@ -1855,6 +1876,7 @@ function M.initialize(dir, from_au)
     end
     local alt_buf = (not from_au and has_altbuf) and vim.fn.bufnr'#' or nil
     local cwd = getcwd(dir)
+    local origin_path = current_file_path()
     local origin_filename = vim.fn.expand'%:p:t' ---@type string?
     origin_filename = origin_filename ~= '' and origin_filename or nil
     local buf = buffer.create_buf(cwd)
@@ -1870,7 +1892,7 @@ function M.initialize(dir, from_au)
         cursor_ns = cursor_ns,
         show_hidden_files = config.show_hidden_files,
         sort_order = sorter.normalize_order(config.sort_order),
-        hovered_files = {},  -- map<realpath, filename>
+        hovered_files = {},  -- map<realpath, cursor path/name>
         listings = {},  -- map<realpath, DoraListingEntry>
         expanded_dirs = global_expanded_dirs,  -- map<realpath, true>
         tree_rows = {},
@@ -1888,7 +1910,9 @@ function M.initialize(dir, from_au)
     store.set(buf, state)
     setup_autocmds(buf)
     view.render(state)
-    view.set_cursor_pos(state, origin_filename)
+    if not origin_path or not view.set_cursor_path(state, origin_path) then
+        view.set_cursor_pos(state, origin_filename)
+    end
 end
 
 return M

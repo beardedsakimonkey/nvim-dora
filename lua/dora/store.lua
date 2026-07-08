@@ -15,7 +15,7 @@ local M = {}
 ---@field cursor_ns integer
 ---@field show_hidden_files boolean
 ---@field sort_order DoraSortOrder
----@field hovered_files table<string, string>
+---@field hovered_files table<string, string> directory path -> cursor path/name
 ---@field listings table<string, DoraListingEntry>
 ---@field expanded_dirs table<string, true>
 ---@field tree_rows DoraTreeRow[]
