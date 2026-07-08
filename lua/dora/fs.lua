@@ -547,28 +547,6 @@ function M.paste_into_self(src, dest_dir, cwd)
         or vim.startswith(vim.fs.joinpath(dest, M.basename(src)), src .. '/')
 end
 
--- Mimics the semantics of `mv` / `cp -R`
----@param is_move boolean
----@param src string
----@param dest string
----@param cwd string
----@return string dest
-function M.copy_or_move(is_move, src, dest, cwd)
-    dest = M.resolve_copy_or_move_dest(src, dest, cwd)
-    -- Replace an existing destination when a directory is involved so the paste
-    -- overwrites instead of erroring on mkdir/rename. A file replacing a file is
-    -- already overwritten in place by copyfile/rename. resolve_copy_or_move_dest
-    -- rejects src == dest, and same_file guards aliases, so we never delete the
-    -- source itself.
-    if M.exists(dest) and not M.same_file(src, dest)
-        and (M.is_dir(src) or M.is_dir(dest)) then
-        M.delete(dest)
-    end
-    local op = is_move and move or copy_any
-    op(src, dest)
-    return dest
-end
-
 -- Asynchronous copy/move ------------------------------------------------------
 --
 -- The synchronous helpers above block Neovim's main loop for the entire
@@ -697,7 +675,7 @@ local function move_a(src, dest, progress)
 end
 
 -- Asynchronously copy/move each op into `dest_dir`, mimicking `cp -R` / `mv`
--- exactly as M.copy_or_move does but off the main loop. `progress` is mutated
+-- off the main loop. `progress` is mutated
 -- in place as work proceeds so callers can render a live indicator. With
 -- `overwrite` a conflicting destination is replaced; otherwise the paste keeps
 -- both files by landing beside it under a free name (report.txt -> report(1).txt).
@@ -728,8 +706,8 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                 elseif overwrite then
                     -- Replace an existing destination when a directory is
                     -- involved so the paste overwrites instead of erroring on
-                    -- mkdir/rename, mirroring M.copy_or_move. A file replacing a
-                    -- file is overwritten in place by copyfile/rename.
+                    -- mkdir/rename. A file replacing a file is overwritten in
+                    -- place by copyfile/rename.
                     if M.is_dir(op.src) or M.is_dir(dest) then
                         rm_a(dest)
                     end
