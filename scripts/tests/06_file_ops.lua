@@ -308,7 +308,10 @@ do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/deleted.txt')
+    local root = fs.realpath(tmp)
 
+    vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/deleted.txt'))
+    assert(vim.fn.bufexists(root .. '/deleted.txt') ~= 0, 'test should load the file buffer before deleting')
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('deleted.txt')
     api.delete()
@@ -319,8 +322,47 @@ do
     wait_for_remove()
 
     assert(not fs.exists(tmp .. '/deleted.txt'), 'delete should permanently remove the file')
+    assert_eq(vim.fn.bufexists(root .. '/deleted.txt'), 0, 'delete should close the removed file buffer')
 
     api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local old_home = vim.env.HOME
+    local old_data_home = vim.env.XDG_DATA_HOME
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/home', tonumber('755', 8)))
+    vim.env.HOME = tmp .. '/home'
+    vim.env.XDG_DATA_HOME = tmp .. '/data'
+    local trash_dir = vim.loop.os_uname().sysname == 'Darwin'
+        and tmp .. '/home/.Trash'
+        or tmp .. '/data/Trash/files'
+    write_file(tmp .. '/trashed.txt', 'payload')
+    local root = fs.realpath(tmp)
+
+    vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/trashed.txt'))
+    assert(vim.fn.bufexists(root .. '/trashed.txt') ~= 0, 'test should load the file buffer before trashing')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('trashed.txt')
+    api.trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_remove()
+
+    assert(not fs.exists(tmp .. '/trashed.txt'), 'trash should remove the file from its original location')
+    assert(fs.exists(trash_dir .. '/trashed.txt'), 'trash should move the file into the trash')
+    assert_eq(vim.fn.bufexists(root .. '/trashed.txt'), 0, 'trash should close the removed file buffer')
+    assert_eq(vim.fn.bufexists(trash_dir .. '/trashed.txt'), 0, 'trash should not leave a buffer renamed into the trash')
+
+    api.undo_trash()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(fs.exists(tmp .. '/trashed.txt'), 'undo should restore the trashed file after buffer cleanup')
+    assert_eq(vim.fn.bufexists(root .. '/trashed.txt'), 0, 'undo trash should not recreate the removed file buffer')
+
+    api.quit()
+    vim.env.HOME = old_home
+    vim.env.XDG_DATA_HOME = old_data_home
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 

@@ -1421,6 +1421,7 @@ local function remove_paths(state, paths, mode, action, anchor)
             -- Emit regardless of the dora window's fate: the files are gone, so
             -- integrations (e.g. LSP) must be told even if the buffer closed.
             for _, removed_path in ipairs(results.removed) do
+                buffer.delete_buffers(removed_path)
                 emit_action('Delete', {from = removed_path})
             end
             -- The user may have closed the dora window while the removal ran.

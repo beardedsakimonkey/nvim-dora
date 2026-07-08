@@ -759,9 +759,6 @@ end
 ---@param results DoraRemoveResults
 ---@param on_done fun(ok: boolean, err?: string)
 function M.remove_async(paths, mode, results, on_done)
-    -- Collected outside the coroutine so buffers editing files trashed before a
-    -- mid-batch failure still follow them into the trash.
-    local buffer_renames = {}
     run(function()
         local dest_dir
         if mode == 'trash' then
@@ -779,10 +776,7 @@ function M.remove_async(paths, mode, results, on_done)
             assert(M.exists(path), ("%s doesn't exist"):format(path))
             if mode == 'trash' then
                 local dest = M.nonclobber_dest(vim.fs.joinpath(dest_dir, M.basename(path)))
-                local rename = move_a(path, dest, progress)
-                if rename then
-                    buffer_renames[#buffer_renames+1] = rename
-                end
+                move_a(path, dest, progress)
                 results.undo_batch[#results.undo_batch+1] = {original = path, trashed = dest}
             else
                 rm_a(path)
@@ -791,11 +785,8 @@ function M.remove_async(paths, mode, results, on_done)
         end
     end, function(ok, err)
         -- libuv callbacks run in a "fast" context; defer to a normal one so the
-        -- completion handler and buffer.rename_buffers can touch the editor.
+        -- completion handler can touch the editor.
         vim.schedule(function()
-            for _, rename in ipairs(buffer_renames) do
-                buffer.rename_buffers(rename.src, rename.dest)
-            end
             on_done(ok, err)
         end)
     end)
