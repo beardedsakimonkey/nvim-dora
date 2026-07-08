@@ -103,7 +103,7 @@ require('dora').setup {
         i        = 'fold_in',            -- Fold in directory
         I        = 'fold_in_recursive',  -- Fold in directory recursively
         ['<BS>'] = 'close_dir',          -- Close directory
-        gp       = 'parent_dir',         -- Go to parent directory
+        gp       = 'toggle_preview',     -- Toggle file preview
         gh       = 'home_dir',           -- Go to home directory
         m        = 'set_bookmark',       -- Set bookmark
         ["'"]    = 'jump_bookmark',      -- Jump to bookmark
@@ -143,7 +143,7 @@ require('dora').setup {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
-        ['<C-p>'] = 'toggle_preview',      -- Toggle file preview
+        ['<C-p>'] = 'parent_dir',          -- Go to parent directory
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank
