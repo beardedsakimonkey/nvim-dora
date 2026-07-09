@@ -87,6 +87,56 @@ do
 end
 
 do
+    local original_cwd = vim.fn.getcwd(-1, -1)
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local target = fs.realpath(tmp)
+
+    local function cmdline(cmd)
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(':' .. cmd .. '<CR>', true, false, true), 'xt', false)
+    end
+
+    vim.cmd.tabnew()
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local left_win = vim.api.nvim_get_current_win()
+    vim.cmd.vnew()
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local right_win = vim.api.nvim_get_current_win()
+    local duplicate_buf = vim.api.nvim_get_current_buf()
+
+    assert(vim.api.nvim_buf_get_name(duplicate_buf) ~= target,
+        'a simultaneous Dora session should receive a distinct buffer name')
+
+    cmdline("let g:dora_smoke_cmdline_percent = expand('%')")
+    assert_eq(vim.g.dora_smoke_cmdline_percent, vim.api.nvim_buf_get_name(duplicate_buf),
+        '% should retain its normal meaning outside directory-changing commands')
+    vim.g.dora_smoke_cmdline_percent = nil
+
+    cmdline('tcd %')
+    assert_eq(vim.fn.getcwd(), target, ':tcd % should use the browsed directory')
+    assert_eq(vim.fn.getcwd(-1, -1), original_cwd, ':tcd % should not change the global working directory')
+    vim.cmd.vnew()
+    assert_eq(vim.fn.getcwd(), target, ':tcd % should apply to a new window in the tab')
+    vim.cmd.close()
+    vim.cmd('tcd ' .. vim.fn.fnameescape(original_cwd))
+
+    cmdline('lcd %')
+    assert_eq(vim.fn.getcwd(), target, ':lcd % should use the browsed directory')
+    assert_eq(vim.fn.getcwd(-1, -1), original_cwd, ':lcd % should not change the global working directory')
+
+    cmdline('cd %')
+    assert_eq(vim.fn.getcwd(-1, -1), target, ':cd % should use the browsed directory')
+    vim.cmd('cd ' .. vim.fn.fnameescape(original_cwd))
+
+    api.quit()
+    vim.api.nvim_win_close(right_win, true)
+    vim.api.nvim_set_current_win(left_win)
+    api.quit()
+    vim.cmd.tabclose()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     -- Preview: opens a split without stealing focus, reads only enough of huge
     -- files to fill a window, follows the cursor, and loads the real buffer
     -- when focused.

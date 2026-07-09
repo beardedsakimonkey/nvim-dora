@@ -50,6 +50,17 @@ local function keymap_context()
     return ctx
 end
 
+-- Dora needs a distinct buffer name for every live session. In a duplicate
+-- session that name has an ID suffix, so expand % to the browsed directory for
+-- the standard directory-changing commands instead of to the buffer name.
+---@return string
+local function commandline_percent()
+    if vim.fn.getcmdline():match('^%s*[lt]?cd%s+$') then
+        return vim.fn.fnameescape(require'dora.store'.get().cwd)
+    end
+    return '%'
+end
+
 -- Resolve a string action name to its dora/api.lua function, or nil when the
 -- string is a plain Vim RHS rather than a built-in action name. api.lua is
 -- required lazily: it requires this module at load time, so a top-level
@@ -480,6 +491,12 @@ end
 ---@param buf integer
 ---@param config DoraConfig
 function M.setup(buf, config)
+    vim.keymap.set('c', '%', commandline_percent, {
+        buffer = buf,
+        expr = true,
+        replace_keycodes = false,
+        silent = true,
+    })
     local hint_groups = keymap_hint_groups(config.keymaps)
     for lhs, rhs in pairs(config.keymaps) do
         local action, desc = M.resolve(rhs)
