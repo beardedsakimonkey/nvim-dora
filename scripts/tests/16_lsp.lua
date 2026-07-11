@@ -71,10 +71,12 @@ do
             assert(fs.exists(to), 'didRenameFiles should run after the destination exists')
         end,
     })
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.lsp.get_clients = function(opts)
         assert(opts.method == 'workspace/willRenameFiles' or opts.method == 'workspace/didRenameFiles')
         return {client}
     end
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.lsp.util.apply_workspace_edit = function(edit, encoding)
         calls[#calls+1] = {kind = 'apply', edit = edit, encoding = encoding}
         assert(fs.exists(from), 'workspace edits should be applied before the filesystem rename')
@@ -142,6 +144,7 @@ do
             }}}}
         end,
     }
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.lsp.get_clients = function() return {lua_client, text_client} end
 
     dora_lsp.will_rename(files)
@@ -184,6 +187,7 @@ do
             assert(fs.exists(to_a) and fs.exists(to_b), 'batch didRenameFiles should follow every move')
         end,
     })
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.lsp.get_clients = function() return {client} end
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
@@ -213,6 +217,7 @@ end
 do
     local old_timeout = config.lsp_timeout
     config.lsp_timeout = 0
+    ---@diagnostic disable-next-line: duplicate-set-field
     vim.lsp.get_clients = function() error('disabled LSP integration should not discover clients') end
     local file = dora_lsp.file_rename('/tmp/old.lua', '/tmp/new.lua')
     dora_lsp.will_rename({file})

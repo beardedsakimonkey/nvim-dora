@@ -4,6 +4,6 @@ local ok, err = xpcall(function()
 end, debug.traceback)
 
 if not ok then
-    vim.api.nvim_err_writeln(err)
+    vim.api.nvim_echo({{tostring(err)}}, true, {err = true})
     vim.cmd.cquit()
 end

@@ -371,7 +371,7 @@ do
     local virt_icon
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(prompt_buf, -1, 0, -1, {details = true})) do
         local details = mark[4]
-        if details.virt_text and details.virt_text_pos == 'inline' then
+        if details and details.virt_text and details.virt_text_pos == 'inline' then
             virt_icon = details.virt_text[1][1]
         end
     end

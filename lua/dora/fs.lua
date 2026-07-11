@@ -315,9 +315,7 @@ function M.watch_dir(dir, on_change)
         -- Coalesce this event with any others that arrive within the debounce
         -- window so a burst (or storm) causes a single refresh rather than one
         -- re-render per event.
-        if not timer then
-            timer = uv.new_timer()
-        end
+        timer = timer or assert(uv.new_timer())
         timer:start(WATCH_DEBOUNCE_MS, 0, fire)
     end)
     if not ok then

@@ -45,7 +45,7 @@ local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', 
 -- to it. The pattern is `DoraAction<Kind>` and `event.data` carries `from`/`to`
 -- absolute paths (either may be absent depending on the action).
 ---@param kind 'Rename'|'Move'|'Copy'|'Create'|'Delete'
----@param data {from?: string, to?: string}
+---@param data {from?: string, to?: string, action?: string}
 local function emit_action(kind, data)
     data.action = kind:lower()
     api.nvim_exec_autocmds('User', {pattern = 'DoraAction' .. kind, data = data})

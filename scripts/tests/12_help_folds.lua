@@ -88,7 +88,7 @@ do
     vim.bo[help_buf].buftype = 'nofile'
     vim.api.nvim_buf_set_name(help_buf, 'dora://help')
     vim.api.nvim_set_current_buf(help_buf)
-    local ok, err = pcall(vim.cmd, 'Dora')
+    local ok, err = pcall(vim.cmd --[[@as function]], 'Dora')
     assert(ok, 'running :Dora from a dora://help buffer should not error: ' .. tostring(err))
     assert_eq(store.get().cwd, fs.normalize_sep(assert(vim.loop.cwd())),
         ':Dora from a non-filesystem buffer should open at the cwd')
