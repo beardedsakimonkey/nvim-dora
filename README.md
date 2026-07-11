@@ -1,3 +1,5 @@
+<img width="717" height="284" alt="dora logo" src="https://github.com/user-attachments/assets/fa1dab28-13da-475d-9b41-473d76abd6a3" />
+
 # nvim-dora
 
 Dora is a directory explorer for Neovim 0.12+ focused on usability. It was born
@@ -6,20 +8,25 @@ from a desire for a modern netrw-style plugin with a tree view. It includes:
 - 🪾 A tree view that can be folded in/out one level at a time (or
   all the way) for quick exploration.
 - 🩻 "Transparent" floating windows positioned over selected files (at the
-  [locus of attention](https://raskincenter.org/jef/humane-interface/)).
+  ["locus of attention"](https://raskincenter.org/jef/humane-interface/)).
 - ✅ Floating window border colors that provide validation feedback while typing.
 - ⚠️ A paste confirmation window that detects conflicts and enables conflict
   resolution.
 - ↩️ Undoable "trash" operation for Mac/Linux.
-- 📚 A "last directory" bookmark that persists across sessions.
+- 🔖 A "last directory" bookmark that persists across sessions.
 - 💡 Built-in [which-key](https://github.com/folke/which-key.nvim)-style hints to
   make two-letter keymaps more discoverable.
 
-Dora does *not* currently include:
-- SSH support
-- Git integration
+Dora does *not* include:
+- ❌ SSH support
+- ❌ Git integration
 
-🚧 It is currently in early development so expect breaking changes.
+## Requirements
+
+- Neovim 0.12+
+- (Optional) [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons)
+  or [mini.icons](https://github.com/nvim-mini/mini.icons) with a [Nerd
+  Font](https://www.nerdfonts.com/)
 
 <!-- panvimdoc-ignore-start -->
 
@@ -72,8 +79,8 @@ require('dora').setup {
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
 
-    -- Number of columns used for each level of tree indentation (minimum 2)
-    tree_indent = 4,
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
 
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
@@ -84,14 +91,14 @@ require('dora').setup {
     -- Function used to determine what files should be hidden
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
+    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    preview_split = 'right',
+
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
 
-    -- Whether <Esc> in insert mode closes prompts.
-    prompt_insert_esc_closes = true,
-
-    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
-    preview_split = 'right',
+    -- Number of columns used for each level of tree indentation (minimum 2)
+    tree_indent = 4,
 
     -- Timeout in milliseconds for LSP willRenameFiles requests.
     -- Set to 0 to disable LSP rename/move integration.
@@ -104,23 +111,24 @@ require('dora').setup {
         q      = 'quit', -- Quit
 
         -- Navigation
-        ['-']    = 'up_dir',             -- Up directory
-        h        = 'up_dir',             -- Up directory
-        J        = 'next_sibling',       -- Next sibling
-        K        = 'prev_sibling',       -- Previous sibling
-        ['>']    = 'last_sibling',       -- Last sibling
-        ['<']    = 'first_sibling',      -- First sibling
-        o        = 'fold_out',           -- Fold out directory
-        O        = 'fold_out_recursive', -- Fold out directory recursively
-        i        = 'fold_in',            -- Fold in directory
-        I        = 'fold_in_recursive',  -- Fold in directory recursively
-        ['<BS>'] = 'close_dir',          -- Close directory
-        gp       = 'toggle_preview',     -- Toggle file preview
-        gh       = 'home_dir',           -- Go to home directory
-        m        = 'set_bookmark',       -- Set bookmark
-        ["'"]    = 'jump_bookmark',      -- Jump to bookmark
-        [']m']   = 'next_paste_mark',    -- Next paste mark
-        ['[m']   = 'prev_paste_mark',    -- Previous paste mark
+        ['-']     = 'up_dir',             -- Up directory
+        h         = 'up_dir',             -- Up directory
+        J         = 'next_sibling',       -- Next sibling
+        K         = 'prev_sibling',       -- Previous sibling
+        ['>']     = 'last_sibling',       -- Last sibling
+        ['<']     = 'first_sibling',      -- First sibling
+        ['<C-p>'] = 'parent_dir',         -- Parent directory
+        o         = 'fold_out',           -- Fold out directory
+        O         = 'fold_out_recursive', -- Fold out directory recursively
+        i         = 'fold_in',            -- Fold in directory
+        I         = 'fold_in_recursive',  -- Fold in directory recursively
+        ['<BS>']  = 'close_dir',          -- Close directory
+        gp        = 'toggle_preview',     -- Toggle file preview
+        gh        = 'home_dir',           -- Go to home directory
+        m         = 'set_bookmark',       -- Set bookmark
+        ["'"]     = 'jump_bookmark',      -- Jump to bookmark
+        [']m']    = 'next_paste_mark',    -- Next paste mark
+        ['[m']    = 'prev_paste_mark',    -- Previous paste mark
 
         -- Open
         ['<CR>']  = 'open',             -- Open
@@ -155,7 +163,6 @@ require('dora').setup {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
-        ['<C-p>'] = 'parent_dir',          -- Go to parent directory
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank
@@ -194,33 +201,22 @@ Example setup:
 ```lua
 local dora = require('dora')
 
--- The config table is deeply merged with the defaults, so you only need to
--- specify the options you want to add/change.
+-- `dora.setup` merges options with the default config.
 dora.setup({
+    icons = true,
     keymaps = {
         d = 'delete',
         Y = 'yank_filename',
     },
-    icons = true,
 })
 
--- `dora.config` is mutable and affects existing dora buffers.
--- To remove a default keymap, set it to `nil`
+-- `dora.config` is mutable. To remove a keymap, set it to `nil`
 dora.config.keymaps.D = nil
--- To remove all configurable normal-mode keymaps, set keymaps to `{}`
-dora.config.keymaps = {}
 ```
 
-Keymaps may be api action names, Vim RHS strings, functions, or `{action,
+Keymaps may be action names, Vim RHS strings, lua functions, or `{action,
 desc=...}` tables. Built-in action names automatically use Dora's description in
 mappings, prefix hints, and `g?` help, even when remapped.
-
-Use the table form to override the built-in wording or describe a custom
-mapping:
-
-```lua
-dora.config.keymaps.q = {"quit", desc="Close Dora"}
-```
 
 Function keymaps are called with a context table describing where the mapping
 was triggered:
@@ -230,10 +226,11 @@ was triggered:
 - `type` (string?): `"file"`, `"directory"`, or `"link"`
 
 `path` and `type` are omitted on rows without a file, such as the placeholder
-shown for empty directories. In a dora buffer, `%` in `:cd %`, `:lcd %`, or
-`:tcd %` expands to the browsed directory, including when another dora session
-has given the buffer an ID suffix. It retains its normal meaning in other
-commands.
+shown for empty directories.
+
+In a dora buffer, `%` in `:cd %`, `:lcd %`, or `:tcd %` expands to the browsed
+directory, including when another dora session has given the buffer an ID
+suffix. It retains its normal meaning in other commands.
 
 Dora also shows a small hint window for two-character normal mode mappings.
 For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
@@ -243,32 +240,54 @@ Files are sorted naturally by name by default, with directories always grouped
 before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
 time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set
-`dora.config.sort_order` to choose the initial order.
-
-Prompts (rename, create, symlink, and so on) close when you press `<Esc>` in
-insert mode. Set `prompt_insert_esc_closes = false` to leave insert mode
-instead, switching to normal mode where `<Esc>` or `q` then closes the prompt.
-
-Dora prompt buffers use the `dora-prompt` filetype, so you can customize them
-further with a `FileType` autocmd.
+`dora.config.sort_order` to choose the default order.
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
 
-## LSP rename integration
+### Prompts and confirmations
+
+Text prompts (rename, create, symlink, and so on) are confirmed with `<CR>` in
+insert or normal mode. Cancel them with `<C-c>` in either mode, or with `<Esc>`
+or `q` in normal mode. By default, `<Esc>` also cancels from insert mode; set
+`prompt_insert_esc_closes = false` to make it leave insert mode instead. Prompt
+buffers use the `dora-prompt` filetype, so you can customize them with a
+`FileType` autocmd.
+
+Confirmation windows accept with `y`, `Y`, or `<CR>`, and cancel with `n`, `N`,
+`q`, `<Esc>`, or `<C-c>`. They can also be toggled closed by pressing the action
+key again: for example, `p` or `P` closes a paste confirmation, while `d` or
+`D` closes a trash or delete confirmation. Toggling a confirmation closed
+cancels the operation.
+
+### Filtering
+
+Press `f` to filter the files currently visible in the tree. Filters use
+case-insensitive Vim regexes, so patterns such as `lua$` work as expected. Press
+`<C-i>` in the filter prompt to invert the filter, `<CR>` to keep the filter
+(even while navigating), or `<Esc>` to cancel. Press `F` to clear the current
+filter.
+
+### Bookmarks
+
+Press `m` followed by any one-character key to bookmark the current directory,
+then press `'` followed by that key to return to it. Bookmarks are shared by all
+Dora windows during the current Neovim session. Use `''` to jump back to the
+previous directory; repeat it to toggle between the two most recent directories.
+
+### LSP rename integration
 
 File and directory renames and moves are LSP-aware. Before changing the
 filesystem, Dora sends `workspace/willRenameFiles` to active language servers
 which support it and applies any returned workspace edits. After filesystem
 work completes, it sends `workspace/didRenameFiles` for the successful
-operations. Server registration filters are respected, including file/folder
-type and glob matching.
+operations.
 
 `lsp_timeout` controls how long Dora waits for each synchronous
 `willRenameFiles` response and defaults to 1000 milliseconds. Set it to `0` to
 disable native LSP integration.
 
-## Highlights
+### Highlights
 
 Customize Dora with these highlight groups:
 

@@ -43,8 +43,8 @@ M.config = {
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
 
-    -- Number of columns used for each level of tree indentation (minimum 2)
-    tree_indent = 4,
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
 
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
@@ -55,14 +55,14 @@ M.config = {
     -- Function used to determine what files should be hidden
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
+    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    preview_split = 'right',
+
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
 
-    -- Whether <Esc> in insert mode closes prompts.
-    prompt_insert_esc_closes = true,
-
-    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
-    preview_split = 'right',
+    -- Number of columns used for each level of tree indentation (minimum 2)
+    tree_indent = 4,
 
     -- Timeout in milliseconds for LSP willRenameFiles requests.
     -- Set to 0 to disable LSP rename/move integration.
@@ -75,23 +75,24 @@ M.config = {
         q      = 'quit', -- Quit
 
         -- Navigation
-        ['-']    = 'up_dir',             -- Up directory
-        h        = 'up_dir',             -- Up directory
-        J        = 'next_sibling',       -- Next sibling
-        K        = 'prev_sibling',       -- Previous sibling
-        ['>']    = 'last_sibling',       -- Last sibling
-        ['<']    = 'first_sibling',      -- First sibling
-        o        = 'fold_out',           -- Fold out directory
-        O        = 'fold_out_recursive', -- Fold out directory recursively
-        i        = 'fold_in',            -- Fold in directory
-        I        = 'fold_in_recursive',  -- Fold in directory recursively
-        ['<BS>'] = 'close_dir',          -- Close directory
-        gp       = 'toggle_preview',     -- Toggle file preview
-        gh       = 'home_dir',           -- Go to home directory
-        m        = 'set_bookmark',       -- Set bookmark
-        ["'"]    = 'jump_bookmark',      -- Jump to bookmark
-        [']m']   = 'next_paste_mark',    -- Next paste mark
-        ['[m']   = 'prev_paste_mark',    -- Previous paste mark
+        ['-']     = 'up_dir',             -- Up directory
+        h         = 'up_dir',             -- Up directory
+        J         = 'next_sibling',       -- Next sibling
+        K         = 'prev_sibling',       -- Previous sibling
+        ['>']     = 'last_sibling',       -- Last sibling
+        ['<']     = 'first_sibling',      -- First sibling
+        ['<C-p>'] = 'parent_dir',         -- Parent directory
+        o         = 'fold_out',           -- Fold out directory
+        O         = 'fold_out_recursive', -- Fold out directory recursively
+        i         = 'fold_in',            -- Fold in directory
+        I         = 'fold_in_recursive',  -- Fold in directory recursively
+        ['<BS>']  = 'close_dir',          -- Close directory
+        gp        = 'toggle_preview',     -- Toggle file preview
+        gh        = 'home_dir',           -- Go to home directory
+        m         = 'set_bookmark',       -- Set bookmark
+        ["'"]     = 'jump_bookmark',      -- Jump to bookmark
+        [']m']    = 'next_paste_mark',    -- Next paste mark
+        ['[m']    = 'prev_paste_mark',    -- Previous paste mark
 
         -- Open
         ['<CR>']  = 'open',             -- Open
@@ -126,7 +127,6 @@ M.config = {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
-        ['<C-p>'] = 'parent_dir',          -- Go to parent directory
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank
