@@ -1,5 +1,5 @@
--- User autocmd events (DoraAction*) fired for filesystem actions, so
--- integrations like Snacks.rename can forward renames/moves to the LSP.
+-- User autocmd events (DoraAction*) fired for filesystem actions so external
+-- integrations can react after they complete.
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/15_events.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')

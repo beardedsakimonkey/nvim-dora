@@ -9,6 +9,8 @@ local prompt = h.prompt
 local cwd = h.cwd
 local assert_eq = h.assert_eq
 
+assert_eq(config.lsp_timeout, 1000, 'LSP rename integration should default to a one-second timeout')
+
 for lhs, rhs in pairs(config.keymaps) do
     local _, desc = keymaps.resolve(rhs)
     assert(desc, ('default keymap %s should have a description'):format(lhs))

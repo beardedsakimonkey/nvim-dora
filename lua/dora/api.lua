@@ -11,6 +11,7 @@ local confirm_win = require'dora.confirm_win'
 local filter_win = require'dora.filter_win'
 local info_win = require'dora.info_win'
 local keymaps = require'dora.keymaps'
+local lsp = require'dora.lsp'
 local preview_win = require'dora.preview_win'
 local prompt = require'dora.prompt'
 local store = require'dora.store'
@@ -41,9 +42,7 @@ local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
 -- Broadcast a filesystem action as a `User` autocmd so integrations can react
--- to it -- e.g. forwarding a rename or move to the LSP via
--- Snacks.rename.on_rename_file. Mirrors mini.files' `MiniFilesAction*` events:
--- the pattern is `DoraAction<Kind>` and `event.data` carries `from`/`to`
+-- to it. The pattern is `DoraAction<Kind>` and `event.data` carries `from`/`to`
 -- absolute paths (either may be absent depending on the action).
 ---@param kind 'Rename'|'Move'|'Copy'|'Create'|'Delete'
 ---@param data {from?: string, to?: string}
@@ -1166,6 +1165,17 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     for _, entry in ipairs(entries) do
         ops[#ops + 1] = {is_move = entry.operation == 'cut', src = entry.path}
     end
+    local planned_ops = fs.plan_paste(ops, dest_dir, state.cwd, overwrite)
+    local move_changes = {}
+    local move_changes_by_path = {}
+    for _, op in ipairs(planned_ops) do
+        if op.is_move and not op.skip then
+            local change = lsp.file_rename(op.src, op.dest)
+            move_changes[#move_changes+1] = change
+            move_changes_by_path[op.src .. '\0' .. op.dest] = change
+        end
+    end
+    lsp.will_rename(move_changes)
     -- The copy runs off the main loop; keep the editor responsive and show a
     -- live spinner until it finishes.
     local progress = {files = 0, bytes = 0}
@@ -1175,12 +1185,19 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     state.paste_in_progress = true
     -- Drive the statusline's busy indicator.
     vim.o.busy = vim.o.busy + 1
-    fs.paste_async(ops, dest_dir, state.cwd, progress, overwrite, function(ok, result, completed)
+    fs.paste_async(planned_ops, progress, overwrite, function(ok, result, completed)
         state.paste_in_progress = false
         vim.o.busy = vim.o.busy - 1
         stop_spinner()
         -- Report every op that finished, even on a mid-batch failure, so an
         -- integration sees the moves/copies that did land.
+        local completed_moves = {}
+        for _, op in ipairs(completed) do
+            if op.is_move then
+                completed_moves[#completed_moves+1] = move_changes_by_path[op.src .. '\0' .. op.dest]
+            end
+        end
+        lsp.did_rename(completed_moves)
         for _, op in ipairs(completed) do
             emit_action(op.is_move and 'Move' or 'Copy', {from = op.src, to = op.dest})
         end
@@ -1625,11 +1642,14 @@ local function rename(prefill)
             return
         end
         local function perform_rename()
+            local change = lsp.file_rename(path, dest)
+            lsp.will_rename({change})
             local ok, err = pcall(fs.rename, path, dest)
             if not ok then
                 util.err(err)
                 return
             end
+            lsp.did_rename({change})
             emit_action('Rename', {from = path, to = dest})
             tree.rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)

@@ -674,18 +674,51 @@ local function move_a(src, dest, progress)
     end
 end
 
--- Asynchronously copy/move each op into `dest_dir`, mimicking `cp -R` / `mv`
--- off the main loop. `progress` is mutated
--- in place as work proceeds so callers can render a live indicator. With
--- `overwrite` a conflicting destination is replaced; otherwise the paste keeps
--- both files by landing beside it under a free name (report.txt -> report(1).txt).
+---@class DoraPlannedPasteOperation
+---@field is_move boolean
+---@field src string
+---@field dest string
+---@field skip boolean Exact-source overwrite is a no-op
+
+-- Resolve every destination before asynchronous execution. Besides keeping the
+-- confirmation preview and execution in agreement, this lets callers send LSP
+-- willRenameFiles with the actual batch of moves before touching the filesystem.
 ---@param ops {is_move: boolean, src: string}[]
 ---@param dest_dir string
 ---@param cwd string
+---@param overwrite boolean
+---@return DoraPlannedPasteOperation[]
+function M.plan_paste(ops, dest_dir, cwd, overwrite)
+    local planned = {}
+    local reserved = {}
+    for _, op in ipairs(ops) do
+        local dest = resolve_copy_or_move_dest(op.src, dest_dir, cwd, true)
+        local dest_is_src = M.same_file(op.src, dest)
+        local occupied = M.exists(dest) or reserved[dest]
+        if occupied and not overwrite then
+            dest = M.nonclobber_dest(dest, reserved)
+        end
+        reserved[dest] = true
+        planned[#planned+1] = {
+            is_move = op.is_move,
+            src = op.src,
+            dest = dest,
+            skip = dest_is_src and overwrite,
+        }
+    end
+    return planned
+end
+
+-- Execute planned copy/move operations off the main loop, mimicking `cp -R` /
+-- `mv`. `progress` is mutated
+-- in place as work proceeds so callers can render a live indicator. With
+-- `overwrite` a conflicting destination is replaced; otherwise the paste keeps
+-- both files by landing beside it under a free name (report.txt -> report(1).txt).
+---@param ops DoraPlannedPasteOperation[]
 ---@param progress DoraPasteProgress
 ---@param overwrite boolean Replace existing destinations instead of keeping both
 ---@param on_done fun(ok: boolean, result: string, completed: {src: string, dest: string, is_move: boolean}[])
-function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
+function M.paste_async(ops, progress, overwrite, on_done)
     -- Collected outside the coroutine so ops that finished before a mid-batch
     -- failure are still reported to on_done (e.g. to emit per-file events).
     local completed = {}
@@ -693,17 +726,9 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
         local first_dest
         local buffer_renames = {}
         for _, op in ipairs(ops) do
-            -- Unlike the general copy/move helper, paste permits resolving to
-            -- the source itself. Keep-both gives it a free sibling name; an
-            -- overwrite of the exact same object is a safe no-op.
-            local dest = resolve_copy_or_move_dest(op.src, dest_dir, cwd, true)
-            local dest_is_src = M.same_file(op.src, dest)
+            local dest = op.dest
             if M.exists(dest) then
-                if dest_is_src then
-                    if not overwrite then
-                        dest = M.nonclobber_dest(dest)
-                    end
-                elseif overwrite then
+                if not M.same_file(op.src, dest) and overwrite then
                     -- Replace an existing destination when a directory is
                     -- involved so the paste overwrites instead of erroring on
                     -- mkdir/rename. A file replacing a file is overwritten in
@@ -711,13 +736,10 @@ function M.paste_async(ops, dest_dir, cwd, progress, overwrite, on_done)
                     if M.is_dir(op.src) or M.is_dir(dest) then
                         rm_a(dest)
                     end
-                else
-                    -- Keep both: paste beside the existing entry under a free name.
-                    dest = M.nonclobber_dest(dest)
                 end
             end
             first_dest = first_dest or dest
-            if not (dest_is_src and overwrite) then
+            if not op.skip then
                 if op.is_move then
                     local rename = move_a(op.src, dest, progress)
                     if rename then

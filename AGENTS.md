@@ -36,6 +36,8 @@ re-render. The modules:
 - `lua/dora/store.lua` — dora buffer → `DoraState` registry.
 - `lua/dora/fs.lua` — filesystem ops, sync and async; renames editor buffers
   so they follow moved files.
+- `lua/dora/lsp.lua` — native LSP `willRenameFiles`/`didRenameFiles` handling,
+  including server registration filters.
 - `lua/dora/buffer.lua` — dora buffer creation/naming and the
   buffer-follows-file renames.
 - `lua/dora/keymaps.lua` — installs keymaps and prefix-hint windows; requires

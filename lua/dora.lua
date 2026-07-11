@@ -32,6 +32,7 @@ local M = {}
 ---@field tree_indent integer
 ---@field prompt_insert_esc_closes boolean
 ---@field preview_split 'left'|'right'|'above'|'below'
+---@field lsp_timeout number
 
 -- NOTE: Other modules capture this table at require time
 -- (`local config = require'dora'.config`), so setup() merges into it in
@@ -55,6 +56,9 @@ M.config = {
     prompt_insert_esc_closes = true,
     -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
     preview_split = 'right',
+    -- Timeout in milliseconds for LSP willRenameFiles requests.
+    -- Set to 0 to disable LSP rename/move integration.
+    lsp_timeout = 1000,
     -- Key mappings
     keymaps = {
         -- General

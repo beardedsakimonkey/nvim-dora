@@ -85,6 +85,9 @@ require('dora').setup {
     prompt_insert_esc_closes = true,
     -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
     preview_split = 'right',
+    -- Timeout in milliseconds for LSP willRenameFiles requests.
+    -- Set to 0 to disable LSP rename/move integration.
+    lsp_timeout = 1000,
     -- Key mappings
     keymaps = {
         -- General
@@ -243,12 +246,26 @@ further with a `FileType` autocmd.
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
 
+## LSP rename integration
+
+File and directory renames and moves are LSP-aware. Before changing the
+filesystem, Dora sends `workspace/willRenameFiles` to active language servers
+which support it and applies any returned workspace edits. After filesystem
+work completes, it sends `workspace/didRenameFiles` for the successful
+operations. Server registration filters are respected, including file/folder
+type and glob matching.
+
+`lsp_timeout` controls how long Dora waits for each synchronous
+`willRenameFiles` response and defaults to 1000 milliseconds. Set it to `0` to
+disable native LSP integration. Existing configurations which forward
+`DoraActionRename` or `DoraActionMove` to Snacks or another LSP integration
+should remove those autocmds to avoid duplicate messages.
+
 ## Events
 
-Dora fires a `User` autocmd for each filesystem action it performs, so other
-plugins can react to it — for example, to forward a rename to the language
-server. The pattern is `DoraAction<Kind>`, and `event.data` carries the affected
-absolute paths.
+Dora also fires a `User` autocmd after each filesystem action so other plugins
+can react to it. The pattern is `DoraAction<Kind>`, and `event.data` carries the
+affected absolute paths.
 
 - `DoraActionRename` — a file or directory was renamed (`data.from`, `data.to`).
 - `DoraActionMove` — a cut mark was pasted, moving it (`data.from`, `data.to`).
@@ -256,20 +273,6 @@ absolute paths.
 - `DoraActionCreate` — a file, directory, or symlink was created, or a trashed
   entry restored (`data.to`).
 - `DoraActionDelete` — a file or directory was trashed or deleted (`data.from`).
-
-For example, to keep LSP-tracked references in sync when renaming or moving a
-file with [Snacks.rename](https://github.com/folke/snacks.nvim):
-
-```lua
-for _, action in ipairs({ 'DoraActionRename', 'DoraActionMove' }) do
-  vim.api.nvim_create_autocmd('User', {
-    pattern = action,
-    callback = function(event)
-      Snacks.rename.on_rename_file(event.data.from, event.data.to)
-    end,
-  })
-end
-```
 
 ## Highlights
 
