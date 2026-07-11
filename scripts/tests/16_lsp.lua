@@ -49,7 +49,7 @@ local function restore_lsp()
 end
 
 -- A direct rename requests and applies edits before touching the filesystem,
--- then notifies the server before emitting Dora's extension event.
+-- then notifies the server after the rename succeeds.
 do
     local tmp = vim.fn.tempname()
     assert(vim.uv.fs_mkdir(tmp, tonumber('755', 8)))
@@ -82,13 +82,6 @@ do
         assert(fs.exists(from), 'workspace edits should be applied before the filesystem rename')
     end
 
-    local group = vim.api.nvim_create_augroup('dora_lsp_rename_order_test', {clear = true})
-    vim.api.nvim_create_autocmd('User', {
-        group = group,
-        pattern = 'DoraActionRename',
-        callback = function() calls[#calls+1] = {kind = 'event'} end,
-    })
-
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     set_cursor_pos('alpha.lua')
     local old_input = prompt.input
@@ -97,7 +90,7 @@ do
     api.rename()
     prompt.input = old_input
 
-    assert_eq(#calls, 4)
+    assert_eq(#calls, 3)
     assert_eq(calls[1].kind, 'request')
     assert_eq(calls[1].method, 'workspace/willRenameFiles')
     assert_eq(calls[1].timeout, 1000)
@@ -108,10 +101,8 @@ do
     assert_eq(calls[2].encoding, 'utf-16')
     assert_eq(calls[3].kind, 'notify')
     assert_eq(calls[3].method, 'workspace/didRenameFiles')
-    assert_eq(calls[4].kind, 'event')
 
     api.quit()
-    vim.api.nvim_del_augroup_by_id(group)
     restore_lsp()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end

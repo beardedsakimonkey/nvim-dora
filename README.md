@@ -257,22 +257,7 @@ type and glob matching.
 
 `lsp_timeout` controls how long Dora waits for each synchronous
 `willRenameFiles` response and defaults to 1000 milliseconds. Set it to `0` to
-disable native LSP integration. Existing configurations which forward
-`DoraActionRename` or `DoraActionMove` to Snacks or another LSP integration
-should remove those autocmds to avoid duplicate messages.
-
-## Events
-
-Dora also fires a `User` autocmd after each filesystem action so other plugins
-can react to it. The pattern is `DoraAction<Kind>`, and `event.data` carries the
-affected absolute paths.
-
-- `DoraActionRename` — a file or directory was renamed (`data.from`, `data.to`).
-- `DoraActionMove` — a cut mark was pasted, moving it (`data.from`, `data.to`).
-- `DoraActionCopy` — a copy mark was pasted (`data.from`, `data.to`).
-- `DoraActionCreate` — a file, directory, or symlink was created, or a trashed
-  entry restored (`data.to`).
-- `DoraActionDelete` — a file or directory was trashed or deleted (`data.from`).
+disable native LSP integration.
 
 ## Highlights
 
