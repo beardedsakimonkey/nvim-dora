@@ -78,23 +78,32 @@ Here are the defaults:
         -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
         -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
         icons = false,
+    
         -- Number of columns used for each level of tree indentation (minimum 2)
         tree_indent = 4,
+    
         -- Whether to show keymap hints for two-key normal mode mappings
         show_keymap_hints = true,
+    
         -- Whether hidden files should be shown by default
         show_hidden_files = true,
+    
         -- Function used to determine what files should be hidden
         is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
+    
         -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
         sort_order = 'name',
+    
         -- Whether <Esc> in insert mode closes prompts.
         prompt_insert_esc_closes = true,
+    
         -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
         preview_split = 'right',
+    
         -- Timeout in milliseconds for LSP willRenameFiles requests.
         -- Set to 0 to disable LSP rename/move integration.
         lsp_timeout = 1000,
+    
         -- Key mappings
         keymaps = {
             -- General
