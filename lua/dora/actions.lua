@@ -32,7 +32,7 @@ M.ACTIONS = {
     {name = 'fold_out_recursive', desc = 'Fold out directory recursively', section = 'Navigation', visual = 'fold_out_recursive_visual'},
     {name = 'fold_in', desc = 'Fold in directory', section = 'Navigation', visual = 'fold_in_visual'},
     {name = 'fold_in_recursive', desc = 'Fold in directory recursively', section = 'Navigation', visual = 'fold_in_recursive_visual'},
-    {name = 'close_dir', desc = 'Close directory', section = 'Navigation'},
+    {name = 'close_dir', desc = 'Close directory', section = 'Navigation', visual = 'close_dir_visual'},
     {name = 'home_dir', desc = 'Go to home directory', section = 'Navigation'},
     {name = 'set_bookmark', desc = 'Set bookmark', section = 'Navigation'},
     {name = 'jump_bookmark', desc = 'Jump to bookmark', section = 'Navigation'},

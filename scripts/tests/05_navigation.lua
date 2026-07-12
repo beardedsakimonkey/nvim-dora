@@ -501,6 +501,7 @@ do
     local state = store.get()
     local root = fs.realpath(tmp)
     assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Close directory')
+    assert_eq(vim.fn.maparg('<BS>', 'x', false, true).desc, 'Close directory')
     set_cursor_pos('alpha')
     api.fold_out()
     set_cursor_pos('one')
@@ -516,6 +517,19 @@ do
     api.fold_out()
     assert(find_line_index(lines(), 'file%.txt$'), 're-expanding a closed directory should restore its expanded subtree')
 
+    set_cursor_line('^alpha/$')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('Vj<BS>', true, false, true), 'xt', false)
+    assert_eq(vim.api.nvim_get_mode().mode, 'n', 'visual close should leave visual mode')
+    assert(not state.expanded_dirs[root .. '/alpha'], 'visual close should collapse a selected directory')
+    assert(not state.expanded_dirs[root .. '/alpha/one'], 'visual close should collapse selected nested directories')
+    assert_match(current_line(), 'alpha/$', 'visual close should keep the cursor on the first selected directory')
+
+    api.fold_out()
+    assert(find_line_index(lines(), 'one/$'), 'visual close should allow the selected parent directory to reopen')
+    assert(not find_line_index(lines(), 'file%.txt$'), 'visual close should keep a selected nested directory closed')
+
+    set_cursor_line('one/$')
+    api.fold_out()
     set_cursor_line('file%.txt$')
     api.close_dir()
     assert(state.expanded_dirs[root .. '/alpha/one'], 'close should ignore file rows')

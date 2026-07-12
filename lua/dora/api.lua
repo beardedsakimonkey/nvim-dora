@@ -1024,6 +1024,16 @@ function M.fold_in_recursive_visual()
     visual_dir_rows_op(tree.clear_expanded_subtree)
 end
 
+function M.close_dir_visual()
+    visual_dir_rows_op(function(state, path)
+        if not state.expanded_dirs[path] then
+            return false
+        end
+        state.expanded_dirs[path] = nil
+        return true
+    end)
+end
+
 function M.fold_in_visual()
     local state = store.get()
     local start_line, end_line = visual_line_range()
