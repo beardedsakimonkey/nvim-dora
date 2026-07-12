@@ -3,7 +3,7 @@
 -- (highlighted without running ftplugins), and swaps in the real buffer when
 -- a file preview is focused.
 local icons = require'dora.icons'
-local window = require'dora.window'
+local window = require'dora.ui.window'
 local util = require'dora.util'
 local config = require'dora'.config
 

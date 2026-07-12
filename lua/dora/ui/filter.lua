@@ -1,6 +1,6 @@
 -- The filter input float pinned to the top of a dora window; reports edits,
 -- confirm, and cancel back to the filter action through callbacks.
-local window = require'dora.window'
+local window = require'dora.ui.window'
 
 local api = vim.api
 

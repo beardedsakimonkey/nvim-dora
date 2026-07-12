@@ -1,6 +1,6 @@
 -- Metadata for every built-in action (the M.* functions in dora/api.lua).
 -- This is the single source of truth consumed by dora/keymaps.lua (mapping
--- descriptions, visual-mode variants) and dora/help_win.lua (section grouping
+-- descriptions, visual-mode variants) and dora/ui/help.lua (section grouping
 -- and ordering). To add an action: implement it in api.lua, add a record
 -- here, and (optionally) bind it in the default keymaps in dora.lua.
 local M = {}

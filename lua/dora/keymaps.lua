@@ -2,7 +2,7 @@
 -- action name, a function, or a Vim RHS string) against the action registry,
 -- and renders the which-key-style hint window for two-key prefixes.
 local actions = require'dora.actions'
-local window = require'dora.window'
+local window = require'dora.ui.window'
 
 local api = vim.api
 local uv = vim.uv

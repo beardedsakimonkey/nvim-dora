@@ -3,7 +3,7 @@
 local actions = require'dora.actions'
 local keymaps = require'dora.keymaps'
 local util = require'dora.util'
-local window = require'dora.window'
+local window = require'dora.ui.window'
 
 local api = vim.api
 

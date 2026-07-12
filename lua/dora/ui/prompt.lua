@@ -1,7 +1,7 @@
 -- Single-line floating input prompt (rename, add, symlink, shell command)
 -- with live validation reflected in the border color.
 local api = vim.api
-local window = require'dora.window'
+local window = require'dora.ui.window'
 local config = require'dora'.config
 
 local M = {}

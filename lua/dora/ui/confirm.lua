@@ -4,7 +4,7 @@
 local api = vim.api
 local uv = vim.uv
 
-local window = require'dora.window'
+local window = require'dora.ui.window'
 local fs = require'dora.fs'
 local icons = require'dora.icons'
 local config = require'dora'.config

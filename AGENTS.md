@@ -42,8 +42,8 @@ re-render. The modules:
   buffer-follows-file renames.
 - `lua/dora/keymaps.lua` — installs keymaps and prefix-hint windows; requires
   api.lua lazily to avoid a require cycle.
-- `lua/dora/{confirm,filter,help,info,preview}_win.lua`, `prompt.lua` — UI
-  windows, sharing `window.lua` for float layout.
+- `lua/dora/ui/{confirm,filter,help,info,preview,prompt}.lua` — UI windows,
+  sharing `lua/dora/ui/window.lua` for float layout.
 
 ## Adding an action
 

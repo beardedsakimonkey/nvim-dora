@@ -27,12 +27,12 @@ local dora = require'dora'
 local bookmarks = require'dora.bookmarks'
 local fs = require'dora.fs'
 local config = dora.config
-local confirm_win = require'dora.confirm_win'
+local confirm_win = require'dora.ui.confirm'
 local keymaps = require'dora.keymaps'
-local prompt = require'dora.prompt'
+local prompt = require'dora.ui.prompt'
 local api = require'dora.api'
 local store = require'dora.store'
-local window = require'dora.window'
+local window = require'dora.ui.window'
 
 local cwd = assert(vim.loop.cwd())
 
