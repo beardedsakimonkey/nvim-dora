@@ -52,7 +52,8 @@ M.config = {
     -- Whether hidden files should be shown by default
     show_hidden_files = true,
 
-    -- Function used to determine what files should be hidden
+    -- Function used to determine what files should be hidden. It receives the
+    -- current file, all files in its directory, and the absolute directory path.
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
     -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')

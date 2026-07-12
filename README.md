@@ -5,19 +5,20 @@
 Dora is a directory explorer for Neovim 0.12+ focused on usability. It was born
 from a desire for a modern netrw-style plugin with a tree view. It includes:
 
-- 🪾 A tree view that can be folded in/out one level at a time (or
+- 🪾 A tree view that can be expanded or collapsed one level at a time (or
   all the way) for quick exploration.
 - 🩻 "Transparent" floating windows positioned over selected files (at the
   ["locus of attention"](https://raskincenter.org/jef/humane-interface/)).
-- ✅ Floating window border colors that provide validation feedback while typing.
+- ✅ Window border colors that provide validation feedback while typing.
 - ⚠️ A paste confirmation window that detects conflicts and enables conflict
   resolution.
-- ↩️ Undoable "trash" operation for Mac/Linux.
-- 🔖 A "last directory" bookmark that persists across sessions.
+- ↩️ An undoable "trash" operation for Mac/Linux.
+- 🔖 A "last directory" bookmark that persists across Dora sessions.
 - 💡 Built-in [which-key](https://github.com/folke/which-key.nvim)-style hints to
   make two-letter keymaps more discoverable.
 
 Dora does *not* include:
+
 - ❌ SSH support
 - ❌ Git integration
 
@@ -28,7 +29,19 @@ Dora does *not* include:
   or [mini.icons](https://github.com/nvim-mini/mini.icons) with a [Nerd
   Font](https://www.nerdfonts.com/)
 
+Dora supports macOS, Linux, and Windows. Trash and undo-trash are unavailable
+on Windows; permanent deletion remains available.
+
 <!-- panvimdoc-ignore-start -->
+
+## Contents
+
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Configuration](#configuration)
+4. [Core workflow](#core-workflow)
+5. [Features and behavior](#features-and-behavior)
+6. [Development](#development)
 
 ## Demos
 
@@ -88,7 +101,8 @@ require('dora').setup {
     -- Whether hidden files should be shown by default
     show_hidden_files = true,
 
-    -- Function used to determine what files should be hidden
+    -- Function used to determine what files should be hidden. It receives the
+    -- current file, all files in its directory, and the absolute directory path.
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
     -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
@@ -191,6 +205,18 @@ require('dora').setup {
 ```
 <!-- dora-config:end -->
 
+Setting `icons = true` is equivalent to selecting `"nvim-web-devicons"`.
+Selecting `"mini.icons"` expects `MiniIcons.setup()` to have run. If the
+selected provider is unavailable, Dora falls back to built-in Nerd Font
+glyphs.
+
+The `is_hidden_file` callback receives three arguments:
+
+- `file`: the current entry, with `name`, `type`, `size`, `mtime`, and
+  `birthtime` fields where available
+- `files`: all entries in the directory
+- `dir`: the absolute path of that directory
+
 > [!NOTE]
 > Visual mode mappings are installed automatically for built-in actions that
 > support them, including cursor movements, expanding/collapsing directories,
@@ -201,12 +227,12 @@ Example setup:
 ```lua
 local dora = require('dora')
 
--- `dora.setup` merges options with the default config.
+-- `dora.setup` merges options into the default config.
 dora.setup({
     icons = true,
     keymaps = {
-        d = 'delete',
-        Y = 'yank_filename',
+        ['<2-LeftMouse>'] = 'open',
+        Y = 'yank_file_path',
     },
 })
 
@@ -214,7 +240,7 @@ dora.setup({
 dora.config.keymaps.D = nil
 ```
 
-Keymaps may be action names, Vim RHS strings, lua functions, or `{action,
+Keymaps may be action names, Vim RHS strings, Lua functions, or `{action,
 desc=...}` tables. Built-in action names automatically use Dora's description in
 mappings, prefix hints, and `g?` help, even when remapped.
 
@@ -228,19 +254,91 @@ was triggered:
 `path` and `type` are omitted on rows without a file, such as the placeholder
 shown for empty directories.
 
-In a dora buffer, `%` in `:cd %`, `:lcd %`, or `:tcd %` expands to the browsed
-directory, including when another dora session has given the buffer an ID
-suffix. It retains its normal meaning in other commands.
+## Core workflow
+
+- Use `l` or `<CR>` to open an entry, and `h` or `-` to go up a directory.
+- Use `o` and `i` to expand and collapse the tree one level at a time; uppercase
+  `O` and `I` operate recursively.
+- Use `a` or `A` to create, `r` to rename, and `d` to move entries to the trash.
+- Use `x` or `c` to mark entries for cutting or copying, then `p` or `P` to paste.
+- Use `f` to filter the visible tree, `gp` to preview, and `g?` to see every
+  configured mapping.
+
+Visual mode works with actions that accept multiple entries, including opening,
+expanding or collapsing, marking, trashing, and deleting.
+
+## Features and behavior
+
+### Creating files and directories
+
+The add prompt creates a directory when its input ends in `/`; otherwise it
+creates a file. Nested paths are accepted and missing parent directories are
+created automatically.
+
+`a` prefills the prompt beneath the selected directory (or beside the selected
+file). `A` always prefills it beside the selected entry. Similarly, `p` pastes
+under the selected directory, while `P` pastes under the parent of the selected
+directory.
+
+### Changing the working directory
+
+To change Neovim's current working directory to the directory being browsed,
+run this from a dora buffer:
+
+```vim
+:cd %
+```
+
+To map this action, use a function keymap and the current Dora context:
+
+```lua
+require('dora').setup {
+    keymaps = {
+        ['gc'] = {
+            function(ctx)
+                vim.api.nvim_set_current_dir(ctx.cwd)
+            end,
+            desc = 'Change working directory',
+        },
+    },
+}
+```
+
+Dora expands `%` to the browsed directory for interactive `:cd`, `:lcd`, and
+`:tcd` commands. Each Dora instance has a separate buffer, and simultaneous
+instances browsing the same directory receive unique buffer names. Configured
+string mappings are non-recursive, so a mapping such as
+`gc = '<Cmd>cd %<CR>'` bypasses Dora's special expansion and may use that unique
+buffer name instead. The function mapping above avoids that ambiguity.
+
+### Keymap hints
 
 Dora also shows a small hint window for two-character normal mode mappings.
 For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
 Set `dora.config.show_keymap_hints = false` to disable these prefix hints.
+
+### Preview window
+
+Press `gp` to toggle a preview split, which follows the entry under the cursor.
+File previews initially use a lightweight scratch buffer and read only enough of
+the file to fill the window. This avoids fully loading large files and does not
+run filetype plugins or attach LSP clients while browsing. Move focus into the
+preview to replace the scratch buffer with the real, fully loaded file buffer,
+which can then be scrolled or edited normally.
+
+Directories are previewed as a snapshot of their entries using Dora's current
+sorting and hidden-file settings. Set `dora.config.preview_split` to `left`,
+`right`, `above`, or `below` to choose where the preview opens.
+
+### Sort order
 
 Files are sorted naturally by name by default, with directories always grouped
 before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
 time, creation time, size, or extension. Use uppercase variants such as `,N`,
 `,M`, `,C`, `,S`, and `,E` for the reversed order. Set
 `dora.config.sort_order` to choose the default order.
+
+### Borders
 
 Dora float windows use rounded borders by default. On Neovim 0.12+, set
 `vim.o.winborder` to customize the border style globally.
@@ -272,8 +370,11 @@ filter.
 
 Press `m` followed by any one-character key to bookmark the current directory,
 then press `'` followed by that key to return to it. Bookmarks are shared by all
-Dora windows during the current Neovim session. Use `''` to jump back to the
-previous directory; repeat it to toggle between the two most recent directories.
+Dora windows during the current Neovim session.
+
+Use `''` to jump back to the previous directory; repeat it to toggle between the
+two most recent directories. This previous-directory bookmark is window-local
+and persists when Dora is closed and reopened in that window.
 
 ### LSP rename integration
 
