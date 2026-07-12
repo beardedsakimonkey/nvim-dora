@@ -72,7 +72,7 @@ end)()
 ---@field error? string A blocking error heading the window: the border turns red and the confirm keys only dismiss it
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
----@field types? table<string, string> Path -> an existing path whose file type and icon to use, for previewing entries (e.g. restores) whose own location is empty
+---@field types? table<string, string> Path -> an existing path whose file type to use, for previewing entries (e.g. restores) whose own location is empty
 
 ---@param path string
 ---@return string
@@ -159,7 +159,7 @@ end
 ---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
----@param types? table<string, string> Path -> existing path whose file type and icon to use
+---@param types? table<string, string> Path -> existing path whose file type to use
 ---@return table
 local function item_parts(path, base, renames, operations, expanded, types)
     -- Show the path relative to base, falling back to the absolute path for
@@ -167,12 +167,15 @@ local function item_parts(path, base, renames, operations, expanded, types)
     local relative = base and (vim.fs.relpath(base, path) or path) or fs.basename(path)
     local dir_len = dir_prefix_len(relative)
     -- A restore preview lists each entry at the location it will return to,
-    -- which is still empty; take its file type and icon from the trashed copy
-    -- that does exist (types[path]) while keeping the original name.
+    -- which is still empty. Take its file type from the trashed copy that does
+    -- exist (types[path]), but look up its icon by the original name. Trash may
+    -- have added a collision suffix that should not change a name-specific icon.
     local type_path = types and types[path] or path
     local hl = file_hl(type_path)
     local is_expanded = expanded and expanded[path] or nil
-    local icon, icon_hl = icons.get(config.icons, fs.file_from_path(type_path), type_path, is_expanded)
+    local file = fs.file_from_path(type_path)
+    file.name = fs.basename(path)
+    local icon, icon_hl = icons.get(config.icons, file, path, is_expanded)
     return {
         icon = icon,
         icon_hl = icon_hl or 'DoraIcon',
@@ -295,7 +298,7 @@ end
 ---@param renames? table<string, string>
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
----@param types? table<string, string> Path -> existing path whose file type and icon to use
+---@param types? table<string, string> Path -> existing path whose file type to use
 ---@param limit integer Maximum number of paths to render before overflowing
 ---@param overwrite boolean Current mode, deciding which suffix and preview each line carries
 ---@param target? integer Display columns each line may occupy; names are elided to fit

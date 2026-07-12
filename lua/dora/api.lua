@@ -1561,7 +1561,7 @@ function M.undo_trash()
 
     -- Preview each entry at the location it will be restored to (its original
     -- path); its own location is empty until then, so the confirmation takes the
-    -- file-type icon from the trashed copy that still exists.
+    -- file type from the trashed copy that still exists.
     local paths = {}
     local types = {}
     for _, entry in ipairs(batch) do
