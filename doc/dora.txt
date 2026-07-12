@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 July 11
+                                 For Neovim 0.12+    Last change: 2026 July 12
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -130,7 +130,7 @@ Here are the defaults:
             i         = 'fold_in',            -- Fold in directory
             I         = 'fold_in_recursive',  -- Fold in directory recursively
             ['<BS>']  = 'close_dir',          -- Close directory
-            gp        = 'toggle_preview',     -- Toggle file preview
+            gp        = 'toggle_preview',     -- Toggle preview
             gh        = 'home_dir',           -- Go to home directory
             m         = 'set_bookmark',       -- Set bookmark
             ["'"]     = 'jump_bookmark',      -- Jump to bookmark

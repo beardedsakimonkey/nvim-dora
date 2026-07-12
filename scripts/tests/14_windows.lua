@@ -138,12 +138,20 @@ end
 
 do
     -- Preview: opens a split without stealing focus, reads only enough of huge
-    -- files to fill a window, follows the cursor, and loads the real buffer
-    -- when focused.
+    -- files to fill a window, follows the cursor, loads the real buffer when
+    -- focused, and lists directories like the main view.
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     tmp = fs.realpath(tmp)
     assert(vim.loop.fs_mkdir(tmp .. '/dir', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dir/sub', tonumber('755', 8)))
+    write_file(tmp .. '/dir/file.txt', 'content\n')
+    write_file(tmp .. '/dir/.dot', '')
+    assert(vim.loop.fs_mkdir(tmp .. '/empty', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/many', tonumber('755', 8)))
+    for i = 1, vim.o.lines + 5 do
+        write_file(string.format('%s/many/f%03d', tmp, i), '')
+    end
     write_file(tmp .. '/small.txt', 'alpha\nbeta\n')
     write_file(tmp .. '/bin.dat', 'binary\0data')
     local big_line_count = vim.o.lines + 500
@@ -173,8 +181,40 @@ do
 
     set_cursor_pos('dir')
     vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
-    assert_eq(buf_lines(vim.api.nvim_win_get_buf(preview.win))[1], '(directory)',
-        'directories should show a placeholder instead of content')
+    assert_eq(table.concat(buf_lines(vim.api.nvim_win_get_buf(preview.win)), '\n'),
+        'sub/\n.dot\nfile.txt',
+        'directories should preview their entries, directories first with a / suffix')
+
+    vim.api.nvim_set_current_win(preview.win)
+    assert(not preview.full, 'focusing a directory preview should keep the listing scratch')
+    assert_eq(buf_lines(vim.api.nvim_win_get_buf(preview.win))[1], 'sub/',
+        'focusing a directory preview should not load another buffer')
+    vim.api.nvim_set_current_win(dora_win)
+
+    -- View-setting changes refresh a directory preview when the cursor
+    -- revisits the entry (like file previews, the shown snapshot stays put
+    -- while the hovered path is unchanged).
+    set_cursor_pos('small.txt')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    api.toggle_hidden_files()
+    set_cursor_pos('dir')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    assert_eq(table.concat(buf_lines(vim.api.nvim_win_get_buf(preview.win)), '\n'),
+        'sub/\nfile.txt',
+        'directory previews should honor the hidden-file filter')
+    api.toggle_hidden_files()
+
+    set_cursor_pos('empty')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    assert_eq(buf_lines(vim.api.nvim_win_get_buf(preview.win))[1], '(empty)',
+        'empty directories should show a placeholder')
+
+    set_cursor_pos('many')
+    vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})
+    local dir_shown = buf_lines(vim.api.nvim_win_get_buf(preview.win))
+    assert_eq(dir_shown[1], 'f001')
+    assert_eq(#dir_shown, vim.o.lines,
+        'directory previews should render only enough lines to fill a window')
 
     set_cursor_pos('bin.dat')
     vim.api.nvim_exec_autocmds('CursorMoved', {buffer = dora_state.buf})

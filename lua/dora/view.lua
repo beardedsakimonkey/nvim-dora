@@ -15,7 +15,7 @@ local uv = vim.uv
 
 local M = {}
 
-local EMPTY_LABEL = '(empty)'
+M.EMPTY_LABEL = '(empty)'
 local NOT_PERMITTED_LABEL = '(not permitted)'
 local TREE_VERTICAL = '│'
 
@@ -107,6 +107,27 @@ function M.clear_listings(state)
     end
 end
 
+-- One uncached directory scan: the raw listing plus its filtered and sorted
+-- view per the state's settings, with failures mapped to the same placeholder
+-- labels the tree shows. visible_files caches this; the preview window calls
+-- it directly for point-in-time snapshots.
+---@param state DoraState
+---@param dir string
+---@return DoraFile[]? raw unfiltered listing; nil when the listing failed
+---@return DoraFile[] files filtered and sorted
+---@return string? placeholder_label
+function M.scan_directory(state, dir)
+    local ok, all_files = pcall(fs.list, dir)
+    if not ok then
+        if is_permission_error(all_files) then
+            return nil, {}, NOT_PERMITTED_LABEL
+        end
+        util.warn(tostring(all_files))
+        return nil, {}, nil
+    end
+    return all_files, filter_and_sort(state, all_files, dir), nil
+end
+
 ---@param state DoraState
 ---@param dir string
 ---@return DoraFile[] files
@@ -125,23 +146,15 @@ function M.visible_files(state, dir)
         end
         return entry.files, entry.placeholder_label
     end
+    local raw, files, placeholder_label = M.scan_directory(state, dir)
     entry = {
-        files = {},
+        raw = raw,
+        files = files,
+        placeholder_label = placeholder_label,
         show_hidden = state.show_hidden_files,
         sort_order = state.sort_order,
+        unwatch = watch_directory(state, dir),
     }
-    local ok, all_files = pcall(fs.list, dir)
-    if not ok then
-        if is_permission_error(all_files) then
-            entry.placeholder_label = NOT_PERMITTED_LABEL
-        else
-            util.warn(tostring(all_files))
-        end
-    else
-        entry.raw = all_files
-        entry.files = filter_and_sort(state, all_files, dir)
-    end
-    entry.unwatch = watch_directory(state, dir)
     state.listings[dir] = entry
     return entry.files, entry.placeholder_label
 end
@@ -169,7 +182,7 @@ function M.build_tree_rows(state)
     local function add_dir(dir, prefix, depth, continuation_segments)
         local files, placeholder_label = M.visible_files(state, dir)
         if depth > 0 and (#files == 0 or placeholder_label) then
-            placeholder_label = placeholder_label or EMPTY_LABEL
+            placeholder_label = placeholder_label or M.EMPTY_LABEL
             local tree_prefix = prefix .. '└' .. connector_suffix
             rows[#rows+1] = {
                 name = placeholder_label,

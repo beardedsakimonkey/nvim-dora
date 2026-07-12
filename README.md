@@ -123,7 +123,7 @@ require('dora').setup {
         i         = 'fold_in',            -- Fold in directory
         I         = 'fold_in_recursive',  -- Fold in directory recursively
         ['<BS>']  = 'close_dir',          -- Close directory
-        gp        = 'toggle_preview',     -- Toggle file preview
+        gp        = 'toggle_preview',     -- Toggle preview
         gh        = 'home_dir',           -- Go to home directory
         m         = 'set_bookmark',       -- Set bookmark
         ["'"]     = 'jump_bookmark',      -- Jump to bookmark

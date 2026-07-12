@@ -71,7 +71,7 @@ M.ACTIONS = {
     {name = 'clear_filter', desc = 'Clear filter', section = 'View'},
     {name = 'file_info', desc = 'Show file info', section = 'View'},
     {name = 'toggle_hidden_files', desc = 'Toggle hidden files', section = 'View'},
-    {name = 'toggle_preview', desc = 'Toggle file preview', section = 'View'},
+    {name = 'toggle_preview', desc = 'Toggle preview', section = 'View'},
     {name = 'reload', desc = 'Reload listing', section = 'View'},
 
     -- Yank

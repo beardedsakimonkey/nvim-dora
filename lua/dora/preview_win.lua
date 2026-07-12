@@ -1,6 +1,8 @@
--- The toggleable preview split: shows the head of the hovered file in a
--- lightweight scratch buffer (highlighted without running ftplugins), and
--- swaps in the real buffer when the preview window is focused.
+-- The toggleable preview split: shows the head of the hovered file, or a
+-- listing of the hovered directory, in a lightweight scratch buffer
+-- (highlighted without running ftplugins), and swaps in the real buffer when
+-- a file preview is focused.
+local icons = require'dora.icons'
 local window = require'dora.window'
 local util = require'dora.util'
 local config = require'dora'.config
@@ -16,6 +18,8 @@ local M = {}
 -- (e.g. minified JS); the preview shows what fit.
 local READ_CHUNK_BYTES = 16 * 1024
 local MAX_READ_BYTES = 512 * 1024
+
+local NS = api.nvim_create_namespace('dora/preview_win')
 
 ---@class DoraPreviewWindow
 ---@field win integer
@@ -80,8 +84,7 @@ local function create_scratch(path, lines, placeholder)
     vim.bo[buf].bufhidden = 'wipe'
     if placeholder then
         api.nvim_buf_set_lines(buf, 0, -1, false, {placeholder})
-        local ns = api.nvim_create_namespace('dora/preview_win.' .. buf)
-        api.nvim_buf_set_extmark(buf, ns, 0, 0, {
+        api.nvim_buf_set_extmark(buf, NS, 0, 0, {
             end_col = #placeholder,
             hl_group = 'DoraMutedText',
         })
@@ -115,9 +118,62 @@ local function apply_highlight(buf, path, lines)
     end
 end
 
+-- A hovered directory previews as a point-in-time listing rendered like the
+-- main view (same hidden-file filter, sort order, labels, and colors, minus
+-- the per-entry symlink/executable decorations), truncated at the tallest
+-- possible window like file previews. No cache and no watcher: the listing
+-- is rescanned only when the cursor returns to the directory.
+---@param state DoraState
+---@param path string
+---@return integer buf
+local function create_directory_scratch(state, path)
+    -- Required lazily: view.lua requires this module at load time.
+    local view = require'dora.view'
+    local raw, files, label = view.scan_directory(state, path)
+    if not raw and not label then
+        label = '(cannot preview)'
+    end
+    if label or #files == 0 then
+        return create_scratch(path, {}, label or view.EMPTY_LABEL)
+    end
+    local lines = {}
+    -- Extmark specs to apply once the buffer exists:
+    -- row, start col, end col, highlight group, priority.
+    ---@type [integer, integer, integer, string, integer][]
+    local extmarks = {}
+    for i = 1, math.min(#files, vim.o.lines) do
+        local file = files[i]
+        local icon, icon_hl = icons.get(config.icons, file, vim.fs.joinpath(path, file.name))
+        local line = icon and icon .. ' ' .. file.name or file.name
+        if icon then
+            extmarks[#extmarks+1] = {i, 0, #icon, icon_hl or 'DoraIcon', 10000}
+        end
+        local line_hl = 'DoraFile'
+        if file.type == 'directory' then
+            line_hl = 'DoraDirectory'
+            extmarks[#extmarks+1] = {i, #line, #line + 1, 'DoraVirtText', 10000}
+            line = line .. '/'
+        elseif file.type == 'link' then
+            line_hl = 'DoraSymlink'
+        end
+        extmarks[#extmarks+1] = {i, 0, #line, line_hl, 100}
+        lines[i] = line
+    end
+    local buf = create_scratch(path, lines)
+    for _, mark in ipairs(extmarks) do
+        api.nvim_buf_set_extmark(buf, NS, mark[1] - 1, mark[2], {
+            end_col = mark[3],
+            hl_group = mark[4],
+            priority = mark[5],
+        })
+    end
+    return buf
+end
+
+---@param state DoraState
 ---@param preview DoraPreviewWindow
 ---@param path? string
-local function show(preview, path)
+local function show(state, preview, path)
     preview.path = path
     preview.full = false
     preview.loadable = false
@@ -125,13 +181,14 @@ local function show(preview, path)
     if not path then
         buf = create_scratch(nil, {})
     else
-        -- fs_stat resolves symlinks, so a link to a file previews its target.
-        -- Only regular files are read: opening e.g. a fifo would block.
+        -- fs_stat resolves symlinks, so a link to a file previews its target
+        -- and a link to a directory lists it. Only regular files are read:
+        -- opening e.g. a fifo would block.
         local stat = uv.fs_stat(path)
         if not stat then
             buf = create_scratch(path, {}, '(cannot preview)')
         elseif stat.type == 'directory' then
-            buf = create_scratch(path, {}, '(directory)')
+            buf = create_directory_scratch(state, path)
         elseif stat.type ~= 'file' then
             buf = create_scratch(path, {}, '(' .. stat.type .. ')')
         else
@@ -171,7 +228,7 @@ function M.update(state, row)
     if path == preview.path then
         return
     end
-    show(preview, path)
+    show(state, preview, path)
 end
 
 ---@param state DoraState
