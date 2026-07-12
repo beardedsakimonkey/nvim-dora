@@ -36,6 +36,8 @@ do
     local state = store.get()
     assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, 'Next paste mark')
     assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, 'Previous paste mark')
+    assert_eq(vim.fn.maparg(']m', 'x', false, true).desc, 'Next paste mark')
+    assert_eq(vim.fn.maparg('[m', 'x', false, true).desc, 'Previous paste mark')
 
     -- Mark non-adjacent rows with a mix of cut and copy.
     set_cursor_line('bravo%.txt$')
@@ -66,6 +68,18 @@ do
     set_cursor_line('echo%.txt$')
     vim.api.nvim_feedkeys('2[m', 'xt', false)
     assert_match(current_line(), 'bravo%.txt$', 'counted previous mark should skip the requested number of marks')
+
+    set_cursor_line('alpha%.txt$')
+    vim.api.nvim_feedkeys('V2]m', 'xt', false)
+    assert_match(current_line(), 'delta%.txt$', 'visual next mark should support counts')
+    assert_eq(vim.api.nvim_get_mode().mode, 'V', 'visual next mark should keep the selection active')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
+
+    set_cursor_line('echo%.txt$')
+    vim.api.nvim_feedkeys('V2[m', 'xt', false)
+    assert_match(current_line(), 'bravo%.txt$', 'visual previous mark should support counts')
+    assert_eq(vim.api.nvim_get_mode().mode, 'V', 'visual previous mark should keep the selection active')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<Esc>', true, false, true), 'xt', false)
 
     api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

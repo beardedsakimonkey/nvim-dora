@@ -36,8 +36,8 @@ M.ACTIONS = {
     {name = 'home_dir', desc = 'Go to home directory', section = 'Navigation'},
     {name = 'set_bookmark', desc = 'Set bookmark', section = 'Navigation'},
     {name = 'jump_bookmark', desc = 'Jump to bookmark', section = 'Navigation'},
-    {name = 'next_paste_mark', desc = 'Next paste mark', section = 'Navigation'},
-    {name = 'prev_paste_mark', desc = 'Previous paste mark', section = 'Navigation'},
+    {name = 'next_paste_mark', desc = 'Next paste mark', section = 'Navigation', visual = 'next_paste_mark'},
+    {name = 'prev_paste_mark', desc = 'Previous paste mark', section = 'Navigation', visual = 'prev_paste_mark'},
 
     -- Open
     {name = 'open', desc = 'Open', section = 'Open', visual = 'open_visual'},
