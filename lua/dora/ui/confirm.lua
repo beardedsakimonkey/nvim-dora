@@ -58,7 +58,7 @@ end)()
 ---@field file_start_col integer
 ---@field file_end_col integer
 ---@field file_hl string
----@field is_dir boolean Whether the entry is a directory (its name carries a trailing '/')
+---@field marker? string ls -F type marker trailing the name ('/', '*', '|', '=', '@'), matching the tree's virt text
 ---@field rename? string Free name a keep-both paste would use, shown after an arrow
 ---@field operation? DoraPasteOperation
 
@@ -74,18 +74,33 @@ end)()
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
 ---@field types? table<string, string> Path -> an existing path whose file type to use, for previewing entries (e.g. restores) whose own location is empty
 
+-- Highlight and ls -F type marker for a path, mirroring the tree view's
+-- rendering (the marker there is virt text; here it trails the name as a
+-- suffix, like the directory '/'). Symlinks keep just the '@', without the
+-- tree's arrow-and-target, which would collide with the rename preview arrow.
 ---@param path string
----@return string
+---@return string hl
+---@return string? marker
 local function file_hl(path)
     if uv.fs_readlink(path) then
-        return 'DoraSymlink'
+        return 'DoraSymlink', '@'
     end
     local stat = uv.fs_stat(path)
-    if stat and stat.type == 'directory' then
-        return 'DoraDirectory'
+    local type = stat and stat.type
+    if type == 'directory' then
+        return 'DoraDirectory', '/'
+    end
+    if type == 'fifo' then
+        return 'DoraFifo', '|'
+    end
+    if type == 'socket' then
+        return 'DoraSocket', '='
+    end
+    if icons.special_types[type] then
+        return icons.special_types[type].hl
     end
     if uv.fs_access(path, 'X') then
-        return 'DoraExecutable'
+        return 'DoraExecutable', '*'
     end
     return 'DoraFile'
 end
@@ -171,7 +186,7 @@ local function item_parts(path, base, renames, operations, expanded, types)
     -- exist (types[path]), but look up its icon by the original name. Trash may
     -- have added a collision suffix that should not change a name-specific icon.
     local type_path = types and types[path] or path
-    local hl = file_hl(type_path)
+    local hl, marker = file_hl(type_path)
     local is_expanded = expanded and expanded[path] or nil
     local file = fs.file_from_path(type_path)
     file.name = fs.basename(path)
@@ -181,7 +196,7 @@ local function item_parts(path, base, renames, operations, expanded, types)
         icon_hl = icon_hl or 'DoraIcon',
         dir_part = relative:sub(1, dir_len),
         basename = relative:sub(dir_len + 1),
-        is_dir = hl == 'DoraDirectory',
+        marker = marker,
         file_hl = hl,
         rename = renames and renames[path] or nil,
         operation = operations and operations[path] or nil,
@@ -196,9 +211,9 @@ local function build_item(parts)
     local icon_prefix = parts.icon and parts.icon .. ' ' or ''
     local display = icon_prefix .. parts.dir_part .. parts.basename
     local suffix_start_col, suffix_end_col
-    if parts.is_dir then
+    if parts.marker then
         suffix_start_col = #display
-        display = display .. '/'
+        display = display .. parts.marker
         suffix_end_col = #display
     end
     local dir_len = #parts.dir_part
@@ -214,7 +229,7 @@ local function build_item(parts)
         file_start_col = #icon_prefix + dir_len,
         file_end_col = #icon_prefix + dir_len + #parts.basename,
         file_hl = parts.file_hl,
-        is_dir = parts.is_dir,
+        marker = parts.marker,
         rename = parts.rename,
         operation = parts.operation,
     }
@@ -222,7 +237,7 @@ end
 
 -- Elide the relative path -- its directory prefix first, then the basename --
 -- and, when its keep-both preview is shown, the rename, so the rendered line fits
--- within `target` display columns. The fixed parts (icon, the directory '/'
+-- within `target` display columns. The fixed parts (icon, the type marker
 -- suffix, rename arrow, and mode suffix) never shrink. The directory prefix is
 -- context, so it yields first; the basename and rename stay whole while they fit
 -- and otherwise share the leftover space.
@@ -232,14 +247,15 @@ end
 ---@return table
 local function truncate_parts(parts, overwrite, target)
     local show_rename = parts.rename ~= nil and not overwrite
+    local marker_w = parts.marker and vim.fn.strdisplaywidth(parts.marker) or 0
     local fixed = (parts.icon and vim.fn.strdisplaywidth(parts.icon) + 1 or 0)
-        + (parts.is_dir and 1 or 0)
+        + marker_w
     if parts.rename ~= nil then
         fixed = fixed + vim.fn.strdisplaywidth(overwrite and OVERWRITE_SUFFIX or RENAME_SUFFIX)
     end
     if show_rename then
-        -- The arrow plus, for a directory, the trailing '/' on the previewed name.
-        fixed = fixed + vim.fn.strdisplaywidth(RENAME_ARROW) + (parts.is_dir and 1 or 0)
+        -- The arrow plus the previewed name's copy of the type marker.
+        fixed = fixed + vim.fn.strdisplaywidth(RENAME_ARROW) + marker_w
     end
     local budget = target - fixed
     local dir_w = vim.fn.strdisplaywidth(parts.dir_part)
@@ -413,9 +429,9 @@ local function lines(confirm_items, overflow, dest_item, overwrite, warning, hin
             -- with what the chosen mode does to it.
             if not overwrite then
                 line = line .. RENAME_ARROW .. confirm_item.rename
-                -- A directory keeps its trailing '/' on the previewed name too.
-                if confirm_item.is_dir then
-                    line = line .. '/'
+                -- The previewed name keeps the row's trailing type marker too.
+                if confirm_item.marker then
+                    line = line .. confirm_item.marker
                 end
             end
             line = line .. suffix
@@ -551,8 +567,8 @@ local function render(buf, ns, confirm_items, overflow, dest_item, overwrite, wa
                 -- the marked file's color (cut/copy) so it reads like the row.
                 local name_start = #confirm_item.display + #RENAME_ARROW
                 local name_end = suffix_start
-                if confirm_item.is_dir then
-                    name_end = name_end - 1
+                if confirm_item.marker then
+                    name_end = name_end - #confirm_item.marker
                     api.nvim_buf_set_extmark(buf, ns, row, name_end, {
                         end_col = suffix_start,
                         hl_group = 'DoraVirtText',

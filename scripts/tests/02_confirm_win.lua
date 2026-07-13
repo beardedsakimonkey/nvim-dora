@@ -82,6 +82,50 @@ do
 end
 
 do
+    -- Entries carry the tree view's ls -F type markers: '*' for executables,
+    -- '|' for fifos, '@' for symlinks (without the tree's arrow-and-target),
+    -- alongside the existing directory '/'.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/run.sh')
+    assert(vim.loop.fs_chmod(tmp .. '/run.sh', tonumber('755', 8)))
+    vim.fn.system({'mkfifo', tmp .. '/my-fifo'})
+    assert_eq(vim.v.shell_error, 0, 'mkfifo should succeed')
+    assert(vim.loop.fs_symlink(tmp .. '/run.sh', tmp .. '/my-link'))
+    touch(tmp .. '/plain.txt')
+
+    confirm_win.show({tmp .. '/run.sh', tmp .. '/my-fifo', tmp .. '/my-link', tmp .. '/plain.txt'}, function() end)
+    local confirm_buf = vim.api.nvim_get_current_buf()
+    local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+    assert_eq(confirm_lines[1], 'run.sh*', 'executables should carry the ls -F star marker')
+    assert_eq(confirm_lines[2], 'my-fifo|', 'fifos should carry the ls -F pipe marker')
+    assert_eq(confirm_lines[3], 'my-link@', 'symlinks should carry the ls -F at marker')
+    assert_eq(confirm_lines[4], 'plain.txt', 'regular files should carry no type marker')
+
+    local marks = vim.api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
+    local has_exec, has_fifo, has_exec_marker, has_fifo_marker = false, false, false, false
+    for _, mark in ipairs(marks) do
+        local row, col, details = mark[2], mark[3], mark[4]
+        ---@cast details -nil  -- always present with {details = true}
+        has_exec = has_exec
+            or row == 0 and col == 0 and details.end_col == 6 and details.hl_group == 'DoraExecutable'
+        has_exec_marker = has_exec_marker
+            or row == 0 and col == 6 and details.end_col == 7 and details.hl_group == 'DoraVirtText'
+        has_fifo = has_fifo
+            or row == 1 and col == 0 and details.end_col == 7 and details.hl_group == 'DoraFifo'
+        has_fifo_marker = has_fifo_marker
+            or row == 1 and col == 7 and details.end_col == 8 and details.hl_group == 'DoraVirtText'
+    end
+    assert(has_exec, 'confirmation should color executable names with DoraExecutable')
+    assert(has_exec_marker, 'confirmation should highlight the star marker with DoraVirtText')
+    assert(has_fifo, 'confirmation should color fifo names with DoraFifo')
+    assert(has_fifo_marker, 'confirmation should highlight the pipe marker with DoraVirtText')
+
+    vim.api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local origin_buf = vim.api.nvim_get_current_buf()
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
