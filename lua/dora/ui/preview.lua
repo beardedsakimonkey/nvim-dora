@@ -155,6 +155,8 @@ local function create_directory_scratch(state, path)
             line = line .. '/'
         elseif file.type == 'link' then
             line_hl = 'DoraSymlink'
+        elseif icons.special_types[file.type] then
+            line_hl = icons.special_types[file.type].hl
         end
         extmarks[#extmarks+1] = {i, 0, #line, line_hl, 100}
         lines[i] = line

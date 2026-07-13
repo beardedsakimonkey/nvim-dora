@@ -2,7 +2,7 @@
 -- under lua/dora/ -- see AGENTS.md for a map of the modules.
 local M = {}
 
----@alias DoraFileType 'file'|'directory'|'link'
+---@alias DoraFileType 'file'|'directory'|'link'|'fifo'|'socket'|'char'|'block'|'unknown'
 ---@alias DoraOpenCommand 'edit'|'split'|'vsplit'|'tabedit'|string
 
 ---@class DoraKeymapContext

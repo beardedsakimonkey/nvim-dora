@@ -398,6 +398,9 @@ hi default link DoraFile                Normal
 hi default link DoraDirectory           Directory
 hi default link DoraSymlink             Constant
 hi default link DoraExecutable          Function
+hi default link DoraFifo                Type
+hi default link DoraSocket              PreProc
+hi default link DoraDevice              Type
 hi default link DoraTree                NonText
 hi default link DoraTreeActive          Directory
 hi default link DoraVirtText            NonText

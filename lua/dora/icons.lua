@@ -1,5 +1,6 @@
 -- File icon lookup with pluggable providers (nvim-web-devicons or mini.icons)
--- and built-in fallbacks for directories and symlinks.
+-- and built-in fallbacks for directories, symlinks, and special file types
+-- (fifos, sockets, and devices).
 local M = {}
 
 local devicons
@@ -38,6 +39,17 @@ local function normalize(icon, hl)
     return icon, hl
 end
 
+-- Special file types always take these fixed icons, never a provider icon:
+-- providers match by name and extension, which is meaningless for e.g. a
+-- fifo named `log.txt`. view.lua and the previews reuse the highlights.
+---@type table<string, {icon: string, hl: string}>
+M.special_types = {
+    fifo = {icon = '󰟥', hl = 'DoraFifo'},
+    socket = {icon = '󰐧', hl = 'DoraSocket'},
+    char = {icon = '󰆍', hl = 'DoraDevice'},
+    block = {icon = '󰋊', hl = 'DoraDevice'},
+}
+
 ---@param file DoraFile
 ---@param expanded? boolean
 ---@return string icon
@@ -48,6 +60,10 @@ local function fallback(file, expanded)
     elseif file.type == 'link' then
         return '', 'DoraSymlink'
     end
+    local special = M.special_types[file.type]
+    if special then
+        return special.icon, special.hl
+    end
     return '', 'DoraIcon'
 end
 
@@ -57,7 +73,7 @@ end
 ---@return string icon
 ---@return string hl
 local function web_devicon(file, path, expanded)
-    if file.type == 'directory' or file.type == 'link' then
+    if file.type ~= 'file' then
         return fallback(file, expanded)
     end
 
@@ -77,7 +93,7 @@ end
 ---@return string icon
 ---@return string hl
 local function mini_icon(file, path)
-    if file.type == 'link' then
+    if file.type ~= 'file' and file.type ~= 'directory' then
         return fallback(file)
     end
 
