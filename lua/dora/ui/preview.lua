@@ -119,8 +119,8 @@ local function apply_highlight(buf, path, lines)
 end
 
 -- A hovered directory previews as a point-in-time listing rendered like the
--- main view (same hidden-file filter, sort order, labels, and colors, minus
--- the per-entry symlink/executable decorations), truncated at the tallest
+-- main view (same hidden-file filter, sort order, labels, colors, and ls -F
+-- type markers, minus the symlink targets), truncated at the tallest
 -- possible window like file previews. No cache and no watcher: the listing
 -- is rescanned only when the cursor returns to the directory.
 ---@param state DoraState
@@ -143,20 +143,16 @@ local function create_directory_scratch(state, path)
     local extmarks = {}
     for i = 1, math.min(#files, vim.o.lines) do
         local file = files[i]
-        local icon, icon_hl = icons.get(config.icons, file, vim.fs.joinpath(path, file.name))
+        local entry_path = vim.fs.joinpath(path, file.name)
+        local icon, icon_hl = icons.get(config.icons, file, entry_path)
         local line = icon and icon .. ' ' .. file.name or file.name
         if icon then
             extmarks[#extmarks+1] = {i, 0, #icon, icon_hl or 'DoraIcon', 10000}
         end
-        local line_hl = 'DoraFile'
-        if file.type == 'directory' then
-            line_hl = 'DoraDirectory'
-            extmarks[#extmarks+1] = {i, #line, #line + 1, 'DoraVirtText', 10000}
-            line = line .. '/'
-        elseif file.type == 'link' then
-            line_hl = 'DoraSymlink'
-        elseif icons.special_types[file.type] then
-            line_hl = icons.special_types[file.type].hl
+        local line_hl, marker = icons.decoration(file.type, entry_path)
+        if marker then
+            extmarks[#extmarks+1] = {i, #line, #line + #marker, 'DoraVirtText', 10000}
+            line = line .. marker
         end
         extmarks[#extmarks+1] = {i, 0, #line, line_hl, 100}
         lines[i] = line

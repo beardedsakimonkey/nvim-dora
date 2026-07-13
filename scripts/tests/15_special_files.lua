@@ -9,8 +9,10 @@ local store = h.store
 local assert_eq = h.assert_eq
 local touch = h.touch
 local lines = h.lines
+local buf_lines = h.buf_lines
 local find_line_index = h.find_line_index
 local has_priority_highlight = h.has_priority_highlight
+local set_cursor_pos = h.set_cursor_pos
 
 local icons = require'dora.icons'
 
@@ -19,6 +21,11 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/regular.txt')
     vim.fn.system({'mkfifo', tmp .. '/my-fifo'})
+    assert_eq(vim.v.shell_error, 0, 'mkfifo should succeed')
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/sub/run.sh')
+    assert(vim.loop.fs_chmod(tmp .. '/sub/run.sh', tonumber('755', 8)))
+    vim.fn.system({'mkfifo', tmp .. '/sub/pipe'})
     assert_eq(vim.v.shell_error, 0, 'mkfifo should succeed')
     -- Closing the handle unlinks the socket file, so keep it open until the
     -- assertions below are done.
@@ -52,6 +59,15 @@ do
 
     assert(has_priority_highlight(state, 'DoraFifo', 100), 'fifo lines should use the DoraFifo highlight')
     assert(has_priority_highlight(state, 'DoraSocket', 100), 'socket lines should use the DoraSocket highlight')
+
+    -- Directory previews render the same ls -F markers as the main view.
+    set_cursor_pos('sub')
+    api.toggle_preview()
+    local preview = assert(state.preview, 'toggle_preview should open a preview')
+    assert_eq(table.concat(buf_lines(vim.api.nvim_win_get_buf(preview.win)), '\n'),
+        'pipe|\nrun.sh*',
+        'directory previews should carry the fifo and executable markers')
+    api.toggle_preview()
 
     api.quit()
     sock:close()
