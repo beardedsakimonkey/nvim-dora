@@ -424,25 +424,21 @@ function M.render(state)
         local path = file.path
         ---@cast path string  -- only placeholder rows lack a path, and they don't reach the fs calls below
         local virttext, hl
-        if file.type == 'directory' then
-            virttext, hl = nil, 'DoraDirectory'
-        elseif file.type == 'placeholder' then
-            virttext, hl = nil, 'DoraTree'
-        elseif file.type == 'link' then
-            local link = uv.fs_readlink(path)
-            local target = link and fs.display_symlink_target(path, link) or nil
-            virttext = '@ → ' .. (target and util.display_path(target) or '???')
-            hl = 'DoraSymlink'
-        elseif file.type == 'fifo' then
-            virttext, hl = '|', 'DoraFifo'
-        elseif file.type == 'socket' then
-            virttext, hl = '=', 'DoraSocket'
-        elseif icons.special_types[file.type] then
-            virttext, hl = nil, icons.special_types[file.type].hl
-        elseif uv.fs_access(path, 'X') then
-            virttext, hl = '*', 'DoraExecutable'
+        if file.type == 'placeholder' then
+            hl = 'DoraTree'
         else
-            virttext, hl = nil, 'DoraFile'
+            local file_type = file.type
+            ---@cast file_type DoraFileType  -- 'placeholder' is handled above
+            hl, virttext = icons.decoration(file_type, path)
+            if file.type == 'directory' then
+                -- The tree embeds the '/' in the row text itself
+                -- (directory_suffix_col), not as virt text.
+                virttext = nil
+            elseif file.type == 'link' then
+                local link = uv.fs_readlink(path)
+                local target = link and fs.display_symlink_target(path, link) or nil
+                virttext = virttext .. ' → ' .. (target and util.display_path(target) or '???')
+            end
         end
         api.nvim_buf_set_extmark(buf, ns, i-1, 0, {
             end_col = #file.display_name,

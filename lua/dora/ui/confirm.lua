@@ -2,7 +2,6 @@
 -- operations: trash/delete, paste (including keep-both vs overwrite conflict
 -- resolution), overwriting renames, and undo-trash restores.
 local api = vim.api
-local uv = vim.uv
 
 local window = require'dora.ui.window'
 local fs = require'dora.fs'
@@ -73,37 +72,6 @@ end)()
 ---@field operations? table<string, DoraPasteOperation> Source path -> cut/copy, shown as a colored bar
 ---@field expanded? table<string, boolean> Directory paths shown with the expanded (open) icon, matching the tree
 ---@field types? table<string, string> Path -> an existing path whose file type to use, for previewing entries (e.g. restores) whose own location is empty
-
--- Highlight and ls -F type marker for a path, mirroring the tree view's
--- rendering (the marker there is virt text; here it trails the name as a
--- suffix, like the directory '/'). Symlinks keep just the '@', without the
--- tree's arrow-and-target, which would collide with the rename preview arrow.
----@param path string
----@return string hl
----@return string? marker
-local function file_hl(path)
-    if uv.fs_readlink(path) then
-        return 'DoraSymlink', '@'
-    end
-    local stat = uv.fs_stat(path)
-    local type = stat and stat.type
-    if type == 'directory' then
-        return 'DoraDirectory', '/'
-    end
-    if type == 'fifo' then
-        return 'DoraFifo', '|'
-    end
-    if type == 'socket' then
-        return 'DoraSocket', '='
-    end
-    if icons.special_types[type] then
-        return icons.special_types[type].hl
-    end
-    if uv.fs_access(path, 'X') then
-        return 'DoraExecutable', '*'
-    end
-    return 'DoraFile'
-end
 
 -- Byte length of the leading directory portion of a path, before its final
 -- component. Trailing separators are ignored.
@@ -186,10 +154,12 @@ local function item_parts(path, base, renames, operations, expanded, types)
     -- exist (types[path]), but look up its icon by the original name. Trash may
     -- have added a collision suffix that should not change a name-specific icon.
     local type_path = types and types[path] or path
-    local hl, marker = file_hl(type_path)
-    local is_expanded = expanded and expanded[path] or nil
     local file = fs.file_from_path(type_path)
     file.name = fs.basename(path)
+    -- Same highlight and ls -F marker the tree shows for the entry, minus the
+    -- symlink target after the '@' (it would collide with the rename arrow).
+    local hl, marker = icons.decoration(file.type, type_path)
+    local is_expanded = expanded and expanded[path] or nil
     local icon, icon_hl = icons.get(config.icons, file, path, is_expanded)
     return {
         icon = icon,

@@ -1,7 +1,11 @@
 -- File icon lookup with pluggable providers (nvim-web-devicons or mini.icons)
 -- and built-in fallbacks for directories, symlinks, and special file types
--- (fifos, sockets, and devices).
+-- (fifos, sockets, and devices). Also the shared name-highlight and ls -F
+-- marker classification (M.decoration) used by the tree view, directory
+-- previews, and confirmation windows.
 local M = {}
+
+local uv = vim.uv
 
 local devicons
 local devicons_loaded = false
@@ -41,14 +45,38 @@ end
 
 -- Special file types always take these fixed icons, never a provider icon:
 -- providers match by name and extension, which is meaningless for e.g. a
--- fifo named `log.txt`. view.lua and the previews reuse the highlights.
----@type table<string, {icon: string, hl: string}>
+-- fifo named `log.txt`. Fifos and sockets also carry their ls -F marker.
+---@type table<string, {icon: string, hl: string, marker?: string}>
 M.special_types = {
-    fifo = {icon = '󰟥', hl = 'DoraFifo'},
-    socket = {icon = '󰐧', hl = 'DoraSocket'},
+    fifo = {icon = '󰟥', hl = 'DoraFifo', marker = '|'},
+    socket = {icon = '󰐧', hl = 'DoraSocket', marker = '='},
     char = {icon = '󰆍', hl = 'DoraDevice'},
     block = {icon = '󰋊', hl = 'DoraDevice'},
 }
+
+-- Name highlight and trailing ls -F type marker for an entry, shared by the
+-- tree view, directory previews, and confirmation windows: '/' directories,
+-- '@' symlinks (the tree appends the resolved target), '|' fifos, '=' sockets,
+-- and '*' executables. Devices and plain files carry no marker.
+---@param file_type DoraFileType
+---@param path string Checked for the executable bit on regular files
+---@return string hl
+---@return string? marker
+function M.decoration(file_type, path)
+    if file_type == 'directory' then
+        return 'DoraDirectory', '/'
+    elseif file_type == 'link' then
+        return 'DoraSymlink', '@'
+    end
+    local special = M.special_types[file_type]
+    if special then
+        return special.hl, special.marker
+    end
+    if uv.fs_access(path, 'X') then
+        return 'DoraExecutable', '*'
+    end
+    return 'DoraFile'
+end
 
 ---@param file DoraFile
 ---@param expanded? boolean
