@@ -1865,6 +1865,8 @@ function M.shell_cmd(initial_prompt)
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(view.current_row(state)),
+        icon = config.icons and '' or nil,
+        icon_hl = 'DoraMutedText',
     }, function(input)
         if not input or not api.nvim_buf_is_valid(state.buf) then
             return
