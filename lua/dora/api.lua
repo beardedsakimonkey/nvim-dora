@@ -4,9 +4,9 @@
 -- DoraState from dora/store.lua, mutate it or the filesystem, and re-render
 -- through dora/view.lua.
 local fs = require'dora.fs'
-local bookmarks = require'dora.bookmarks'
 local buffer = require'dora.buffer'
 local help_win = require'dora.ui.help'
+local history = require'dora.history'
 local confirm_win = require'dora.ui.confirm'
 local filter_win = require'dora.ui.filter'
 local icons = require'dora.icons'
@@ -28,7 +28,7 @@ local uv = vim.uv
 local M = {}
 
 -- Expanded directories are shared by all dora buffers and persist for the
--- lifetime of the session, like bookmarks.
+-- lifetime of the session.
 ---@type table<string, true>
 local global_expanded_dirs = {}
 
@@ -38,7 +38,6 @@ local global_expanded_dirs = {}
 local global_marked_paths = {}
 
 local PROMPT_WIDTH = 32
-local PREVIOUS_DIRECTORY_VAR = 'dora_previous_directory'
 
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
 
@@ -143,25 +142,6 @@ local function sibling_line(state, line, step)
     end
 end
 
----@param state DoraState
----@param line integer
----@param step integer
----@return integer?
-local function sibling_edge_line(state, line, step)
-    local row = state.rows[line]
-    if not row or not row.path then
-        return nil
-    end
-    if view.active_filter(state) then
-        return step > 0 and #state.rows or 1
-    end
-    for i = step > 0 and #state.rows or 1, line, -step do
-        if state.rows[i].parent_path == row.parent_path then
-            return i
-        end
-    end
-end
-
 ---@param step integer 1 for next, -1 for prev
 local function move_sibling(step)
     local state = store.get()
@@ -178,20 +158,6 @@ local function move_sibling(step)
         line = target
     end
     view.move_to_line(state, line)
-end
-
----@param step integer 1 for last, -1 for first
-local function move_sibling_edge(step)
-    local state = store.get()
-    local line = api.nvim_win_get_cursor(0)[1]
-    local row = state.rows[line]
-    if not row or not row.parent_path then
-        return
-    end
-    local target = sibling_edge_line(state, line, step)
-    if target then
-        view.move_to_line(state, target)
-    end
 end
 
 ---@param state DoraState
@@ -421,6 +387,12 @@ local function setup_autocmds(buf)
         callback = function(args)
             local ok, state = pcall(store.get, args.buf)
             if ok then
+                if api.nvim_win_is_valid(state.win)
+                        and api.nvim_win_get_buf(state.win) == state.buf then
+                    local line = api.nvim_win_get_cursor(state.win)[1]
+                    local row = state.rows and state.rows[line] or nil
+                    history.update_current(state.history, state.cwd, row and row.path or nil)
+                end
                 close_filter(state)
                 preview_win.close(state)
                 view.clear_listings(state)
@@ -428,33 +400,6 @@ local function setup_autocmds(buf)
             end
         end,
     })
-end
-
--- The directory this session ends in is the previous directory from the
--- next session's perspective. Must be called while the dora buffer is still
--- current, so the hovered row can be captured.
----@param state DoraState
-local function save_previous_directory(state)
-    if api.nvim_win_is_valid(state.win) then
-        local row = view.current_row(state)
-        api.nvim_win_set_var(state.win, PREVIOUS_DIRECTORY_VAR, {
-            directory = state.cwd,
-            hovered_path = row and row.path or nil,
-        })
-    end
-end
-
----@param win integer
----@return DoraBookmark?
-local function load_previous_directory(win)
-    local ok, previous = pcall(api.nvim_win_get_var, win, PREVIOUS_DIRECTORY_VAR)
-    if not ok or type(previous) ~= 'table' or type(previous.directory) ~= 'string' then
-        return nil
-    end
-    return {
-        directory = previous.directory,
-        hovered_path = type(previous.hovered_path) == 'string' and previous.hovered_path or nil,
-    }
 end
 
 ---@param state DoraState
@@ -472,6 +417,7 @@ local function remember_hovered_file(state)
     if row then
         state.hovered_files[state.cwd] = row.path or row.name
     end
+    history.update_current(state.history, state.cwd, row and row.path or nil)
 end
 
 ---@param state DoraState
@@ -488,11 +434,15 @@ end
 ---@param path string
 ---@param cursor_target? string
 ---@param or_top? boolean
-local function change_cwd(state, path, cursor_target, or_top)
+local function change_cwd(state, path, cursor_target, or_top, traversing_history)
     if state.cwd ~= path then
-        local row = view.current_row(state)
-        bookmarks.record_previous_directory(state.bookmarks, state.cwd, row and row.path or nil)
+        if not traversing_history then
+            remember_hovered_file(state)
+        end
         state.cwd = path
+        if not traversing_history then
+            history.visit(state.history, path, cursor_target)
+        end
         -- Only rename when the cwd changed; create_buf_name() counts the
         -- current buffer as a collision, so renaming to the same cwd would
         -- append a spurious ' [1]' suffix.
@@ -504,14 +454,19 @@ local function change_cwd(state, path, cursor_target, or_top)
     -- behind the filter window.
     if view.active_filter(state) then
         view.scroll_filter_results_to_top(state.win)
+        if traversing_history then
+            restore_cursor(state, cursor_target, or_top)
+        end
     else
         restore_cursor(state, cursor_target, or_top)
     end
+    local row = view.current_row(state)
+    history.update_current(state.history, state.cwd, row and row.path or nil)
 end
 
 function M.quit()
     local state = store.get()
-    save_previous_directory(state)
+    remember_hovered_file(state)
     if state.alt_buf then
         buffer.set_current_buf(state.alt_buf)
     end
@@ -588,14 +543,6 @@ function M.prev_sibling()
     move_sibling(-1)
 end
 
-function M.last_sibling()
-    move_sibling_edge(1)
-end
-
-function M.first_sibling()
-    move_sibling_edge(-1)
-end
-
 function M.next_paste_mark()
     move_to_mark(1)
 end
@@ -605,8 +552,7 @@ function M.prev_paste_mark()
 end
 
 function M.help()
-    local ok, state = pcall(store.get)
-    help_win.open(config, ok and bookmarks.help_rows(state.bookmarks) or nil)
+    help_win.open(config)
 end
 
 function M.filter()
@@ -699,38 +645,23 @@ function M.clear_filter()
     end
 end
 
-function M.set_bookmark()
+---@param direction 1|-1
+local function traverse_history(direction)
     local state = store.get()
-    local row = view.current_row(state)
-    bookmarks.set_current_directory(state.bookmarks, state.cwd, row and row.path or nil)
+    remember_hovered_file(state)
+    local entry = history.traverse(state.history, direction, fs.is_dir)
+    if not entry then
+        return
+    end
+    change_cwd(state, entry.directory, entry.hovered_path, --[[or_top]]true, --[[traversing_history]]true)
 end
 
-function M.jump_bookmark()
-    local state = store.get()
-    local path, hovered_path
-    if config.show_keymap_hints then
-        local key = keymaps.read_hint_key("'", bookmarks.help_rows(state.bookmarks))
-        path, hovered_path = bookmarks.resolve_jump_directory(state.bookmarks, key)
-    else
-        path, hovered_path = bookmarks.read_jump_directory(state.bookmarks)
-    end
-    if not path then
-        return
-    end
-    local realpath, msg = fs.try_realpath(path)
-    if not realpath then
-        util.err(msg)
-        return
-    end
-    if not fs.is_dir(realpath) then
-        util.err(('%q is not a directory'):format(path))
-        return
-    end
-    remember_hovered_file(state)
-    change_cwd(state, realpath, state.hovered_files[realpath], --[[or_top]]true)
-    if hovered_path then
-        view.set_cursor_path(state, hovered_path)
-    end
+function M.history_back()
+    traverse_history(-1)
+end
+
+function M.history_forward()
+    traverse_history(1)
 end
 
 function M.file_info()
@@ -769,7 +700,7 @@ function M.open(cmd)
                 change_cwd(state, path, state.hovered_files[path], --[[or_top]]true)
             end
         else
-            save_previous_directory(state)
+            remember_hovered_file(state)
             buffer.set_current_buf(state.origin_buf)  -- update the altfile
             vim.cmd((cmd or 'edit') .. ' ' .. vim.fn.fnameescape(path))
             cleanup(state)
@@ -815,7 +746,7 @@ local function open_selected(cmd, stay)
         end
         return
     end
-    save_previous_directory(state)
+    remember_hovered_file(state)
     buffer.set_current_buf(state.origin_buf)  -- update the altfile
     for _, path in ipairs(paths) do
         vim.cmd(cmd .. ' ' .. vim.fn.fnameescape(path))
@@ -1231,6 +1162,7 @@ local function paste_entries(state, entries, dest_dir, overwrite)
         for _, op in ipairs(completed) do
             if op.is_move then
                 completed_moves[#completed_moves+1] = move_changes_by_path[op.src .. '\0' .. op.dest]
+                history.rename_subtree(op.src, op.dest)
             end
         end
         lsp.did_rename(completed_moves)
@@ -1687,6 +1619,7 @@ local function rename(prefill)
             lsp.did_rename({change})
             tree.rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)
+            history.rename_subtree(path, dest)
             if path == state.cwd then
                 -- Renaming the root retargets the session onto the new path:
                 -- the cwd and the buffer named after it. The listings (and
@@ -1999,15 +1932,22 @@ function M.initialize(dir, from_au)
         filter_inverted = false,
         preview = nil,
         marked_paths = global_marked_paths,
-        bookmarks = bookmarks.new(load_previous_directory(win)),
+        history = history.get(win),
     }
     keymaps.setup(buf, config)
     store.set(buf, state)
     setup_autocmds(buf)
+    history.visit(state.history, cwd)
     view.render(state)
     if not origin_path or not view.set_cursor_path(state, origin_path) then
-        view.set_cursor_pos(state, origin_filename)
+        local current_history = history.current(state.history)
+        if not current_history or not current_history.hovered_path
+                or not view.set_cursor_path(state, current_history.hovered_path) then
+            view.set_cursor_pos(state, origin_filename)
+        end
     end
+    local row = view.current_row(state)
+    history.update_current(state.history, state.cwd, row and row.path or nil)
 end
 
 return M

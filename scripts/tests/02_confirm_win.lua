@@ -2,7 +2,6 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/02_confirm_win.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
-local bookmarks = h.bookmarks
 local fs = h.fs
 local config = h.config
 local confirm_win = h.confirm_win
@@ -279,12 +278,6 @@ do
     vim.api.nvim_feedkeys('n', 'xt', false)
     assert_eq(vim.api.nvim_get_current_win(), origin_win)
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
-end
-
-do
-    local bookmark_rows = bookmarks.help_rows(bookmarks.new())
-    assert_eq(bookmark_rows[1].lhs, "''", "a fresh bookmark state should include the previous-directory shortcut")
-    assert_eq(bookmark_rows[1].desc, 'Jump to previous directory')
 end
 
 do

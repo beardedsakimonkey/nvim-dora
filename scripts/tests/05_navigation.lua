@@ -2,7 +2,6 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/05_navigation.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
-local bookmarks = h.bookmarks
 local fs = h.fs
 local config = h.config
 local confirm_win = h.confirm_win
@@ -99,6 +98,8 @@ do
     local state = store.get()
     api.home_dir()
     assert_eq(state.cwd, fs.realpath(tmp .. '/home'), 'home directory should navigate to $HOME')
+    assert_eq(state.history.entries[state.history.index].directory, state.cwd,
+        'home directory navigation should add a history entry')
     assert(vim.tbl_contains(lines(), 'home-file.txt'), 'home directory should render $HOME contents')
 
     api.quit()
@@ -190,11 +191,14 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape('/'))
     local state = store.get()
     local name = vim.api.nvim_buf_get_name(state.buf)
+    local history_size = #state.history.entries
+    local history_index = state.history.index
 
     api.up_dir()
     assert_eq(state.cwd, '/', 'up directory should no-op at root')
     assert_eq(vim.api.nvim_buf_get_name(state.buf), name, 'up directory should not rename the root buffer')
-    assert_eq(state.bookmarks.previous_directory, nil, 'up directory at root should not update the previous-directory bookmark')
+    assert_eq(#state.history.entries, history_size, 'up directory at root should not add a history entry')
+    assert_eq(state.history.index, history_index, 'up directory at root should not move the history index')
 
     api.quit()
 end
@@ -209,6 +213,8 @@ do
     api.up_dir()
 
     assert_eq(state.cwd, '/', 'up directory should navigate from a top-level directory to root')
+    assert_eq(state.history.entries[state.history.index].directory, '/',
+        'up directory navigation should add a history entry')
     assert(state.expanded_dirs[top_path], 'up directory should preserve the top-level previous cwd expansion')
     assert_match(current_line(), vim.pesc(parts[1]) .. '/$', 'up directory should move cursor to the previous top-level cwd row')
     assert(find_line_index(lines(), vim.pesc(parts[2]) .. '/$'), 'up directory should keep top-level previous cwd children visible at root')

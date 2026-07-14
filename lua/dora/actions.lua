@@ -23,10 +23,10 @@ M.ACTIONS = {
 
     -- Navigation
     {name = 'up_dir', desc = 'Up directory', section = 'Navigation'},
+    {name = 'history_back', desc = 'Back', section = 'Navigation'},
+    {name = 'history_forward', desc = 'Forward', section = 'Navigation'},
     {name = 'next_sibling', desc = 'Next sibling', section = 'Navigation', visual = 'next_sibling'},
     {name = 'prev_sibling', desc = 'Previous sibling', section = 'Navigation', visual = 'prev_sibling'},
-    {name = 'last_sibling', desc = 'Last sibling', section = 'Navigation', visual = 'last_sibling'},
-    {name = 'first_sibling', desc = 'First sibling', section = 'Navigation', visual = 'first_sibling'},
     {name = 'parent_dir', desc = 'Parent directory', section = 'Navigation', visual = 'parent_dir'},
     {name = 'fold_out', desc = 'Fold out directory', section = 'Navigation', visual = 'fold_out_visual'},
     {name = 'fold_out_recursive', desc = 'Fold out directory recursively', section = 'Navigation', visual = 'fold_out_recursive_visual'},
@@ -34,8 +34,6 @@ M.ACTIONS = {
     {name = 'fold_in_recursive', desc = 'Fold in directory recursively', section = 'Navigation', visual = 'fold_in_recursive_visual'},
     {name = 'close_dir', desc = 'Close directory', section = 'Navigation', visual = 'close_dir_visual'},
     {name = 'home_dir', desc = 'Go to home directory', section = 'Navigation'},
-    {name = 'set_bookmark', desc = 'Set bookmark', section = 'Navigation'},
-    {name = 'jump_bookmark', desc = 'Jump to bookmark', section = 'Navigation'},
     {name = 'next_paste_mark', desc = 'Next paste mark', section = 'Navigation', visual = 'next_paste_mark'},
     {name = 'prev_paste_mark', desc = 'Previous paste mark', section = 'Navigation', visual = 'prev_paste_mark'},
 

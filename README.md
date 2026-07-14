@@ -13,7 +13,8 @@ from a desire for a modern netrw-style plugin with a tree view. It includes:
 - ⚠️ A paste confirmation window that detects conflicts and enables conflict
   resolution.
 - ↩️ An undoable "trash" operation for Mac/Linux.
-- 🔖 A "last directory" bookmark that persists across Dora sessions.
+- ↔️ Browser-style back/forward history that persists across Dora sessions in
+  each window.
 - 💡 Built-in [which-key](https://github.com/folke/which-key.nvim)-style hints to
   make two-letter keymaps more discoverable.
 
@@ -132,8 +133,8 @@ require('dora').setup {
         h         = 'up_dir',             -- Up directory
         J         = 'next_sibling',       -- Next sibling
         K         = 'prev_sibling',       -- Previous sibling
-        ['>']     = 'last_sibling',       -- Last sibling
-        ['<']     = 'first_sibling',      -- First sibling
+        ['<']     = 'history_back',       -- Back
+        ['>']     = 'history_forward',    -- Forward
         ['<C-p>'] = 'parent_dir',         -- Parent directory
         o         = 'fold_out',           -- Fold out directory
         O         = 'fold_out_recursive', -- Fold out directory recursively
@@ -142,8 +143,6 @@ require('dora').setup {
         ['<BS>']  = 'close_dir',          -- Close directory
         gp        = 'toggle_preview',     -- Toggle preview
         gh        = 'home_dir',           -- Go to home directory
-        m         = 'set_bookmark',       -- Set bookmark
-        ["'"]     = 'jump_bookmark',      -- Jump to bookmark
         [']m']    = 'next_paste_mark',    -- Next paste mark
         ['[m']    = 'prev_paste_mark',    -- Previous paste mark
 
@@ -260,6 +259,7 @@ shown for empty directories.
 ## Core workflow
 
 - Use `l` or `<CR>` to open an entry, and `h` or `-` to go up a directory.
+- Use `<` and `>` to move backward and forward through directory history.
 - Use `o` and `i` to expand and collapse the tree one level at a time; uppercase
   `O` and `I` operate recursively.
 - Use `a` or `A` to create, `r` to rename, and `d` to move entries to the trash.
@@ -368,15 +368,19 @@ case-insensitive Vim regexes, so patterns such as `lua$` work as expected. Press
 (even while navigating), or `<Esc>` to cancel. Press `F` to clear the current
 filter.
 
-### Bookmarks
+### Directory history
 
-Press `m` followed by any one-character key to bookmark the current directory,
-then press `'` followed by that key to return to it. Bookmarks are shared by all
-Dora windows during the current Neovim session.
+Press `<` to go back through visited directories and `>` to go forward. History
+uses browser semantics: going somewhere new after moving back discards the
+forward branch, and revisiting the current directory does not add a duplicate.
+Returning to an entry restores the row that was last under the cursor when
+possible.
 
-Use `''` to jump back to the previous directory; repeat it to toggle between the
-two most recent directories. This previous-directory bookmark is window-local
-and persists when Dora is closed and reopened in that window.
+Each Neovim window has independent history that lasts for the lifetime of the
+window, including while Dora is closed or a file is open. Missing destinations
+remain available for undo-trash to restore; when traversal encounters one that
+is still missing or no longer a directory, it silently discards it and
+continues to the next valid entry.
 
 ### LSP rename integration
 

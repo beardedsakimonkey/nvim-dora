@@ -1,5 +1,5 @@
 -- The `g?` help split: lists the configured mappings grouped into the
--- sections defined by the action registry, plus saved bookmarks.
+-- sections defined by the action registry.
 local actions = require'dora.actions'
 local keymaps = require'dora.keymaps'
 local util = require'dora.util'
@@ -61,14 +61,10 @@ local function keymap_sections(mappings)
 end
 
 ---@param config DoraConfig
----@param bookmark_rows? DoraHelpRow[]
 ---@return DoraHelpRow[]
-local function rows(config, bookmark_rows)
+local function rows(config)
     local ret = {}
     local sections = keymap_sections(config.keymaps)
-    if bookmark_rows then
-        vim.list_extend(sections.Navigation, bookmark_rows)
-    end
 
     local function add_section(name)
         local section_rows = sections[name]
@@ -142,9 +138,8 @@ local function render(buf, ns, help_rows)
 end
 
 ---@param config DoraConfig
----@param bookmark_rows? DoraHelpRow[]
-function M.open(config, bookmark_rows)
-    local help_rows = rows(config, bookmark_rows)
+function M.open(config)
+    local help_rows = rows(config)
     if #help_rows == 0 then
         util.warn('No keymap descriptions configured')
         return

@@ -59,8 +59,6 @@ do
     local open_line = find_line_index(help_lines, '^%s+l%s+%S+%s+Open$')
     assert(enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
-    assert(find_line_index(help_lines, "^%s+''%s+%S+%s+Jump to previous directory$"),
-        "help should always include the builtin previous-directory bookmark")
     local general_line = find_line_index(help_lines, '^General$') - 1
     local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+Quit$') - 1
     local section_highlight, key_highlight = false, false
@@ -168,10 +166,12 @@ do
     assert_eq(type(vim.fn.maparg('J', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('K', 'x', false, true).desc, 'Previous sibling')
     assert_eq(type(vim.fn.maparg('K', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('>', 'x', false, true).desc, 'Last sibling')
-    assert_eq(type(vim.fn.maparg('>', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('<', 'x', false, true).desc, 'First sibling')
-    assert_eq(type(vim.fn.maparg('<', 'x', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, 'Back')
+    assert_eq(type(vim.fn.maparg('<', 'n', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, 'Forward')
+    assert_eq(type(vim.fn.maparg('>', 'n', false, true).callback), 'function')
+    assert_eq(vim.fn.maparg('<', 'x'), '', 'visual history back should not be mapped')
+    assert_eq(vim.fn.maparg('>', 'x'), '', 'visual history forward should not be mapped')
     assert_eq(vim.fn.maparg('d', 'x', false, true).desc, 'Move file to trash (Mac/Linux)')
     assert_eq(type(vim.fn.maparg('d', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('D', 'x', false, true).desc, 'Delete file permanently')
@@ -213,15 +213,6 @@ do
     api.prev_sibling()
     assert_eq(current_line(), 'alpha/', 'previous sibling should not wrap from the first root sibling')
 
-    api.last_sibling()
-    assert_eq(current_line(), 'top.txt', 'last sibling should jump to the last root sibling')
-    api.last_sibling()
-    assert_eq(current_line(), 'top.txt', 'last sibling should stay on the last sibling')
-    api.first_sibling()
-    assert_eq(current_line(), 'alpha/', 'first sibling should jump to the first root sibling')
-    api.first_sibling()
-    assert_eq(current_line(), 'alpha/', 'first sibling should stay on the first sibling')
-
     set_cursor_line('nested/$')
     api.prev_sibling()
     assert_match(current_line(), 'nested/$', 'previous sibling should not wrap from the first child sibling')
@@ -237,21 +228,11 @@ do
     assert_match(current_line(), 'file%.txt$', 'next sibling should not wrap from the last child sibling')
     api.prev_sibling()
     assert_match(current_line(), 'nested/$', 'previous sibling should not wrap from the last child sibling')
-    api.first_sibling()
-    assert_match(current_line(), 'nested/$', 'first sibling should jump to the first child sibling')
-    api.last_sibling()
-    assert_match(current_line(), 'file%.txt$', 'last sibling should jump to the last child sibling')
-
     set_cursor_line('deep%.txt$')
     api.prev_sibling()
     assert_match(current_line(), 'deep%.txt$', 'previous sibling should stay on an only child sibling')
     api.next_sibling()
     assert_match(current_line(), 'deep%.txt$', 'next sibling should stay on an only child sibling')
-    api.first_sibling()
-    assert_match(current_line(), 'deep%.txt$', 'first sibling should stay on an only child sibling')
-    api.last_sibling()
-    assert_match(current_line(), 'deep%.txt$', 'last sibling should stay on an only child sibling')
-
     set_cursor_pos('alpha')
     vim.api.nvim_feedkeys('2J', 'xt', false)
     assert_eq(current_line(), 'top.txt', 'counted next sibling should move the requested number of siblings')

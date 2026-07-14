@@ -24,7 +24,7 @@ local function assert_match(str, pattern, msg)
 end
 
 local dora = require'dora'
-local bookmarks = require'dora.bookmarks'
+local history = require'dora.history'
 local fs = require'dora.fs'
 local config = dora.config
 local confirm_win = require'dora.ui.confirm'
@@ -72,7 +72,7 @@ local function wait_for_remove()
 end
 
 local function clear_persisted_view_state(win)
-    pcall(vim.api.nvim_win_del_var, win or 0, 'dora_previous_directory')
+    history.clear(win or vim.api.nvim_get_current_win())
 end
 
 local function lines()
@@ -227,7 +227,7 @@ local H = {
     assert_eq = assert_eq,
     assert_match = assert_match,
     dora = dora,
-    bookmarks = bookmarks,
+    history = history,
     fs = fs,
     config = config,
     confirm_win = confirm_win,
