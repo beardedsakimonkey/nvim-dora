@@ -15,7 +15,7 @@ do
         prompt = 'Smoke',
         cwd = cwd,
         validate = function(input)
-            assert(input ~= 'bad')
+            assert(input ~= 'bad', 'bad input')
             return input .. '-ok'
         end,
     }, function(input, result)
@@ -38,6 +38,18 @@ do
     p:set_input('bad', 3)
     p:validate()
     assert_eq(p.is_valid, false)
+
+    local notified
+    local orig_notify = vim.notify
+    vim.notify = function(msg, level)
+        notified = {msg = msg, level = level}
+    end
+    p:confirm()
+    vim.notify = orig_notify
+    assert(not p.closed, 'confirming invalid input should keep the prompt open')
+    assert_eq(notified.msg, 'dora: bad input',
+        'confirming invalid input should report the validation error')
+    assert_eq(notified.level, vim.log.levels.ERROR)
 
     p:set_input('abc', 3)
     p:confirm()

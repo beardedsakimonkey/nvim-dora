@@ -3,6 +3,7 @@
 local api = vim.api
 local window = require'dora.ui.window'
 local config = require'dora'.config
+local util = require'dora.util'
 
 local M = {}
 
@@ -53,6 +54,7 @@ end
 ---@field closed? boolean
 ---@field is_valid? boolean
 ---@field valid_result? any
+---@field invalid_reason? string
 ---@field initial_prompt string
 ---@field icon_extmark? integer
 local Prompt = {}
@@ -92,6 +94,8 @@ function Prompt:validate()
     local ok, result = pcall(self.opts.validate, self:get_input())
     self.is_valid = ok
     self.valid_result = ok and result or nil
+    -- Strip the "file:line: " prefix assert() adds to its message
+    self.invalid_reason = not ok and (tostring(result):gsub('^.-:%d+: ', '')) or nil
     local hl
     if self:get_input() == self.initial_prompt then
         hl = 'DoraPromptBorder'
@@ -132,6 +136,7 @@ function Prompt:confirm()
     end
     self:validate()
     if not self.is_valid then
+        util.err(self.invalid_reason or 'Invalid input')
         return
     end
     self:close()
