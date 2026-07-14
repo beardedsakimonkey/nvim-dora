@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 July 13
+                                 For Neovim 0.12+    Last change: 2026 July 14
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -96,6 +96,9 @@ Here are the defaults:
     
         -- Whether <Esc> in insert mode closes prompts.
         prompt_insert_esc_closes = true,
+    
+        -- Whether to show the current browsed directory as the tree root.
+        show_root = false,
     
         -- Whether to show keymap hints for two-key normal mode mappings
         show_keymap_hints = true,

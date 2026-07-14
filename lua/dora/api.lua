@@ -75,12 +75,27 @@ local function start_spinner(message)
     end
 end
 
+-- The root row stands for the browsed directory itself; actions that would
+-- mutate or mark it refuse with a message rather than acting on the cwd.
+---@param state DoraState
+---@param action string
+---@return boolean
+local function refuse_root_row(state, action)
+    local row = view.current_row(state)
+    if row and row.is_root then
+        util.warn(('Cannot %s the root directory'):format(action))
+        return true
+    end
+    return false
+end
+
 ---@param state DoraState
 ---@param row DoraTreeRow?
 ---@param under_directory? boolean
 ---@return string?
 local function create_parent_default(state, row, under_directory)
-    if not row then
+    -- On the root row both add actions create directly in the cwd.
+    if not row or row.is_root then
         return nil
     end
     if under_directory and row.type == 'directory' and row.path then
@@ -286,6 +301,8 @@ local function exit_visual_mode_now()
     vim.cmd.normal({args={api.nvim_replace_termcodes('<Esc>', true, false, true)}, bang=true})
 end
 
+-- Visual selections act on the entries inside the browsed directory; a root
+-- row swept up in the selection is skipped.
 ---@param state DoraState
 ---@return DoraTreeRow[] rows
 local function selected_rows(state)
@@ -293,7 +310,7 @@ local function selected_rows(state)
     local rows = {}
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        if row and row.path then
+        if row and row.path and not row.is_root then
             rows[#rows+1] = row
         end
     end
@@ -908,6 +925,11 @@ function M.fold_out()
     if not row or not row.path or row.type ~= 'directory' then
         return
     end
+    -- The root's listing is always rendered, so mark it expanded up front;
+    -- otherwise the first press would only record that and expand nothing.
+    if row.is_root then
+        state.expanded_dirs[row.path] = true
+    end
     local changed = false
     for _ = 1, vim.v.count1 do
         if not tree.expand_next_level(state, row.path) then
@@ -975,7 +997,7 @@ end
 function M.close_dir()
     local state = store.get()
     local row = view.current_row(state)
-    if not row or not row.path or row.type ~= 'directory' then
+    if not row or not row.path or row.type ~= 'directory' or row.is_root then
         return
     end
     -- Clear only this directory's entry so its subtree expansion is restored
@@ -996,7 +1018,7 @@ local function visual_dir_rows_op(op)
     local first_path
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        if row and row.path and row.type == 'directory' then
+        if row and row.path and row.type == 'directory' and not row.is_root then
             first_path = first_path or row.path
             if op(state, row.path) then
                 changed = true
@@ -1042,6 +1064,9 @@ function M.fold_in_visual()
     local seen = {}
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
+        if row and row.is_root then
+            row = nil
+        end
         local path, target_depth = tree.collapse_target(state, row)
         if path and target_depth and not seen[path] then
             seen[path] = true
@@ -1076,6 +1101,9 @@ end
 ---@param operation DoraPasteOperation
 local function toggle_marked_path(operation)
     local state = store.get()
+    if refuse_root_row(state, operation) then
+        return
+    end
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
@@ -1104,7 +1132,7 @@ local function toggle_marked_paths_visual(operation)
     local found = false
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        if row and row.path then
+        if row and row.path and not row.is_root then
             found = true
             if state.marked_paths[row.path] == operation then
                 state.marked_paths[row.path] = nil
@@ -1314,7 +1342,8 @@ function M.paste_under()
 end
 
 function M.paste()
-    paste_at(function(row) return row.parent_path end)
+    -- The root row has no siblings in view; pasting at it targets the cwd.
+    paste_at(function(row) return row.is_root and row.path or row.parent_path end)
 end
 
 ---@param reg? string
@@ -1456,6 +1485,9 @@ end
 ---@param action string
 local function remove_path(mode, action)
     local state = store.get()
+    if refuse_root_row(state, mode) then
+        return
+    end
     local row = view.current_row(state)
     local path, msg = current_path(state)
     if not path then
@@ -1611,6 +1643,10 @@ local function rename(prefill)
         util.err(msg)
         return
     end
+    if row and row.is_root and fs.get_parent_dir(path) == path then
+        util.warn('Cannot rename the filesystem root')
+        return
+    end
     local basename = fs.basename(path)
     prompt.input({
         prompt = 'Rename',
@@ -1641,6 +1677,16 @@ local function rename(prefill)
             lsp.did_rename({change})
             tree.rename_expanded_subtree(state, path, dest)
             rename_marked_paths_under(state, path, dest)
+            if path == state.cwd then
+                -- Renaming the root retargets the session onto the new path:
+                -- the cwd and the buffer named after it. The listings (and
+                -- their watchers) are keyed under the old path and rebuild
+                -- from the clear_listings below.
+                state.cwd = dest
+                api.nvim_buf_call(state.buf, function()
+                    buffer.update_buf_name(dest)
+                end)
+            end
             view.clear_listings(state)
             view.render(state)
             view.set_cursor_path(state, dest)

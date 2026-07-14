@@ -28,6 +28,7 @@ local M = {}
 ---@field show_hidden_files boolean
 ---@field is_hidden_file fun(file: DoraFile, files: DoraFile[], dir: string): boolean
 ---@field icons DoraIconConfig
+---@field show_root boolean
 ---@field sort_order DoraSortOrder
 ---@field tree_indent integer
 ---@field prompt_insert_esc_closes boolean
@@ -45,6 +46,9 @@ M.config = {
 
     -- Whether <Esc> in insert mode closes prompts.
     prompt_insert_esc_closes = true,
+
+    -- Whether to show the current browsed directory as the tree root.
+    show_root = false,
 
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,

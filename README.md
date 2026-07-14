@@ -95,6 +95,9 @@ require('dora').setup {
     -- Whether <Esc> in insert mode closes prompts.
     prompt_insert_esc_closes = true,
 
+    -- Whether to show the current browsed directory as the tree root.
+    show_root = false,
+
     -- Whether to show keymap hints for two-key normal mode mappings
     show_keymap_hints = true,
 

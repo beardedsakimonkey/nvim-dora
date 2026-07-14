@@ -31,6 +31,7 @@ local TREE_VERTICAL = '│'
 ---@field parent_path? string
 ---@field type DoraFileType|'placeholder'
 ---@field depth integer
+---@field is_root? boolean the synthetic cwd row shown when config.show_root is set
 ---@field tree_prefix_len integer
 ---@field tree_continuation_segments DoraTreeSegment[]
 ---@field tree_connector_start_col? integer
@@ -253,7 +254,42 @@ function M.build_tree_rows(state)
         end
     end
 
-    add_dir(state.cwd, '', 0, {})
+    if config.show_root then
+        -- Synthetic row for the browsed directory itself; its listing renders
+        -- beneath it at depth 1, so children get tree connectors.
+        local name = vim.fs.basename(state.cwd)
+        if name == '' then
+            name = '/'
+        end
+        local icon, icon_hl = icons.get(config.icons, {name = name, type = 'directory'}, state.cwd, true)
+        local icon_prefix = icon and icon .. ' ' or ''
+        local display_name = icon_prefix .. name
+        local directory_suffix_col
+        if name ~= '/' then
+            directory_suffix_col = #display_name
+            display_name = display_name .. '/'
+        end
+        rows[#rows+1] = {
+            name = name,
+            display_name = display_name,
+            path = state.cwd,
+            type = 'directory',
+            depth = 0,
+            is_root = true,
+            tree_prefix_len = 0,
+            tree_continuation_segments = {},
+            icon = icon,
+            icon_start_col = icon and 0 or nil,
+            icon_end_col = icon and #icon or nil,
+            icon_hl = icon_hl or 'DoraIcon',
+            name_start_col = #icon_prefix,
+            name_end_col = #icon_prefix + #name,
+            directory_suffix_col = directory_suffix_col,
+        }
+        add_dir(state.cwd, '', 1, {})
+    else
+        add_dir(state.cwd, '', 0, {})
+    end
     return rows
 end
 
@@ -305,8 +341,9 @@ local function build_filtered_rows(state, tree_rows)
             end
         end
         -- Keep matching rows; when inverted, keep the non-matching rows instead
-        -- (which have no basename span to highlight).
-        if row.path and matched ~= inverted then
+        -- (which have no basename span to highlight). The root row is skipped:
+        -- filter results are already cwd-relative paths.
+        if row.path and not row.is_root and matched ~= inverted then
             local relative_path = M.relative_child_path(state, row.path)
             local icon_prefix = row.icon and row.icon .. ' ' or ''
             local display_name = icon_prefix .. relative_path
@@ -554,9 +591,12 @@ function M.set_cursor_pos(state, pattern, or_top)
     local line = or_top and 1 or nil
     if pattern then
         for i, row in ipairs(state.rows or {}) do
-            if row.display_name == pattern
-                    or row.name == pattern
-                    or row.name .. '/' == pattern then
+            -- The root row shares its name with the cwd's basename, which can
+            -- shadow a same-named entry the pattern is actually after.
+            if not row.is_root
+                    and (row.display_name == pattern
+                        or row.name == pattern
+                        or row.name .. '/' == pattern) then
                 line = i
                 break
             end

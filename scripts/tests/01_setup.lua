@@ -10,6 +10,7 @@ local cwd = h.cwd
 local assert_eq = h.assert_eq
 
 assert_eq(config.lsp_timeout, 1000, 'LSP rename integration should default to a one-second timeout')
+assert_eq(config.show_root, false, 'the browsed directory should not render as the tree root by default')
 
 for lhs, rhs in pairs(config.keymaps) do
     local _, desc = keymaps.resolve(rhs)

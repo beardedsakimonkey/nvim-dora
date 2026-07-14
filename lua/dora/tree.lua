@@ -136,7 +136,9 @@ function M.collapse_deepest_visible_dirs(state, path, target_depth)
     local collapse_depth = max_depth - 1
     local collapsed = {}
     if collapse_depth == 0 then
-        if state.expanded_dirs[path] then
+        -- The browsed root's listing is always rendered (its row, when shown,
+        -- is not collapsible), so folding in stops above it.
+        if path ~= state.cwd and state.expanded_dirs[path] then
             collapsed[#collapsed+1] = path
         end
     else
