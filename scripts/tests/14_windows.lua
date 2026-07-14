@@ -92,8 +92,10 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     local target = fs.realpath(tmp)
 
+    -- Typed keys so cmdline mappings apply; :silent keeps the typed-out
+    -- cmdline from echoing into the headless output.
     local function cmdline(cmd)
-        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(':' .. cmd .. '<CR>', true, false, true), 'xt', false)
+        vim.cmd(('silent call feedkeys(":" .. %s .. "\\<CR>", "xt")'):format(vim.fn.string(cmd)))
     end
 
     vim.cmd.tabnew()

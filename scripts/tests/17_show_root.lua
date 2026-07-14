@@ -157,6 +157,11 @@ do
         local state = store.get()
         vim.api.nvim_win_set_cursor(0, {1, 0})
 
+        local notifications = {}
+        local old_notify = vim.notify
+        ---@diagnostic disable-next-line: duplicate-set-field
+        vim.notify = function(msg) notifications[#notifications+1] = msg end
+
         local confirm_opened = false
         local old_show = confirm_win.show
         ---@diagnostic disable-next-line: duplicate-set-field
@@ -170,6 +175,13 @@ do
         api.toggle_cut()
         api.toggle_copy()
         assert_eq(marked_path_count(state), 0, 'cut/copy should not mark the root row')
+
+        vim.notify = old_notify
+        for i, action in ipairs({'trash', 'delete', 'cut', 'copy'}) do
+            assert_eq(notifications[i], ('dora: Cannot %s the root directory'):format(action),
+                action .. ' on the root row should warn instead of acting')
+        end
+        assert_eq(#notifications, 4, 'each refused root action should warn exactly once')
 
         api.quit()
     end)
@@ -375,13 +387,20 @@ do
     with_show_root(true, function()
         vim.cmd('Dora /')
         vim.api.nvim_win_set_cursor(0, {1, 0})
+        local notification
+        local old_notify = vim.notify
+        ---@diagnostic disable-next-line: duplicate-set-field
+        vim.notify = function(msg) notification = msg end
         local prompt_opened = false
         local old_input = prompt.input
         ---@diagnostic disable-next-line: duplicate-set-field
         prompt.input = function() prompt_opened = true end
         api.rename()
         prompt.input = old_input
+        vim.notify = old_notify
         assert(not prompt_opened, 'rename on the filesystem root should not open a prompt')
+        assert_eq(notification, 'dora: Cannot rename the filesystem root',
+            'rename on the filesystem root should warn instead of prompting')
         api.quit()
     end)
 end
