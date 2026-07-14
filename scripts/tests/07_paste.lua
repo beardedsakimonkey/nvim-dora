@@ -383,7 +383,7 @@ do
         return string.rep(' ', pad_for(text)) .. text
     end
     local hint_str = 'r rename   o overwrite'
-    assert_eq(confirm_lines[1], centered('1 conflict'),
+    assert_eq(confirm_lines[1], centered('⚠ 1 conflict'),
         'a centered conflict count should head the confirmation')
     assert_eq(confirm_lines[2], centered(hint_str),
         'a centered both-keys hint should sit below the count')
@@ -400,7 +400,7 @@ do
     -- mnemonic keys and underlines just the active mode's name (rename, by
     -- default); the previewed name keeps its file-type color while the arrow reads
     -- in the normal color (not muted).
-    local warn_pad, hint_pad = pad_for('1 conflict'), pad_for(hint_str)
+    local warn_pad, hint_pad = pad_for('⚠ 1 conflict'), pad_for(hint_str)
     local key_r, key_o = hint_pad, hint_pad + #'r rename   '
     local warn, hint_keys, rename_underlined, divider_muted, suffix_warn, arrow_muted, preview_name =
         false, 0, false, false, false, false, false
@@ -446,7 +446,7 @@ do
     assert_match(vim.wo[confirm_win].winhighlight, 'FloatBorder:DoraPromptBorderWarn',
         'overwrite mode should keep the warning border')
     local overwrite_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-    assert_eq(overwrite_lines[1], centered('1 conflict'),
+    assert_eq(overwrite_lines[1], centered('⚠ 1 conflict'),
         'overwrite mode should keep the centered conflict count')
     assert_eq(overwrite_lines[2], centered(hint_str),
         'the both-keys hint should not change with the mode')
@@ -527,10 +527,10 @@ do
         'a paste into itself should flag the error on its border')
     local confirm_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local confirm_width = confirm_cfg.width
-    -- A leading space keeps the error off the left border; RIGHT_PADDING balances
-    -- the right, so the centered line carries one space on each side.
-    local error_text = ' Cannot paste a directory into itself'
-    local error_pad = math.max(0, math.floor((confirm_width - #error_text) / 2))
+    -- A leading space keeps the error icon off the left border; RIGHT_PADDING
+    -- balances the right, so the centered line carries one space on each side.
+    local error_text = ' ✗ Cannot paste a directory into itself'
+    local error_pad = math.max(0, math.floor((confirm_width - vim.fn.strdisplaywidth(error_text)) / 2))
     assert_eq(confirm_lines[1], string.rep(' ', error_pad) .. error_text,
         'a centered error should head the blocked paste confirmation')
     assert_eq(confirm_lines[2], string.rep('─', confirm_width),

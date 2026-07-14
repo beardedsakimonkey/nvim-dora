@@ -24,6 +24,9 @@ local DIVIDER_CHAR = '─'
 -- Per-conflict-row tag of what the chosen mode does to that entry.
 local RENAME_SUFFIX = ' (rename)'
 local OVERWRITE_SUFFIX = ' (overwrite)'
+-- Severity glyphs heading the confirmation: a conflict warning or a blocking error.
+local WARNING_ICON = '⚠'
+local ERROR_ICON = '✗'
 local OPERATION_HL = {cut = 'DoraCut', copy = 'DoraCopy'}
 
 -- The mode-key hint shown beneath the warning, advertising both keys: `o`
@@ -344,7 +347,7 @@ end
 ---@param count integer
 ---@return string
 local function conflicts_text(count)
-    return string.format('%d conflict%s', count, count == 1 and '' or 's')
+    return string.format('%s %d conflict%s', WARNING_ICON, count, count == 1 and '' or 's')
 end
 
 ---@param overwrite boolean
@@ -640,10 +643,10 @@ function M.show(paths, cb, opts)
     local overwrite = false
     local warning, hint, warning_hl
     if err then
-        -- An error fills the width, so centering would otherwise leave it flush
-        -- against the left border; a leading space keeps it off, balancing the
-        -- column RIGHT_PADDING already reserves on the right.
-        warning, warning_hl = ' ' .. err, 'DoraError'
+        -- An error fills the width, so centering would otherwise leave its icon
+        -- flush against the left border; a leading space keeps it off, balancing
+        -- the column RIGHT_PADDING already reserves on the right.
+        warning, warning_hl = ' ' .. ERROR_ICON .. ' ' .. err, 'DoraError'
     elseif opts.allow_overwrite then
         warning, warning_hl = conflicts_text(vim.tbl_count(renames or {})), 'DoraWarn'
         hint = HINT.text
