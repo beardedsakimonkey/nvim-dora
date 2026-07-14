@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/08_rename_symlinks.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local fs = h.fs
+local config = h.config
 local prompt = h.prompt
 local api = h.api
 local store = h.store
@@ -167,5 +168,49 @@ do
     for _, path in ipairs({'dir/child.txt', 'a.txt', 'b.txt'}) do
         pcall(vim.cmd --[[@as function]], 'bdelete! ' .. vim.fn.fnameescape(root .. '/' .. path))
     end
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+-- The create_symlink prompt always creates a link, so it carries the fixed
+-- symlink icon when icons are enabled and none when they are disabled.
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/target.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('target%.txt$')
+
+    local old_input = prompt.input
+    local old_icons = config.icons
+    local captured_icon, captured_hl
+    -- Cancel rather than confirm: confirming re-renders the tree, and with
+    -- icons enabled that would consult whatever provider stub an earlier
+    -- test left cached in the icons module.
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        captured_icon, captured_hl = opts.icon, opts.icon_hl
+        cb(nil)
+    end
+    config.icons = true
+    api.create_symlink()
+    config.icons = old_icons
+    assert_eq(captured_icon, '', 'the symlink prompt should hardcode the symlink icon')
+    assert_eq(captured_hl, 'DoraSymlink', 'the symlink prompt icon should use the symlink highlight')
+
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        captured_icon, captured_hl = opts.icon, opts.icon_hl
+        cb('new-link', opts.validate('new-link'))
+    end
+    api.create_symlink()
+    prompt.input = old_input
+    assert_eq(captured_icon, nil, 'disabled icons should leave the symlink prompt icon unset')
+    assert_eq(captured_hl, nil, 'disabled icons should leave the symlink prompt icon highlight unset')
+    local stat = vim.loop.fs_lstat(state.cwd .. '/new-link')
+    assert(stat and stat.type == 'link', 'confirming the prompt should create the symlink')
+
+    api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end

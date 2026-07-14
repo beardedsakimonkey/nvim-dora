@@ -1811,12 +1811,17 @@ function M.create_symlink()
     local target_dir = fs.parent_dir(path)
     local dir = vim.fs.relpath(state.cwd, target_dir)
     dir = (dir and dir ~= '.') and dir .. '/' or ''
+    -- The prompt always creates a link, so the icon is the fixed symlink
+    -- fallback rather than tracking the typed name.
+    local icon, icon_hl = icons.get(config.icons, {name = vim.fs.basename(path), type = 'link'}, path)
     prompt.input({
         prompt = 'Add symlink',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         initial_prompt = dir,
         anchor = current_name_anchor(row),
+        icon = icon,
+        icon_hl = icon_hl,
         validate = function(input)
             return fs.validate_symlink(input, state.cwd)
         end,
