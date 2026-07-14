@@ -159,8 +159,8 @@ require('dora').setup {
         gx        = 'open_external',    -- Open externally
 
         -- File operations
-        a     = 'add_under',      -- Add file under directory
-        A     = 'add',            -- Add file
+        a     = 'add',            -- Add file
+        A     = 'add_under',      -- Add file under directory
         S     = 'create_symlink', -- Add symlink to file
         r     = 'rename',         -- Rename file
         R     = 'rename_empty',   -- Rename file with empty prompt
@@ -274,14 +274,12 @@ expanding or collapsing, marking, trashing, and deleting.
 
 ### Creating files and directories
 
-The add prompt creates a directory when its input ends in `/`; otherwise it
+The "add" prompt creates a directory when its input ends in `/`; otherwise it
 creates a file. Nested paths are accepted and missing parent directories are
 created automatically.
 
-`a` prefills the prompt beneath the selected directory (or beside the selected
-file). `A` always prefills it beside the selected entry. Similarly, `p` pastes
-under the selected directory, while `P` pastes under the parent of the selected
-directory.
+`a` always prefills the prompt beside the selected entry. `A` prefills it
+beneath the selected directory (or beside the selected file).
 
 ### Changing the working directory
 

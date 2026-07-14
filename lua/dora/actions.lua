@@ -50,8 +50,8 @@ M.ACTIONS = {
     {name = 'open_external', desc = 'Open externally', section = 'Open', visual = 'open_external_visual'},
 
     -- File Operations
-    {name = 'add_under', desc = 'Add file under directory', section = 'File Operations'},
     {name = 'add', desc = 'Add file', section = 'File Operations'},
+    {name = 'add_under', desc = 'Add file under directory', section = 'File Operations'},
     {name = 'create_symlink', desc = 'Add symlink to file', section = 'File Operations'},
     {name = 'rename', desc = 'Rename file', section = 'File Operations'},
     {name = 'rename_empty', desc = 'Rename file with empty prompt', section = 'File Operations'},

@@ -283,7 +283,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('a', 'n', false, true).desc, 'Add file under directory')
+    assert_eq(vim.fn.maparg('A', 'n', false, true).desc, 'Add file under directory')
     set_cursor_pos('root')
 
     local old_input = prompt.input

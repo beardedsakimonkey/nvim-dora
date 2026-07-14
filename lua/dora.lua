@@ -111,8 +111,8 @@ M.config = {
         gx        = 'open_external',    -- Open externally
 
         -- File operations
-        a     = 'add_under',      -- Add file under directory
-        A     = 'add',            -- Add file
+        a     = 'add',            -- Add file
+        A     = 'add_under',      -- Add file under directory
         S     = 'create_symlink', -- Add symlink to file
         r     = 'rename',         -- Rename file
         R     = 'rename_empty',   -- Rename file with empty prompt
