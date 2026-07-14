@@ -200,3 +200,33 @@ do
     p:cancel()
     assert_eq(vim.g.dora_smoke_cancelled, true)
 end
+
+do
+    local ns = vim.api.nvim_create_namespace('dora/prompt')
+    local p = prompt.input({
+        prompt = 'Dynamic icon',
+        cwd = cwd,
+        icon = function(input)
+            return vim.endswith(input, '/') and 'D' or 'F', 'DoraIcon'
+        end,
+        validate = function(input)
+            return input
+        end,
+    }, function() end)
+    ---@cast p DoraPrompt
+
+    local function icon_virt_text()
+        local marks = vim.api.nvim_buf_get_extmarks(p.input_buf, ns, 0, -1, {details = true})
+        assert_eq(#marks, 1, 'the prompt should keep a single icon extmark')
+        return marks[1][4].virt_text[1][1]
+    end
+
+    assert_eq(icon_virt_text(), 'F ', 'a function icon should render for the initial input')
+    p:set_input('foo/', 4)
+    p:update_icon()
+    assert_eq(icon_virt_text(), 'D ', 'a function icon should re-resolve as the input changes')
+    p:set_input('foo', 3)
+    p:update_icon()
+    assert_eq(icon_virt_text(), 'F ', 'removing the trailing slash should switch back to the file icon')
+    p:cancel()
+end

@@ -14,15 +14,20 @@ local NS = api.nvim_create_namespace('dora/prompt')
 ---@field cwd string
 ---@field width? integer
 ---@field anchor? DoraFloatAnchor
----@field icon? string Icon shown as virtual text before the input
----@field icon_hl? string
+---@field icon? string|fun(input: string): string?, string? Icon shown as virtual text before the input; a function receives the current input and is re-resolved as it changes, returning the icon and its highlight
+---@field icon_hl? string Highlight for a string icon (function icons return their own)
 ---@field validate? fun(input: string): any When omitted, any input is accepted and the border keeps its normal color
 ---@field warn? fun(input: string, result: any): boolean? Called for valid, non-initial input; when it returns true the border uses the warn color instead of the valid color
 
 ---@param opts DoraPromptOptions
----@return string?
-local function icon_prefix(opts)
-    return opts.icon and opts.icon .. ' ' or nil
+---@param input string
+---@return string? icon
+---@return string? hl
+local function resolve_icon(opts, input)
+    if type(opts.icon) == 'function' then
+        return opts.icon(input)
+    end
+    return opts.icon, opts.icon_hl
 end
 
 ---@param opts DoraPromptOptions
@@ -49,6 +54,7 @@ end
 ---@field is_valid? boolean
 ---@field valid_result? any
 ---@field initial_prompt string
+---@field icon_extmark? integer
 local Prompt = {}
 
 function Prompt:close()
@@ -99,6 +105,23 @@ function Prompt:validate()
     if window.valid_win(self.input_win) then
         vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:' .. hl
     end
+end
+
+function Prompt:update_icon()
+    local icon, hl = resolve_icon(self.opts, self:get_input())
+    if not icon then
+        if self.icon_extmark then
+            api.nvim_buf_del_extmark(self.input_buf, NS, self.icon_extmark)
+            self.icon_extmark = nil
+        end
+        return
+    end
+    self.icon_extmark = api.nvim_buf_set_extmark(self.input_buf, NS, 0, 0, {
+        id = self.icon_extmark,
+        virt_text = {{icon .. ' ', hl or 'DoraIcon'}},
+        virt_text_pos = 'inline',
+        right_gravity = false,
+    })
 end
 
 function Prompt:confirm()
@@ -156,9 +179,9 @@ function M.input(opts, cb)
     if #self.initial_prompt > 0 then
         self.width = math.max(self.width, #self.initial_prompt + 4)
     end
-    local prefix = icon_prefix(opts)
-    if prefix then
-        self.width = self.width + vim.fn.strdisplaywidth(prefix)
+    local initial_icon = resolve_icon(opts, self.initial_prompt)
+    if initial_icon then
+        self.width = self.width + vim.fn.strdisplaywidth(initial_icon .. ' ')
     end
     self.input_buf = api.nvim_create_buf(false, true)
     vim.bo[self.input_buf].buftype = 'nofile'
@@ -168,13 +191,7 @@ function M.input(opts, cb)
     vim.wo[self.input_win].winhighlight = 'NormalFloat:Normal,FloatBorder:DoraPromptBorder'
 
     api.nvim_buf_set_lines(self.input_buf, 0, -1, false, {self.initial_prompt})
-    if prefix then
-        api.nvim_buf_set_extmark(self.input_buf, NS, 0, 0, {
-            virt_text = {{prefix, opts.icon_hl or 'DoraIcon'}},
-            virt_text_pos = 'inline',
-            right_gravity = false,
-        })
-    end
+    self:update_icon()
     api.nvim_win_set_cursor(self.input_win, {1, #self.initial_prompt})
 
     keymap(self.input_buf, 'n', '<Esc>', function() self:cancel() end)
@@ -187,7 +204,12 @@ function M.input(opts, cb)
 
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd({'TextChanged', 'TextChangedI'}, {
         buffer = self.input_buf,
-        callback = function() self:validate() end,
+        callback = function()
+            self:validate()
+            if type(opts.icon) == 'function' then
+                self:update_icon()
+            end
+        end,
     })
     self.autocmds[#self.autocmds+1] = api.nvim_create_autocmd('VimResized', {
         callback = function() self:relayout() end,

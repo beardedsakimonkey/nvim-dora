@@ -9,6 +9,7 @@ local buffer = require'dora.buffer'
 local help_win = require'dora.ui.help'
 local confirm_win = require'dora.ui.confirm'
 local filter_win = require'dora.ui.filter'
+local icons = require'dora.icons'
 local info_win = require'dora.ui.info'
 local keymaps = require'dora.keymaps'
 local lsp = require'dora.lsp'
@@ -1715,6 +1716,18 @@ function M.rename_empty()
     rename(false)
 end
 
+-- Icon for the add prompt, tracking what the current input would create: a
+-- trailing slash makes a directory, anything else a file named by the typed
+-- basename.
+---@param input string
+---@return string? icon
+---@return string? hl
+local function create_icon(input)
+    local name = vim.fs.basename(fs.strip_trailing_sep(input)) or ''
+    local file_type = vim.endswith(input, '/') and 'directory' or 'file'
+    return icons.get(config.icons, {name = name, type = file_type}, name, false)
+end
+
 ---@param under_directory? boolean
 local function create(under_directory)
     local state = store.get()
@@ -1725,6 +1738,7 @@ local function create(under_directory)
         width = PROMPT_WIDTH,
         initial_prompt = create_parent_default(state, row, under_directory),
         anchor = current_name_anchor(row),
+        icon = config.icons and create_icon or nil,
         validate = function(input)
             return fs.validate_create(input, state.cwd)
         end,

@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/04_fs.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local dora = h.dora
+local config = h.config
 local fs = h.fs
 local prompt = h.prompt
 local api = h.api
@@ -155,6 +156,7 @@ do
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert_eq(opts.initial_prompt, 'nvim-dora/', 'create should prefill the hovered file parent path')
+        assert_eq(opts.icon, nil, 'create prompt should not pass an icon when icons are disabled')
         local input = opts.initial_prompt .. 'foo/bar'
         cb(input, opts.validate(input))
     end
@@ -166,6 +168,43 @@ do
     assert_match(current_line(), 'bar$', 'create should move cursor to the created nested file')
     local row = store.get().rows[vim.api.nvim_win_get_cursor(0)[1]]
     assert_eq(row.path, fs.realpath(tmp) .. '/nvim-dora/foo/bar')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local old_input = prompt.input
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function(category, path)
+            return '[' .. category .. ':' .. path .. ']',
+                category == 'directory' and 'DoraDirectory' or 'DoraIcon'
+        end,
+    }
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(type(opts.icon), 'function', 'create prompt should pass a live icon when icons are enabled')
+        local icon, hl = opts.icon('foo/bar/a')
+        assert_eq(icon, '[file:a]', 'create prompt icon should look up the typed basename as a file')
+        assert_eq(hl, 'DoraIcon')
+        icon, hl = opts.icon('foo/bar/')
+        assert_eq(icon, '[directory:bar]', 'a trailing slash should look up a directory icon')
+        assert_eq(hl, 'DoraDirectory')
+        icon = opts.icon('')
+        assert_eq(icon, '[file:]', 'an empty input should fall back to a generic file icon')
+        cb(nil)
+    end
+    api.add()
+    prompt.input = old_input
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
 
     api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
