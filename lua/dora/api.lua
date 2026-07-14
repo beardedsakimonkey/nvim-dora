@@ -1813,7 +1813,8 @@ function M.toggle_hidden_files()
     util.info(state.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
 end
 
-function M.shell_cmd()
+---@param initial_prompt? string
+function M.shell_cmd(initial_prompt)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1822,6 +1823,7 @@ function M.shell_cmd()
     end
     prompt.input({
         prompt = 'Shell command',
+        initial_prompt = initial_prompt,
         cwd = state.cwd,
         width = PROMPT_WIDTH,
         anchor = current_name_anchor(view.current_row(state)),

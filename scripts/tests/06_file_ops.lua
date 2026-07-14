@@ -129,6 +129,27 @@ end
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/script.sh')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('script.sh')
+    local initial_prompt = 'chmod +x'
+    api.shell_cmd(initial_prompt)
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], initial_prompt,
+        'shell_cmd should prefill the prompt when given an initial command')
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    assert_eq(cursor[1], 1)
+    assert_eq(cursor[2], #initial_prompt,
+        'shell_cmd should put the cursor at the end of the initial command')
+
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/split.txt')
     touch(tmp .. '/vsplit.txt')
     touch(tmp .. '/tab.txt')
