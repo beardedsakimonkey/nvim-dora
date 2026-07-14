@@ -69,7 +69,6 @@ end
 ---given position when it's visible, centered in the editor otherwise.
 function M.layout(opts)
     local height = math.min(opts.height, math.max(1, vim.o.lines - 4))
-    local title = opts.title and (' ' .. opts.title .. ' ') or nil
     local anchor = opts.anchor
     local pos = anchor ~= nil and M.valid_win(anchor.win)
         and vim.fn.screenpos(anchor.win, anchor.line, anchor.col + 1)
@@ -106,8 +105,8 @@ function M.layout(opts)
         width = width,
         height = height,
         border = M.border(),
-        title = title,
-        title_pos = title and (opts.title_pos or 'left') or nil,
+        title = opts.title,
+        title_pos = opts.title and (opts.title_pos or 'left') or nil,
         style = 'minimal',
         noautocmd = true,
     }
