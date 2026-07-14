@@ -101,8 +101,14 @@ end
 ---@return string base_dir
 ---@return string? initial_prompt
 local function create_base(state, row, under_directory)
-    -- On the root row both add actions create directly in the cwd.
+    -- On the root row both add actions create directly in the cwd; add_under
+    -- gets there by prefilling the cwd's own name, superimposing over the
+    -- root row like any other directory (unless the cwd is the filesystem
+    -- root, which has no parent to resolve against).
     if not row or row.is_root then
+        if under_directory and row and row.path and not fs.is_root(row.path) then
+            return fs.get_parent_dir(row.path), fs.basename(row.path) .. '/'
+        end
         return state.cwd, nil
     end
     if under_directory and row.type == 'directory' and row.path then
@@ -1761,6 +1767,13 @@ local function create(under_directory)
             else
                 local cursor_path = fs.strip_trailing_sep(path)
                 view.clear_listings(state)
+                -- Deleting the root add_under prefill creates a sibling of
+                -- the cwd: there is no row to reveal, and walking parents
+                -- from outside the cwd would never reach it.
+                if not vim.fs.relpath(state.cwd, cursor_path) then
+                    view.render(state)
+                    return
+                end
                 -- Reveal the new entry by expanding the directories above it,
                 -- but leave the entry itself collapsed: `foo/bar/` expands
                 -- `foo` so `bar` shows without expanding `bar`, and `foo/`

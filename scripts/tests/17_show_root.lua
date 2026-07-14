@@ -189,8 +189,9 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
--- Both add actions on the root row create directly in the cwd with an empty
--- initial prompt (add previously crashed resolving the root's parent).
+-- Both add actions on the root row create directly in the cwd: add starts
+-- from an empty prompt, add_under prefills the cwd's own name (resolved
+-- against its parent) so the prompt superimposes over the root row.
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
@@ -210,16 +211,55 @@ do
         api.add()
         assert(fs.exists(tmp .. '/added.txt'), 'add on the root row should create in the cwd')
 
+        -- add moved the cursor to the created entry; return to the root row.
+        vim.api.nvim_win_set_cursor(0, {1, 0})
         ---@diagnostic disable-next-line: duplicate-set-field
         prompt.input = function(opts, cb)
-            assert_eq(opts.initial_prompt, nil, 'add_under on the root row should start from an empty prompt')
-            cb('under.txt', opts.validate('under.txt'))
+            local root_name = vim.fs.basename(state.cwd) .. '/'
+            assert_eq(opts.initial_prompt, root_name, 'add_under on the root row should prefill the cwd name')
+            assert(opts.anchor and opts.anchor.superimpose, 'add_under on the root row should superimpose the prompt')
+            local input = opts.initial_prompt .. 'under.txt'
+            cb(input, opts.validate(input))
         end
         api.add_under()
         prompt.input = old_input
         assert(fs.exists(tmp .. '/under.txt'), 'add_under on the root row should create in the cwd')
         assert_eq(current_line(), '└── under.txt', 'the cursor should land on the created entry')
         assert_eq(state.cwd, vim.loop.fs_realpath(tmp), 'the session should still browse the same directory')
+
+        api.quit()
+    end)
+
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+-- Deleting the root add_under prefill resolves the input beside the cwd:
+-- the entry is created outside the browsed tree, so there is no row to
+-- reveal and the cursor stays on the root row (rather than hanging while
+-- walking parents that never reach the cwd).
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/proj', tonumber('755', 8)))
+    touch(tmp .. '/proj/existing.txt')
+
+    with_show_root(true, function()
+        vim.cmd('Dora ' .. vim.fn.fnameescape(tmp .. '/proj'))
+        vim.api.nvim_win_set_cursor(0, {1, 0})
+
+        local old_input = prompt.input
+        ---@diagnostic disable-next-line: duplicate-set-field
+        prompt.input = function(opts, cb)
+            cb('escape.txt', opts.validate('escape.txt'))
+        end
+        api.add_under()
+        prompt.input = old_input
+
+        assert(fs.exists(tmp .. '/escape.txt'),
+            'deleting the root add_under prefill should create beside the cwd')
+        assert_eq(current_line(), 'proj/', 'the cursor should stay on the root row')
+        assert(not find_line_index(lines(), 'escape%.txt$'),
+            'an entry created outside the cwd should not render in the tree')
 
         api.quit()
     end)
