@@ -1,0 +1,1 @@
+/Users/tim/.local/share/nvim/site/pack/core/opt/nvim-dora/AGENTS.md
