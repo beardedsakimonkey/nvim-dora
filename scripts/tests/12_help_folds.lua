@@ -325,7 +325,9 @@ do
     local root = state.cwd
 
     set_cursor_pos('alpha')
+    vim.api.nvim_win_set_cursor(0, {vim.api.nvim_win_get_cursor(0)[1], 3})
     api.fold_out()
+    assert_eq(vim.api.nvim_win_get_cursor(0)[2], 3, 'expand should keep the cursor column')
     assert(vim.tbl_contains(lines(), '├── one/'), 'first expand should show alpha children')
     assert(vim.tbl_contains(lines(), '└── two/'), 'first expand should show all alpha children')
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'first expand should not expand grandchildren')
@@ -349,7 +351,9 @@ do
     assert_eq(state.marked_paths[root .. '/alpha/one/file.txt'], 'copy', 'nested row should mark its real path')
 
     set_cursor_pos('alpha')
+    vim.api.nvim_win_set_cursor(0, {vim.api.nvim_win_get_cursor(0)[1], 3})
     api.fold_in()
+    assert_eq(vim.api.nvim_win_get_cursor(0)[2], 3, 'collapse should keep the cursor column')
     assert(vim.tbl_contains(lines(), '├── one/'), 'collapse should keep the hovered directory open')
     assert(vim.tbl_contains(lines(), '└── two/'), 'collapse should keep shallow descendants visible')
     assert(not vim.tbl_contains(lines(), '│   └── file.txt'), 'collapse should hide the deepest visible level')

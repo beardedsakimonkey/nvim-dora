@@ -575,7 +575,10 @@ function M.set_cursor_path(state, path)
     for i, row in ipairs(state.rows or {}) do
         if row.path == path then
             if win ~= -1 and api.nvim_win_is_valid(win) then
-                api.nvim_win_set_cursor(win, {i, 0})
+                -- Keep the column so tree edits (folds, renames, pastes) don't
+                -- yank the cursor back to the start of the line.
+                local col = api.nvim_win_get_cursor(win)[2]
+                api.nvim_win_set_cursor(win, {i, col})
                 M.update_tree_cursor_highlight(state)
             end
             return true
