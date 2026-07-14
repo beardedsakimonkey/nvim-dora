@@ -44,7 +44,10 @@ do
     assert(not store.get().expanded_dirs[root .. '/dir1/dir2'], 'create should leave the lowest new directory collapsed')
     assert_match(current_line(), 'dir2/$', 'create should move cursor to the new directory')
 
-    -- Creating a single top-level directory leaves it collapsed too.
+    -- Creating a single top-level directory leaves it collapsed too. The
+    -- cursor sits on the nested dir2/, so hop to the top-level dir1/ first:
+    -- typed paths resolve beside the hovered row.
+    set_cursor_pos('dir1')
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         local input = 'solo/'
@@ -139,8 +142,8 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.initial_prompt, 'root/', 'create should prefill the hovered directory parent path')
-        local input = opts.initial_prompt .. 'file.txt'
+        assert_eq(opts.initial_prompt, nil, 'create should not prefill a leading path')
+        local input = 'file.txt'
         cb(input, opts.validate(input))
     end
     api.add()
@@ -168,8 +171,8 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.initial_prompt, 'root/child/', 'create should prefill the hovered file parent path')
-        local input = opts.initial_prompt .. 'sibling.txt'
+        assert_eq(opts.initial_prompt, nil, 'create should not prefill the hovered file parent path')
+        local input = 'sibling.txt'
         cb(input, opts.validate(input))
     end
     api.add()
@@ -289,7 +292,7 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.initial_prompt, 'root/', 'create_under should prefill the hovered directory path')
+        assert_eq(opts.initial_prompt, 'root/', 'create_under should prefill the hovered directory name')
         local input = opts.initial_prompt .. 'child.txt'
         cb(input, opts.validate(input))
     end
@@ -303,10 +306,9 @@ do
 end
 
 do
-    -- add_under on a directory directly under the cwd superimposes the prompt
-    -- onto its row (the "root/" prefill overlays the row text); on a deeper
-    -- directory the "root/nested/" prefill no longer matches the row, so the
-    -- prompt opens below it instead.
+    -- add_under superimposes the prompt onto the directory row at any depth:
+    -- the prefill is the directory's own name ("nested/"), which overlays the
+    -- row text exactly, however deeply the row is indented.
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
@@ -336,9 +338,10 @@ do
 
     api.add_under()
     prompt_win = vim.api.nvim_get_current_win()
-    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'root/nested/')
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'nested/',
+        'add_under on a nested directory should prefill only its name')
     input_pos = vim.fn.screenpos(prompt_win, 1, 1)
-    assert(input_pos.row > name_pos.row, 'add_under on a nested directory should not superimpose the prompt')
+    assert_eq(input_pos.row, name_pos.row, 'add_under on a nested directory should superimpose the prompt')
     assert_eq(input_pos.col, name_pos.col, 'add_under prompt text should align with the nested directory name')
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
 
@@ -420,10 +423,10 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.initial_prompt, 'root/', 'create on a placeholder should prefill its directory path')
+        assert_eq(opts.initial_prompt, nil, 'create on a placeholder should not prefill its directory path')
         assert(opts.anchor, 'create on a placeholder should anchor the prompt to its row')
         assert_eq(opts.anchor.line, vim.api.nvim_win_get_cursor(0)[1])
-        local input = opts.initial_prompt .. 'file.txt'
+        local input = 'file.txt'
         cb(input, opts.validate(input))
     end
     api.add()

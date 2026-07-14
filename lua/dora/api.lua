@@ -90,25 +90,28 @@ local function refuse_root_row(state, action)
     return false
 end
 
+-- Where the typed path resolves and what to prefill: add creates beside the
+-- hovered row (inside its parent directory), add_under creates beneath a
+-- hovered directory. add_under prefills the directory's own name — resolved
+-- against its parent — so the prefill matches the row text exactly and the
+-- prompt can superimpose over the row at any depth.
 ---@param state DoraState
 ---@param row DoraTreeRow?
 ---@param under_directory? boolean
----@return string?
-local function create_parent_default(state, row, under_directory)
+---@return string base_dir
+---@return string? initial_prompt
+local function create_base(state, row, under_directory)
     -- On the root row both add actions create directly in the cwd.
     if not row or row.is_root then
-        return nil
+        return state.cwd, nil
     end
     if under_directory and row.type == 'directory' and row.path then
-        return view.relative_child_path(state, row.path) .. '/'
+        return fs.get_parent_dir(row.path), fs.basename(row.path) .. '/'
     end
     -- Placeholder rows have no path of their own; create inside the
     -- directory that shows them.
     local parent = row.path and fs.get_parent_dir(row.path) or row.parent_path
-    if not parent or parent == state.cwd then
-        return nil
-    end
-    return view.relative_child_path(state, parent) .. '/'
+    return parent or state.cwd, nil
 end
 
 ---@param state DoraState
@@ -1732,24 +1735,18 @@ end
 local function create(under_directory)
     local state = store.get()
     local row = view.current_row(state)
-    local initial_prompt = create_parent_default(state, row, under_directory)
-    -- Superimpose the prompt when its prefill is exactly the hovered row's
-    -- text — a directory row directly under the cwd — so the "foo/" prefix
-    -- overlays the row and typing continues it in place. Deeper directories
-    -- prefill their full relative path ("foo/bar/"), which would not line up
-    -- with the row's indented basename.
-    local superimpose = under_directory and row ~= nil and not row.is_root
-        and row.type == 'directory' and initial_prompt ~= nil
-        and initial_prompt:find('/', 1, true) == #initial_prompt
+    local base_dir, initial_prompt = create_base(state, row, under_directory)
+    -- The add_under prefill is the hovered directory's own name, so the
+    -- prompt overlays the row and typing continues it in place.
     prompt.input({
         prompt = 'Add file or folder',
-        cwd = state.cwd,
+        cwd = base_dir,
         width = PROMPT_WIDTH,
         initial_prompt = initial_prompt,
-        anchor = current_name_anchor(row, {superimpose = superimpose}),
+        anchor = current_name_anchor(row, {superimpose = initial_prompt ~= nil}),
         icon = config.icons and create_icon or nil,
         validate = function(input)
-            return fs.validate_create(input, state.cwd)
+            return fs.validate_create(input, base_dir)
         end,
     }, function(input, path)
         if input and api.nvim_buf_is_valid(state.buf) then

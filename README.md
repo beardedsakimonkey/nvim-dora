@@ -278,8 +278,9 @@ The "add" prompt creates a directory when its input ends in `/`; otherwise it
 creates a file. Nested paths are accepted and missing parent directories are
 created automatically.
 
-`a` always prefills the prompt beside the selected entry. `A` prefills it
-beneath the selected directory (or beside the selected file).
+The typed path is relative to the selected entry: `a` creates beside it, and
+`A` creates beneath the selected directory (or beside the selected file).
+`A` prefills the directory's name, so the prompt continues its row in place.
 
 ### Changing the working directory
 

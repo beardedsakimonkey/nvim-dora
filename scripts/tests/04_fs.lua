@@ -117,9 +117,10 @@ do
     touch(tmp .. '/nvim-dora/existing.txt')
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    -- The cursor stays on the top-level nvim-dora/ row, so the typed path
+    -- resolves beside it, directly in the cwd.
     set_cursor_line('nvim%-dora/$')
     api.fold_out()
-    set_cursor_line('existing%.txt$')
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
@@ -155,9 +156,9 @@ do
     local old_input = prompt.input
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
-        assert_eq(opts.initial_prompt, 'nvim-dora/', 'create should prefill the hovered file parent path')
+        assert_eq(opts.initial_prompt, nil, 'create should not prefill the hovered file parent path')
         assert_eq(opts.icon, nil, 'create prompt should not pass an icon when icons are disabled')
-        local input = opts.initial_prompt .. 'foo/bar'
+        local input = 'foo/bar'
         cb(input, opts.validate(input))
     end
     api.add()
