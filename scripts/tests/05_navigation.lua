@@ -339,6 +339,7 @@ do
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'root/nested/')
     input_pos = vim.fn.screenpos(prompt_win, 1, 1)
     assert(input_pos.row > name_pos.row, 'add_under on a nested directory should not superimpose the prompt')
+    assert_eq(input_pos.col, name_pos.col, 'add_under prompt text should align with the nested directory name')
     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
 
     api.quit()

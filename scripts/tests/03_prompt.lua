@@ -75,7 +75,7 @@ do
     local cfg = vim.api.nvim_win_get_config(p.input_win)
     assert_eq(cfg.relative, 'editor')
     assert_eq(cfg.row, pos.row)
-    assert_eq(cfg.col, pos.col - 1)
+    assert_eq(cfg.col, pos.col - 2, 'prompt content should start at the anchor column')
 
     p:cancel()
     vim.wo[origin_win].number = old_number

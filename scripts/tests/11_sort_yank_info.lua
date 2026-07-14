@@ -364,7 +364,7 @@ do
 
     assert(info_win ~= origin_win, 'info should open in a floating window')
     assert_eq(info_cfg.row, anchor_pos.row, 'info should open below the selected name')
-    assert_eq(info_cfg.col, anchor_pos.col - 1, 'info should align with the selected name')
+    assert_eq(info_cfg.col, anchor_pos.col - 2, 'info content should align with the selected name')
     assert_match(vim.wo[info_win].winhighlight, 'FloatBorder:DoraPromptBorder')
     assert_match(win_title(info_win), 'Info')
     assert_match(info_text, 'Name%s+alpha%.txt')

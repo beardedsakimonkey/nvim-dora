@@ -77,13 +77,14 @@ function M.layout(opts)
     local row, col, width
     if anchor and pos and pos.row ~= 0 and pos.col ~= 0 then
         width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 2))
+        -- row/col address the bordered area, whose content starts one cell
+        -- down and right. The content column lands on the anchor cell whether
+        -- or not the float superimposes; negative positions clip the border
+        -- (and any content left of the anchor) rather than break alignment.
+        col = math.min(pos.col - 2 - (anchor.col_offset or 0),
+            math.max(0, vim.o.columns - width - 2))
         if anchor.superimpose then
-            -- row/col address the bordered area, whose content starts one
-            -- cell down and right. Negative positions clip the border (and
-            -- any content left of the anchor) rather than break alignment.
             row = pos.row - 2
-            col = math.min(pos.col - 2 - (anchor.col_offset or 0),
-                math.max(0, vim.o.columns - width - 2))
             -- The top border is clipped above the viewport, so the content runs
             -- downward from the anchor. Use the full room below it (minus the
             -- bottom border) rather than the conservative editor-wide clamp,
@@ -91,7 +92,6 @@ function M.layout(opts)
             height = math.min(opts.height, superimpose_rows(pos.row))
         else
             row = math.max(0, pos.row)
-            col = math.min(math.max(0, pos.col - 1), math.max(0, vim.o.columns - width - 2))
         end
     else
         width = math.min(opts.width, math.max(opts.min_width or 20, vim.o.columns - 4))
