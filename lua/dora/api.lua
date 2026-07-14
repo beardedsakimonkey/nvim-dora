@@ -1732,12 +1732,21 @@ end
 local function create(under_directory)
     local state = store.get()
     local row = view.current_row(state)
+    local initial_prompt = create_parent_default(state, row, under_directory)
+    -- Superimpose the prompt when its prefill is exactly the hovered row's
+    -- text — a directory row directly under the cwd — so the "foo/" prefix
+    -- overlays the row and typing continues it in place. Deeper directories
+    -- prefill their full relative path ("foo/bar/"), which would not line up
+    -- with the row's indented basename.
+    local superimpose = under_directory and row ~= nil and not row.is_root
+        and row.type == 'directory' and initial_prompt ~= nil
+        and initial_prompt:find('/', 1, true) == #initial_prompt
     prompt.input({
         prompt = 'Add file or folder',
         cwd = state.cwd,
         width = PROMPT_WIDTH,
-        initial_prompt = create_parent_default(state, row, under_directory),
-        anchor = current_name_anchor(row),
+        initial_prompt = initial_prompt,
+        anchor = current_name_anchor(row, {superimpose = superimpose}),
         icon = config.icons and create_icon or nil,
         validate = function(input)
             return fs.validate_create(input, state.cwd)

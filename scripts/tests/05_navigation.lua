@@ -303,6 +303,90 @@ do
 end
 
 do
+    -- add_under on a directory directly under the cwd superimposes the prompt
+    -- onto its row (the "root/" prefill overlays the row text); on a deeper
+    -- directory the "root/nested/" prefill no longer matches the row, so the
+    -- prompt opens below it instead.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root/nested', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local origin_win = vim.api.nvim_get_current_win()
+    set_cursor_pos('root')
+    local cursor = vim.api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    local name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+
+    api.add_under()
+    local prompt_win = vim.api.nvim_get_current_win()
+    assert(prompt_win ~= origin_win, 'add_under should open a prompt window')
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'root/')
+    local input_pos = vim.fn.screenpos(prompt_win, 1, 1)
+    assert_eq(input_pos.row, name_pos.row, 'add_under prompt should superimpose onto the directory row')
+    assert_eq(input_pos.col, name_pos.col, 'add_under prompt text should align with the directory name')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+
+    api.fold_out()
+    set_cursor_pos('nested')
+    cursor = vim.api.nvim_win_get_cursor(origin_win)
+    row = store.get().rows[cursor[1]]
+    name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+
+    api.add_under()
+    prompt_win = vim.api.nvim_get_current_win()
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'root/nested/')
+    input_pos = vim.fn.screenpos(prompt_win, 1, 1)
+    assert(input_pos.row > name_pos.row, 'add_under on a nested directory should not superimpose the prompt')
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- With icons enabled the superimposed add_under prompt pins its virtual
+    -- icon over the row icon, keeping the "root/" text aligned with the name.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function() return '▸', 'DoraIcon' end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local origin_win = vim.api.nvim_get_current_win()
+    set_cursor_pos('root')
+    local cursor = vim.api.nvim_win_get_cursor(origin_win)
+    local row = store.get().rows[cursor[1]]
+    local icon_pos = vim.fn.screenpos(origin_win, cursor[1], row.icon_start_col + 1)
+    local name_pos = vim.fn.screenpos(origin_win, cursor[1], row.name_start_col + 1)
+
+    api.add_under()
+    local prompt_win = vim.api.nvim_get_current_win()
+    assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], 'root/',
+        'add_under prompt should keep the icon out of the editable text')
+    -- screenpos on the first byte reports its inline virt text start, so the
+    -- icon alignment pins the first cell and the second byte pins the text
+    local input_pos = vim.fn.screenpos(prompt_win, 1, 1)
+    assert_eq(input_pos.row, icon_pos.row, 'icon add_under prompt should superimpose onto the directory row')
+    assert_eq(input_pos.col, icon_pos.col, 'icon add_under prompt icon should align with the row icon')
+    local second_pos = vim.fn.screenpos(prompt_win, 1, 2)
+    assert_eq(second_pos.col, name_pos.col + 1, 'icon add_under prompt text should align with the directory name')
+
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes('<C-c>', true, false, true), 'xt', false)
+    api.quit()
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/secret', tonumber('755', 8)))
