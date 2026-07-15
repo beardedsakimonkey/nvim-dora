@@ -8,7 +8,8 @@ local uv = vim.uv
 
 local M = {}
 
-local iswin = uv.os_uname().sysname:match('Windows') ~= nil
+local sysname = uv.os_uname().sysname
+local iswin = sysname:match('Windows') ~= nil
 
 -- NOTE: Backslash is a separator only on Windows; on POSIX it's a valid
 -- filename character.
@@ -270,6 +271,13 @@ end
 -- saturate the event loop and stall.
 local WATCH_DEBOUNCE_MS = 50
 
+local function close_handle(handle)
+    if handle and not handle:is_closing() then
+        handle:stop()
+        handle:close()
+    end
+end
+
 -- Watch a directory for changes. `on_change` is called on the main loop
 -- once a burst of events settles, and the watcher stops itself; watch again
 -- for further changes. Returns a function that cancels the watch, or nil when
@@ -283,21 +291,10 @@ function M.watch_dir(dir, on_change)
         return nil
     end
     local timer
-    local function stop_timer()
-        if timer then
-            timer:stop()
-            if not timer:is_closing() then
-                timer:close()
-            end
-            timer = nil
-        end
-    end
     local function cancel()
-        stop_timer()
-        if not watcher:is_closing() then
-            watcher:stop()
-            watcher:close()
-        end
+        close_handle(timer)
+        timer = nil
+        close_handle(watcher)
     end
     local fire = vim.schedule_wrap(function()
         -- The watch may have been cancelled while the debounce timer was
@@ -317,6 +314,66 @@ function M.watch_dir(dir, on_change)
         -- re-render per event.
         timer = timer or assert(uv.new_timer())
         timer:start(WATCH_DEBOUNCE_MS, 0, fire)
+    end)
+    if not ok then
+        watcher:close()
+        return nil
+    end
+    return cancel
+end
+
+-- libuv only supports recursive fs_event watches where the OS facility is
+-- itself recursive (FSEvents on macOS, ReadDirectoryChangesW on Windows).
+M.HAS_RECURSIVE_WATCH = iswin or sysname == 'Darwin'
+
+-- Watch a directory tree recursively. Unlike watch_dir, the watch persists
+-- across events: `on_changes` receives batches of absolute changed paths on
+-- the main loop, coalesced per debounce window. An event whose path libuv
+-- can't report is delivered as the root itself. Returns a function that
+-- cancels the watch, or nil when the tree can't be watched.
+---@param root string
+---@param on_changes fun(paths: string[])
+---@return fun()? cancel
+function M.watch_tree(root, on_changes)
+    local watcher = uv.new_fs_event()
+    if not watcher then
+        return nil
+    end
+    local pending = {} ---@type table<string, true>
+    local timer
+    local function cancel()
+        close_handle(timer)
+        timer = nil
+        close_handle(watcher)
+    end
+    local fire = vim.schedule_wrap(function()
+        -- The watch may have been cancelled while the timer was pending, or
+        -- before this ran on the main loop. An empty batch means a second
+        -- timer tick got scheduled before this one drained the set.
+        if watcher:is_closing() or next(pending) == nil then
+            return
+        end
+        local paths = vim.tbl_keys(pending)
+        pending = {}
+        on_changes(paths)
+    end)
+    -- The event callback runs for every change under the root, so build the
+    -- absolute path with one concatenation; root is a realpath, so it never
+    -- ends in a separator ('/' itself excepted).
+    local base = root == '/' and root or root .. '/'
+    local ok = watcher:start(root, {recursive = true}, function(err, filename)
+        if err or watcher:is_closing() then
+            return
+        end
+        pending[filename and base .. filename or root] = true
+        -- Flush on a fixed interval instead of watch_dir's restart-on-event
+        -- debounce: a wide root (e.g. $HOME) sees steady unrelated churn that
+        -- would otherwise postpone delivery indefinitely and grow the pending
+        -- set without bound.
+        timer = timer or assert(uv.new_timer())
+        if not timer:is_active() then
+            timer:start(WATCH_DEBOUNCE_MS, 0, fire)
+        end
     end)
     if not ok then
         watcher:close()
@@ -365,6 +422,14 @@ function M.get_parent_dir(dir)
     return parent
 end
 
+-- Whether path is dir itself or lies anywhere below it.
+---@param path string
+---@param dir string
+---@return boolean
+function M.is_inside(path, dir)
+    return path == dir or vim.startswith(path, dir == '/' and dir or dir .. '/')
+end
+
 ---@param path string
 ---@return string
 function M.basename(path)
@@ -381,8 +446,7 @@ end
 ---@return string? dir
 ---@return string? err
 local function trash_dir()
-    local sysname = uv.os_uname().sysname
-    if sysname:match('Windows') then
+    if iswin then
         return nil, 'Trash is not currently supported on Windows'
     end
     if sysname == 'Darwin' then

@@ -17,6 +17,7 @@ local M = {}
 ---@field sort_order DoraSortOrder
 ---@field hovered_files table<string, string> directory path -> cursor path/name
 ---@field listings table<string, DoraListingEntry>
+---@field watch_roots table<string, fun()> recursive fs-watch root -> cancel (see view.lua)
 ---@field expanded_dirs table<string, true>
 ---@field tree_rows DoraTreeRow[]
 ---@field rows DoraTreeRow[]

@@ -53,7 +53,7 @@ local TREE_VERTICAL = '│'
 ---@field placeholder_label string?
 ---@field show_hidden boolean
 ---@field sort_order DoraSortOrder
----@field unwatch fun()?
+---@field unwatch fun()? cancels the per-directory watch; nil when the session watches recursive roots instead
 
 ---@param msg any
 ---@return boolean
@@ -80,13 +80,87 @@ local function filter_and_sort(state, all_files, dir)
     return files
 end
 
--- Watch for external changes so the cached listing doesn't go stale: the
--- first change drops the cache entry, and the rescan on the following
--- render starts a new watch.
+-- Where recursive fs_event watches exist, one persistent watcher per
+-- navigation root covers the whole listing cache. Closing a libuv fs_event
+-- on macOS blocks the main thread while the process-wide FSEvents stream is
+-- torn down and rebuilt around every remaining watch, so dropping one
+-- watcher per cached listing froze quit (and every clear_listings refresh)
+-- for seconds once a few hundred directories were expanded.
+
+---@param state DoraState
+---@param paths string[] absolute changed paths
+local function drop_changed_listings(state, paths)
+    -- Batches can hold hundreds of paths, so instead of scanning the cache
+    -- once per path, build the changed set (plus the parent listings that
+    -- name the changed paths) and make one pass over the cache.
+    local changed = {}
+    local stale = {}
+    for _, path in ipairs(paths) do
+        changed[path] = true
+        stale[path] = true
+        stale[fs.parent_dir(path)] = true
+    end
+    local dropped = false
+    for dir in pairs(state.listings) do
+        local is_stale = stale[dir]
+        if not is_stale then
+            -- FSEvents can coalesce a busy subtree into one event for its
+            -- root directory, so a listing below a changed path is stale too.
+            local ancestor = dir
+            repeat
+                ancestor = fs.parent_dir(ancestor)
+                is_stale = changed[ancestor]
+            until is_stale or fs.is_root(ancestor)
+        end
+        if is_stale then
+            state.listings[dir] = nil
+            dropped = true
+        end
+    end
+    if dropped and api.nvim_buf_is_valid(state.buf) then
+        M.render(state)
+    end
+end
+
+---@param state DoraState
+---@param dir string
+local function ensure_tree_watched(state, dir)
+    for root in pairs(state.watch_roots) do
+        if fs.is_inside(dir, root) then
+            return
+        end
+    end
+    local cancel = fs.watch_tree(dir, function(paths)
+        drop_changed_listings(state, paths)
+    end)
+    if not cancel then
+        return
+    end
+    -- The new root covers any roots beneath it; keeping only the widest
+    -- avoids reporting (and re-rendering) each change once per overlapping
+    -- watch.
+    for root, cancel_root in pairs(state.watch_roots) do
+        if fs.is_inside(root, dir) then
+            cancel_root()
+            state.watch_roots[root] = nil
+        end
+    end
+    state.watch_roots[dir] = cancel
+end
+
+-- Watch dir for external changes so its cached listing doesn't go stale.
+-- Where recursive watches exist, the session's persistent roots cover dir
+-- and there is nothing per-listing to cancel. Otherwise dir gets a one-shot
+-- watch of its own: the first change drops the cache entry, and the rescan
+-- on the following render starts a new watch.
 ---@param state DoraState
 ---@param dir string
 ---@return fun()? unwatch
 local function watch_directory(state, dir)
+    if fs.HAS_RECURSIVE_WATCH then
+        ensure_tree_watched(state, dir)
+        return nil
+    end
     return fs.watch_dir(dir, function()
         if state.listings[dir] then
             state.listings[dir] = nil
@@ -105,6 +179,17 @@ function M.clear_listings(state)
             entry.unwatch()
         end
         state.listings[dir] = nil
+    end
+end
+
+-- Close the session's recursive watch roots. Only session teardown calls
+-- this: clear_listings refreshes keep the roots, which stay valid for the
+-- rescan that follows.
+---@param state DoraState
+function M.stop_watches(state)
+    for root, cancel in pairs(state.watch_roots) do
+        cancel()
+        state.watch_roots[root] = nil
     end
 end
 

@@ -16,6 +16,7 @@ local touch = h.touch
 local lines = h.lines
 local set_cursor_line = h.set_cursor_line
 local current_line = h.current_line
+local find_line_index = h.find_line_index
 
 assert_match(fs.validate_create('x-new-file', cwd), 'x%-new%-file$')
 assert_match(fs.validate_create('x-new-dir/', cwd), 'x%-new%-dir/$')
@@ -206,6 +207,55 @@ do
     prompt.input = old_input
     config.icons = old_icons
     _G.MiniIcons = old_mini_icons
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+-- watch_tree reports changes anywhere under the root as absolute paths and
+-- keeps watching after delivering a batch.
+if fs.HAS_RECURSIVE_WATCH then
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/a', tonumber('755', 8)))
+    local root = fs.realpath(tmp)
+
+    local got = {}
+    local cancel = assert(fs.watch_tree(root, function(paths)
+        vim.list_extend(got, paths)
+    end))
+    touch(tmp .. '/a/nested.txt')
+    assert(vim.wait(5000, function()
+        return vim.tbl_contains(got, root .. '/a/nested.txt')
+    end), 'watch_tree should report nested changes with absolute paths')
+
+    touch(tmp .. '/a/second.txt')
+    assert(vim.wait(5000, function()
+        return vim.tbl_contains(got, root .. '/a/second.txt')
+    end), 'watch_tree should keep reporting after the first batch')
+
+    cancel()
+    cancel()  -- cancelling twice is harmless
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+-- An external change inside an expanded directory reaches the session's
+-- watcher, drops the cached listing, and re-renders with the new file.
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+    touch(tmp .. '/sub/before.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_line('sub/$')
+    api.fold_out()
+    assert(find_line_index(lines(), 'before%.txt'), 'expanded dir should list its files')
+
+    touch(tmp .. '/sub/created-outside.txt')
+    assert(vim.wait(5000, function()
+        return find_line_index(lines(), 'created%-outside%.txt') ~= nil
+    end), 'external create should refresh the expanded listing')
 
     api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

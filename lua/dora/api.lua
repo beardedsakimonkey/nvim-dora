@@ -360,6 +360,19 @@ local function close_filter(state)
     end
 end
 
+-- Release everything a session holds besides its buffer: UI windows, the
+-- listing cache and its watchers, and the store entry. Removing the store
+-- entry first keeps the BufWipeout catch-all from running this a second time
+-- when cleanup() deletes the buffer.
+---@param state DoraState
+local function release_state(state)
+    close_filter(state)
+    preview_win.close(state)
+    view.clear_listings(state)
+    view.stop_watches(state)
+    store.remove(state.buf)
+end
+
 ---@param buf integer
 local function setup_autocmds(buf)
     local group = api.nvim_create_augroup('dora.cursor.' .. buf, {clear=true})
@@ -393,10 +406,7 @@ local function setup_autocmds(buf)
                     local row = state.rows and state.rows[line] or nil
                     history.update_current(state.history, state.cwd, row and row.path or nil)
                 end
-                close_filter(state)
-                preview_win.close(state)
-                view.clear_listings(state)
-                store.remove(args.buf)
+                release_state(state)
             end
         end,
     })
@@ -404,11 +414,8 @@ end
 
 ---@param state DoraState
 local function cleanup(state)
-    close_filter(state)
-    preview_win.close(state)
-    view.clear_listings(state)
+    release_state(state)
     api.nvim_buf_delete(state.buf, {force=true})
-    store.remove(state.buf)
 end
 
 ---@param state DoraState
@@ -1929,6 +1936,7 @@ function M.initialize(dir, from_au)
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, cursor path/name>
         listings = {},  -- map<realpath, DoraListingEntry>
+        watch_roots = {},  -- map<realpath, cancel fun> for recursive fs watches
         expanded_dirs = global_expanded_dirs,  -- map<realpath, true>
         tree_rows = {},
         rows = {},
