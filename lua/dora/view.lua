@@ -171,8 +171,10 @@ end
 ---@return DoraTreeRow[]
 function M.build_tree_rows(state)
     local rows = {}
-    local tree_indent = math.max(2, math.floor(config.tree_indent))
-    local connector_suffix = string.rep('─', tree_indent - 2) .. ' '
+    local tree_indent = math.max(1, math.floor(config.tree_indent))
+    -- At indent 1 the connector fills the whole column, so no room for the
+    -- usual space between it and the icon/name.
+    local connector_suffix = tree_indent == 1 and '' or string.rep('─', tree_indent - 2) .. ' '
     local tree_continuation = TREE_VERTICAL .. string.rep(' ', tree_indent - 1)
     local tree_spacer = string.rep(' ', tree_indent)
 

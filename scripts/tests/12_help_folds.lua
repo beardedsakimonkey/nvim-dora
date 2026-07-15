@@ -286,6 +286,15 @@ do
     assert(vim.tbl_contains(lines(), '├ a/'), 'expand after recursive collapse should show one level')
     assert(not vim.tbl_contains(lines(), '│ └ b/'), 'expand after recursive collapse should not restore recursive state')
 
+    config.tree_indent = 1
+    set_cursor_pos('root')
+    api.fold_out_recursive()
+    assert(vim.tbl_contains(lines(), '├a/'), 'indent 1 should render connectors flush with child directories')
+    assert(vim.tbl_contains(lines(), '│└b/'), 'indent 1 should render connectors flush with nested directories')
+    assert(vim.tbl_contains(lines(), '│ └file.txt'), 'indent 1 should render connectors flush with nested files')
+    assert(vim.tbl_contains(lines(), '└empty/'), 'indent 1 should render connectors flush with last children')
+    assert(vim.tbl_contains(lines(), ' └(empty)'), 'indent 1 should render connectors flush with empty placeholders')
+
     api.quit()
     config.tree_indent = old_tree_indent
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)

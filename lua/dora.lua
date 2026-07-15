@@ -66,7 +66,7 @@ M.config = {
     -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
 
-    -- Number of columns used for each level of tree indentation (minimum 2)
+    -- Number of columns used for each level of tree indentation (minimum 1)
     tree_indent = 4,
 
     -- Timeout in milliseconds for LSP willRenameFiles requests.
