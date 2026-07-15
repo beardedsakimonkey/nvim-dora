@@ -1005,13 +1005,12 @@ function M.fold_in_visual()
     local seen = {}
     for line = start_line, end_line do
         local row = state.rows and state.rows[line] or nil
-        if row and row.is_root then
-            row = nil
-        end
-        local path, target_depth = tree.collapse_target(state, row)
-        if path and target_depth and not seen[path] then
-            seen[path] = true
-            targets[#targets+1] = {path = path, depth = target_depth}
+        if not (row and row.is_root) then
+            local path, target_depth = tree.collapse_target(state, row)
+            if path and target_depth and not seen[path] then
+                seen[path] = true
+                targets[#targets+1] = {path = path, depth = target_depth}
+            end
         end
     end
     -- Collapse targets are computed against the pre-collapse view, so nested
