@@ -1590,14 +1590,22 @@ local function rename(prefill)
         return
     end
     local basename = fs.basename(path)
+    ---@cast row -nil  -- current_path() returned a path, so there is a row
+    local file_type = row.type
+    ---@cast file_type DoraFileType  -- placeholder rows have no path
+    -- The live icon tracks the typed name under the entry's existing type —
+    -- rename cannot change it, so there is no trailing-slash rule like the
+    -- add prompt's, and an expanded directory keeps its open icon.
+    local expanded = row.is_root or file_type == 'directory' and state.expanded_dirs[path] or nil
     prompt.input({
         prompt = 'Rename',
         cwd = fs.get_parent_dir(path),
         initial_prompt = prefill and basename or '',
         width = math.max(PROMPT_WIDTH, #basename + 4),
         anchor = current_name_anchor(row, {superimpose = true}),
-        icon = row and row.icon or nil,
-        icon_hl = row and row.icon_hl or nil,
+        icon = config.icons and function(input)
+            return icons.get(config.icons, {name = input, type = file_type}, input, expanded)
+        end or nil,
         validate = function(input)
             return fs.validate_rename(input, path)
         end,

@@ -429,6 +429,86 @@ do
 end
 
 do
+    -- The rename prompt icon re-resolves from the typed name under the
+    -- entry's fixed type: directories need no trailing slash, and an expanded
+    -- directory keeps its open icon.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/a.txt')
+    assert(vim.loop.fs_mkdir(tmp .. '/sub', tonumber('755', 8)))
+
+    local old_icons = config.icons
+    local old_mini_icons = _G.MiniIcons
+    config.icons = 'mini.icons'
+    _G.MiniIcons = {
+        get = function(category, path)
+            return '[' .. category .. ':' .. path .. ']',
+                category == 'directory' and 'DoraDirectory' or 'DoraIcon'
+        end,
+    }
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local old_input = prompt.input
+    set_cursor_pos('a.txt')
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(type(opts.icon), 'function', 'rename prompt should pass a live icon when icons are enabled')
+        local icon, hl = opts.icon('b.lua')
+        assert_eq(icon, '[file:b.lua]', 'rename prompt icon should track the typed name')
+        assert_eq(hl, 'DoraIcon')
+        cb(nil)
+    end
+    api.rename()
+
+    set_cursor_pos('sub')
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        local icon, hl = opts.icon('renamed')
+        assert_eq(icon, '[directory:renamed]',
+            'renaming a directory should resolve the typed name as a directory without a trailing slash')
+        assert_eq(hl, 'DoraDirectory')
+        cb(nil)
+    end
+    api.rename()
+
+    -- Directories resolve through the built-in fallback under the devicons
+    -- setting, so the expanded flag picks the open or closed glyph. Flip the
+    -- provider only around the prompt itself: rendering file rows under
+    -- `true` would poison the icon module's provider cache for later tests.
+    api.fold_out()
+    set_cursor_pos('sub')
+    local sub_row = store.get().rows[vim.api.nvim_win_get_cursor(0)[1]]
+    assert_eq(sub_row.name, 'sub')
+    local icons = require'dora.icons'
+    local expanded_icon = icons.get(true, {name = 'sub', type = 'directory'}, sub_row.path, true)
+    local collapsed_icon = icons.get(true, {name = 'sub', type = 'directory'}, sub_row.path, false)
+    assert(expanded_icon ~= collapsed_icon, 'the expanded directory icon should differ from the collapsed one')
+    config.icons = true
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        local icon = opts.icon('renamed')
+        assert_eq(icon, expanded_icon, 'renaming an expanded directory should keep the open-folder icon')
+        cb(nil)
+    end
+    api.rename()
+
+    config.icons = false
+    set_cursor_pos('a.txt')
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        assert_eq(opts.icon, nil, 'disabled icons should leave the rename prompt icon unset')
+        cb(nil)
+    end
+    api.rename()
+
+    prompt.input = old_input
+    config.icons = old_icons
+    _G.MiniIcons = old_mini_icons
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     -- Rename prompt border: a file→file overwrite warns, a clean name is valid,
     -- and an existing directory target is invalid.
     local tmp = vim.fn.tempname()
