@@ -1876,7 +1876,7 @@ function M.sort_by(order)
     local state = store.get()
     local row = view.current_row(state)
     local path = row and row.path or nil
-    state.sort_order = sorter.normalize_order(order)
+    config.sort_order = sorter.normalize_order(order)
     view.render(state)
     if path then
         view.set_cursor_path(state, path)
@@ -1969,7 +1969,6 @@ function M.initialize(dir, from_au)
         cwd = cwd,
         ns = ns,
         cursor_ns = cursor_ns,
-        sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, cursor path/name>
         listings = {},  -- map<realpath, DoraListingEntry>
         watch_roots = {},  -- map<realpath, cancel fun> for recursive fs watches
