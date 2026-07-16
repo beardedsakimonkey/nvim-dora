@@ -1151,6 +1151,23 @@ local function paste_entries(state, entries, dest_dir, overwrite)
         end
     end
     lsp.will_rename(move_changes)
+    -- Mute the cut rows while the paste moves them away (see view.render).
+    -- Marks are shared across dora buffers, so the moving rows may be visible
+    -- in windows other than the pasting one; mute them all.
+    local moving_paths = {}
+    for _, op in ipairs(planned_ops) do
+        if op.is_move and not op.skip then
+            moving_paths[op.src] = true
+        end
+    end
+    if next(moving_paths) then
+        store.each(function(other)
+            if api.nvim_buf_is_valid(other.buf) then
+                other.pasting_paths = moving_paths
+                view.render(other)
+            end
+        end)
+    end
     -- The copy runs off the main loop; keep the editor responsive and show a
     -- live spinner until it finishes.
     local progress = {files = 0, bytes = 0}
@@ -1162,6 +1179,9 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     vim.o.busy = vim.o.busy + 1
     fs.paste_async(planned_ops, progress, overwrite, function(ok, result, completed)
         state.paste_in_progress = false
+        store.each(function(other)
+            other.pasting_paths = nil
+        end)
         vim.o.busy = vim.o.busy - 1
         stop_spinner()
         local completed_moves = {}
@@ -1174,6 +1194,13 @@ local function paste_entries(state, entries, dest_dir, overwrite)
         lsp.did_rename(completed_moves)
         if not ok then
             util.err(result)
+            -- Rendered even though the paste failed, to unmute the cut rows
+            -- everywhere; the marks survive, so a retry can still move them.
+            store.each(function(other)
+                if api.nvim_buf_is_valid(other.buf) then
+                    view.render(other)
+                end
+            end)
             return
         end
         clear_marked_paths(state)
@@ -1396,10 +1423,17 @@ local function remove_paths(state, paths, mode, action, anchor)
             return mode == 'trash' and 'Trashing…' or 'Deleting…'
         end)
         state.remove_in_progress = true
+        -- Mute the doomed rows while the removal runs (see view.render).
+        state.removing_paths = {}
+        for _, path in ipairs(paths) do
+            state.removing_paths[path] = true
+        end
+        view.render(state)
         -- Drive the statusline's busy indicator.
         vim.o.busy = vim.o.busy + 1
         fs.remove_async(paths, mode, results, function(ok, err)
             state.remove_in_progress = false
+            state.removing_paths = nil
             vim.o.busy = vim.o.busy - 1
             stop_spinner()
             -- Files moved to the trash before a mid-batch failure are real, so
@@ -1411,11 +1445,14 @@ local function remove_paths(state, paths, mode, action, anchor)
                 buffer.delete_buffers(removed_path)
             end
             -- The user may have closed the dora window while the removal ran.
-            if #results.removed > 0 and api.nvim_buf_is_valid(state.buf) then
-                for _, removed_path in ipairs(results.removed) do
-                    clear_marked_paths_under(state, removed_path)
+            if api.nvim_buf_is_valid(state.buf) then
+                if #results.removed > 0 then
+                    for _, removed_path in ipairs(results.removed) do
+                        clear_marked_paths_under(state, removed_path)
+                    end
+                    view.clear_listings(state)
                 end
-                view.clear_listings(state)
+                -- Rendered even when nothing was removed, to unmute the rows.
                 view.render(state)
             end
             if not ok then

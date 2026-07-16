@@ -18,8 +18,11 @@ local marked_path_count = h.marked_path_count
 local wait_for_paste = h.wait_for_paste
 local set_cursor_line = h.set_cursor_line
 local current_line = h.current_line
+local buf_lines = h.buf_lines
+local find_line_index = h.find_line_index
 local set_cursor_pos = h.set_cursor_pos
 local win_title = h.win_title
+local has_highlight = h.has_highlight
 local has_high_priority_highlight = h.has_high_priority_highlight
 local has_sign_highlight = h.has_sign_highlight
 
@@ -902,6 +905,85 @@ do
     assert_eq(marked_path_count(dest_state), 0, 'pasting should clear the shared marks')
     assert_eq(marked_path_count(source_state), 0,
         'pasting in one window should clear marks shown in the other')
+
+    api.quit()
+    vim.cmd('close!')
+    vim.api.nvim_set_current_win(source_win)
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- Cut/copy marks alone don't dim anything. While the async paste runs,
+    -- the cut rows (and their visible children) render muted in every dora
+    -- buffer that shows them — marks are shared, so the paste may run from a
+    -- different window. Finishing the paste clears the muting.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/moved', tonumber('755', 8)))
+    touch(tmp .. '/moved/child.txt')
+    touch(tmp .. '/copied.txt')
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+
+    local function muted_lines(state)
+        local muted = {}
+        for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})) do
+            if mark[4].hl_group == 'DoraMutedText' then
+                muted[mark[2] + 1] = true
+            end
+        end
+        return muted
+    end
+
+    local source_win = vim.api.nvim_get_current_win()
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local source_state = store.get()
+    set_cursor_pos('moved')
+    api.fold_out()
+    set_cursor_pos('moved')
+    api.toggle_cut()
+    set_cursor_pos('copied.txt')
+    api.toggle_copy()
+    assert(not has_highlight(source_state, 'DoraMutedText'),
+        'cut/copy marks alone should not mute anything')
+
+    vim.cmd('new')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local paste_state = store.get()
+    set_cursor_pos('dest')
+    api.paste_under()
+    assert_match(win_title(vim.api.nvim_get_current_win()), 'Paste 2 files%?')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+
+    -- The paste's completion is scheduled onto the main loop, which this
+    -- script blocks until wait_for_paste pumps it, so the in-flight render
+    -- is still on screen here.
+    assert(paste_state.paste_in_progress, 'the paste should still be in flight')
+    for _, checked in ipairs({
+        {state = paste_state, label = 'the pasting window'},
+        {state = source_state, label = 'the window the rows were cut in'},
+    }) do
+        local muted = muted_lines(checked.state)
+        local search_lines = buf_lines(checked.state.buf)
+        assert(muted[find_line_index(search_lines, 'moved/')],
+            'the cut row should be muted in ' .. checked.label)
+        assert(muted[find_line_index(search_lines, 'child%.txt')],
+            "the cut row's visible children should be muted in " .. checked.label)
+        assert(not muted[find_line_index(search_lines, 'copied%.txt')],
+            'copy sources should not be muted in ' .. checked.label)
+        assert(not muted[find_line_index(search_lines, 'dest/')],
+            'the destination should not be muted in ' .. checked.label)
+    end
+
+    wait_for_paste()
+    assert(not paste_state.pasting_paths and not source_state.pasting_paths,
+        'finishing the paste should clear the pending paths everywhere')
+    assert(not has_highlight(paste_state, 'DoraMutedText'),
+        'finishing the paste should clear the muting in the pasting window')
+    assert(not has_highlight(source_state, 'DoraMutedText'),
+        'finishing the paste should clear the muting in the other window')
+    assert(fs.exists(tmp .. '/dest/moved/child.txt'), 'the paste should move the cut directory')
+    assert(fs.exists(tmp .. '/copied.txt'), 'the paste should leave the copy source in place')
 
     api.quit()
     vim.cmd('close!')

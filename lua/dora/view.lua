@@ -466,6 +466,34 @@ local function build_filtered_rows(state, tree_rows)
     return rows
 end
 
+---@param path string
+---@param doomed_paths? table<string, true>
+---@return boolean
+local function inside_any(path, doomed_paths)
+    if doomed_paths then
+        for doomed_path in pairs(doomed_paths) do
+            if fs.is_inside(path, doomed_path) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Whether row is about to vanish to an in-flight trash/delete or cut-paste:
+-- the doomed path itself, anything visible beneath it, or the placeholder of
+-- a doomed directory (placeholders have no path, so they go by their parent).
+---@param state DoraState
+---@param row DoraTreeRow
+---@return boolean
+local function pending_removal(state, row)
+    local path = row.path or row.parent_path
+    if not path then
+        return false
+    end
+    return inside_any(path, state.removing_paths) or inside_any(path, state.pasting_paths)
+end
+
 ---@param state DoraState
 local function prune_deleted_marked_paths(state)
     for marked_path in pairs(state.marked_paths) do
@@ -625,6 +653,15 @@ function M.render(state)
                 end_col = file.name_end_col,
                 hl_group = sign_hl,
                 priority = 10000,
+            })
+        end
+        if pending_removal(state, file) then
+            -- Over the icon, name, and mark highlights; the tree prefix keeps
+            -- its structure color (the same muted tone by default anyway).
+            api.nvim_buf_set_extmark(buf, ns, i-1, file.icon_start_col or file.name_start_col, {
+                end_col = #file.display_name,
+                hl_group = 'DoraMutedText',
+                priority = 10001,
             })
         end
     end

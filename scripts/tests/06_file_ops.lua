@@ -350,6 +350,52 @@ do
 end
 
 do
+    -- While the async removal runs, the doomed rows (and their visible
+    -- children) render muted; finishing the removal clears the muting.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/doomed', tonumber('755', 8)))
+    touch(tmp .. '/doomed/child.txt')
+    touch(tmp .. '/keep.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    set_cursor_pos('doomed')
+    api.fold_out()
+    set_cursor_pos('doomed')
+    api.delete()
+
+    assert_match(win_title(vim.api.nvim_get_current_win()), 'Delete%?')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+
+    -- The removal's completion is scheduled onto the main loop, which this
+    -- script blocks until wait_for_remove pumps it, so the in-flight render
+    -- is still on screen here.
+    local state = store.get()
+    assert(state.remove_in_progress, 'the removal should still be in flight')
+    local muted = {}
+    for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(state.buf, state.ns, 0, -1, {details = true})) do
+        if mark[4].hl_group == 'DoraMutedText' then
+            muted[mark[2] + 1] = true
+        end
+    end
+    local search_lines = lines()
+    assert(muted[find_line_index(search_lines, 'doomed/')],
+        'the row pending deletion should be muted')
+    assert(muted[find_line_index(search_lines, 'child%.txt')],
+        "the pending row's visible children should be muted")
+    assert(not muted[find_line_index(search_lines, 'keep%.txt')],
+        'rows outside the removal should not be muted')
+
+    wait_for_remove()
+    assert(not store.get().removing_paths, 'finishing the removal should clear the pending paths')
+    assert(not h.has_highlight(store.get(), 'DoraMutedText'),
+        'finishing the removal should clear the muting')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local old_home = vim.env.HOME
     local old_data_home = vim.env.XDG_DATA_HOME
     local tmp = vim.fn.tempname()

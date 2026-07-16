@@ -29,6 +29,8 @@ local M = {}
 ---@field marked_paths table<string, DoraPasteOperation>
 ---@field paste_in_progress? boolean Guards against starting a second async paste while one runs
 ---@field remove_in_progress? boolean Guards against starting a second async trash/delete while one runs
+---@field removing_paths? table<string, true> Paths of the in-flight trash/delete; their rows render muted
+---@field pasting_paths? table<string, true> Cut sources of the in-flight paste; set on every dora buffer (marks are shared), their rows render muted
 ---@field preview? DoraPreviewWindow
 ---@field history DoraHistory
 
