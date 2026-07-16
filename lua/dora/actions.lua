@@ -73,14 +73,14 @@ M.ACTIONS = {
     {name = 'reload', desc = 'Reload tree view', section = 'View'},
 
     -- Yank
-    {name = 'yank_file_path', desc = 'Yank full path', section = 'Yank'},
-    {name = 'yank_file_path_clipboard', desc = 'Yank full path to clipboard', section = 'Yank'},
+    {name = 'yank_full_path', desc = 'Yank full path', section = 'Yank'},
+    {name = 'yank_full_path_clipboard', desc = 'Yank full path to clipboard', section = 'Yank'},
     {name = 'yank_dir_path', desc = 'Yank parent directory', section = 'Yank'},
     {name = 'yank_dir_path_clipboard', desc = 'Yank parent directory to clipboard', section = 'Yank'},
     {name = 'yank_filename', desc = 'Yank filename', section = 'Yank'},
     {name = 'yank_filename_clipboard', desc = 'Yank filename to clipboard', section = 'Yank'},
-    {name = 'yank_name', desc = 'Yank name without extension', section = 'Yank'},
-    {name = 'yank_name_clipboard', desc = 'Yank name without extension to clipboard', section = 'Yank'},
+    {name = 'yank_name_stem', desc = 'Yank name without extension', section = 'Yank'},
+    {name = 'yank_name_stem_clipboard', desc = 'Yank name without extension to clipboard', section = 'Yank'},
 
     -- Sort
     {name = 'sort_by_name', desc = 'Sort by name', section = 'Sort'},

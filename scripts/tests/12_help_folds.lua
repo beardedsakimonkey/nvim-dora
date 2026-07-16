@@ -96,7 +96,7 @@ end
 do
     local old_keymaps = config.keymaps
     config.keymaps = {
-        n = "yank_file_path",
+        n = "yank_full_path",
         x = "<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal'<CR>",
         z = {"<Cmd>lua vim.g.dora_smoke_legacy_keymap = 'normal-z'<CR>", desc="Normal Z"},
     }

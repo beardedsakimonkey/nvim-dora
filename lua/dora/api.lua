@@ -1295,18 +1295,18 @@ function M.paste()
 end
 
 ---@param reg? string
-function M.yank_file_path(reg)
+function M.yank_full_path(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
         util.err(msg)
         return
     end
-    util.copy_value(path, reg, reg == '+' and 'Yanked file path to clipboard' or 'Yanked file path')
+    util.copy_value(path, reg, reg == '+' and 'Yanked full path to clipboard' or 'Yanked full path')
 end
 
-function M.yank_file_path_clipboard()
-    M.yank_file_path('+')
+function M.yank_full_path_clipboard()
+    M.yank_full_path('+')
 end
 
 ---@param reg? string
@@ -1346,7 +1346,7 @@ function M.yank_filename_clipboard()
 end
 
 ---@param reg? string
-function M.yank_name(reg)
+function M.yank_name_stem(reg)
     local state = store.get()
     local path, msg = current_path(state)
     if not path then
@@ -1364,8 +1364,8 @@ function M.yank_name(reg)
     })
 end
 
-function M.yank_name_clipboard()
-    M.yank_name('+')
+function M.yank_name_stem_clipboard()
+    M.yank_name_stem('+')
 end
 
 -- Stack of trashes that can be undone, newest last. Each entry is the batch of

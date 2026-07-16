@@ -209,9 +209,9 @@ do
     assert_eq(start_col, filename_col, 'filename yank should highlight only the filename')
     assert_eq(end_col, filename_col + #'archive.tar.gz', 'filename yank should highlight the full filename')
 
-    api.yank_file_path()
+    api.yank_full_path()
     assert_eq(vim.fn.getreg('"'), expected_path)
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked file path: ' .. expected_path)
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked full path: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '')
@@ -220,9 +220,9 @@ do
     vim.g.dora_smoke_yankpost_operator = nil
     vim.g.dora_smoke_yankpost_regname = nil
     vim.g.dora_smoke_yankpost_text = nil
-    api.yank_file_path_clipboard()
+    api.yank_full_path_clipboard()
     assert_eq(vim.fn.getreg('+'), expected_path)
-    assert_eq(notifications[#notifications].msg, 'dora: Yanked file path to clipboard: ' .. expected_path)
+    assert_eq(notifications[#notifications].msg, 'dora: Yanked full path to clipboard: ' .. expected_path)
     assert_eq(notifications[#notifications].level, vim.log.levels.INFO)
     assert_eq(vim.g.dora_smoke_yankpost_operator, 'y')
     assert_eq(vim.g.dora_smoke_yankpost_regname, '+')
@@ -247,7 +247,7 @@ do
     assert_eq(vim.fn.getreg('+'), 'archive.tar.gz')
     assert_eq(notifications[#notifications].msg, 'dora: Yanked filename to clipboard: archive.tar.gz')
 
-    api.yank_name()
+    api.yank_name_stem()
     assert_eq(vim.fn.getreg('"'), 'archive.tar')
     assert_eq(notifications[#notifications].msg, 'dora: Yanked name without extension: archive.tar')
     assert_eq(vim.g.dora_smoke_yankpost_text, 'archive.tar')
@@ -255,7 +255,7 @@ do
     assert_eq(start_col, filename_col, 'name yank should start at the filename')
     assert_eq(end_col, filename_col + #'archive.tar', 'name yank should exclude the final extension')
 
-    api.yank_name_clipboard()
+    api.yank_name_stem_clipboard()
     assert_eq(vim.fn.getreg('+'), 'archive.tar')
     assert_eq(notifications[#notifications].msg, 'dora: Yanked name without extension to clipboard: archive.tar')
 

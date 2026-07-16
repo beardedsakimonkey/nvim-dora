@@ -133,14 +133,14 @@ M.config = {
         ['<C-r>'] = 'reload',              -- Reload tree view
 
         -- Yank
-        yy = 'yank_file_path',           -- Yank full path
-        yY = 'yank_file_path_clipboard', -- Yank full path to clipboard
+        yy = 'yank_full_path',           -- Yank full path
+        yY = 'yank_full_path_clipboard', -- Yank full path to clipboard
         yd = 'yank_dir_path',            -- Yank parent directory
         yD = 'yank_dir_path_clipboard',  -- Yank parent directory to clipboard
         yf = 'yank_filename',            -- Yank filename
         yF = 'yank_filename_clipboard',  -- Yank filename to clipboard
-        yn = 'yank_name',                -- Yank name without extension
-        yN = 'yank_name_clipboard',      -- Yank name without extension to clipboard
+        yn = 'yank_name_stem',           -- Yank name without extension
+        yN = 'yank_name_stem_clipboard', -- Yank name without extension to clipboard
 
         -- Sort
         [',n'] = 'sort_by_name',           -- Sort by name
