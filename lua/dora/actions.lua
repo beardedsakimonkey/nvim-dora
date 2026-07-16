@@ -23,8 +23,6 @@ M.ACTIONS = {
 
     -- Navigation
     {name = 'up_dir', desc = 'Up directory', section = 'Navigation'},
-    {name = 'history_back', desc = 'Back', section = 'Navigation'},
-    {name = 'history_forward', desc = 'Forward', section = 'Navigation'},
     {name = 'next_sibling', desc = 'Next sibling', section = 'Navigation', visual = 'next_sibling'},
     {name = 'prev_sibling', desc = 'Previous sibling', section = 'Navigation', visual = 'prev_sibling'},
     {name = 'parent_dir', desc = 'Parent directory', section = 'Navigation', visual = 'parent_dir'},
@@ -36,6 +34,8 @@ M.ACTIONS = {
     {name = 'home_dir', desc = 'Go to home directory', section = 'Navigation'},
     {name = 'next_paste_mark', desc = 'Next paste mark', section = 'Navigation', visual = 'next_paste_mark'},
     {name = 'prev_paste_mark', desc = 'Previous paste mark', section = 'Navigation', visual = 'prev_paste_mark'},
+    {name = 'history_back', desc = 'Back', section = 'Navigation'},
+    {name = 'history_forward', desc = 'Forward', section = 'Navigation'},
 
     -- Open
     {name = 'open', desc = 'Open', section = 'Open', visual = 'open_visual'},

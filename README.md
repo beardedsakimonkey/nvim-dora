@@ -35,6 +35,10 @@ on Windows; permanent deletion remains available.
 
 <!-- panvimdoc-ignore-start -->
 
+## Demos
+
+<img width="637" height="570" alt="Dora screenshot" src="https://github.com/user-attachments/assets/d265a765-3e4f-49fb-9b63-678978bb1030" />
+
 ## Contents
 
 1. [Installation](#installation)
@@ -43,10 +47,6 @@ on Windows; permanent deletion remains available.
 4. [Core workflow](#core-workflow)
 5. [Features and behavior](#features-and-behavior)
 6. [Development](#development)
-
-## Demos
-
-<img width="637" height="570" alt="Dora screenshot" src="https://github.com/user-attachments/assets/d265a765-3e4f-49fb-9b63-678978bb1030" />
 
 <!-- panvimdoc-ignore-end -->
 
@@ -133,18 +133,17 @@ require('dora').setup {
         h         = 'up_dir',             -- Up directory
         J         = 'next_sibling',       -- Next sibling
         K         = 'prev_sibling',       -- Previous sibling
-        ['<']     = 'history_back',       -- Back
-        ['>']     = 'history_forward',    -- Forward
         ['<C-p>'] = 'parent_dir',         -- Parent directory
         o         = 'fold_out',           -- Fold out directory
         O         = 'fold_out_recursive', -- Fold out directory recursively
         i         = 'fold_in',            -- Fold in directory
         I         = 'fold_in_recursive',  -- Fold in directory recursively
         ['<BS>']  = 'close_dir',          -- Close directory
-        gp        = 'toggle_preview',     -- Toggle preview
         gh        = 'home_dir',           -- Go to home directory
         [']m']    = 'next_paste_mark',    -- Next paste mark
         ['[m']    = 'prev_paste_mark',    -- Previous paste mark
+        ['<']     = 'history_back',       -- Back
+        ['>']     = 'history_forward',    -- Forward
 
         -- Open
         ['<CR>']  = 'open',             -- Open
@@ -179,15 +178,16 @@ require('dora').setup {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+        gp        = 'toggle_preview',      -- Toggle preview
         ['<C-r>'] = 'reload',              -- Reload listing
 
         -- Yank
-        yf = 'yank_filename',            -- Yank filename
-        yF = 'yank_filename_clipboard',  -- Yank filename to clipboard
         yy = 'yank_file_path',           -- Yank full path
         yY = 'yank_file_path_clipboard', -- Yank full path to clipboard
         yd = 'yank_dir_path',            -- Yank parent directory
         yD = 'yank_dir_path_clipboard',  -- Yank parent directory to clipboard
+        yf = 'yank_filename',            -- Yank filename
+        yF = 'yank_filename_clipboard',  -- Yank filename to clipboard
         yn = 'yank_name',                -- Yank name without extension
         yN = 'yank_name_clipboard',      -- Yank name without extension to clipboard
 
