@@ -60,7 +60,7 @@ do
     assert(enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
     local general_line = find_line_index(help_lines, '^General$') - 1
-    local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+Quit$') - 1
+    local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+Quit dora$') - 1
     local section_highlight, key_highlight = false, false
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})) do
         if mark[2] == general_line and mark[4].hl_group == 'DoraHelpSection' then

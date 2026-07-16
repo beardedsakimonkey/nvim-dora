@@ -19,7 +19,7 @@ M.SECTIONS = {'General', 'Navigation', 'Open', 'File Operations', 'View', 'Yank'
 M.ACTIONS = {
     -- General
     {name = 'help', desc = 'Show help', section = 'General'},
-    {name = 'quit', desc = 'Quit', section = 'General'},
+    {name = 'quit', desc = 'Quit dora', section = 'General'},
 
     -- Navigation
     {name = 'up_dir', desc = 'Up directory', section = 'Navigation'},
@@ -32,8 +32,8 @@ M.ACTIONS = {
     {name = 'fold_in_recursive', desc = 'Fold in directory all the way', section = 'Navigation', visual = 'fold_in_recursive_visual'},
     {name = 'close_dir', desc = 'Close directory', section = 'Navigation', visual = 'close_dir_visual'},
     {name = 'home_dir', desc = 'Go to home directory', section = 'Navigation'},
-    {name = 'next_paste_mark', desc = 'Move to next paste mark', section = 'Navigation', visual = 'next_paste_mark'},
-    {name = 'prev_paste_mark', desc = 'Move to previous paste mark', section = 'Navigation', visual = 'prev_paste_mark'},
+    {name = 'next_paste_mark', desc = 'Go to next paste mark', section = 'Navigation', visual = 'next_paste_mark'},
+    {name = 'prev_paste_mark', desc = 'Go to previous paste mark', section = 'Navigation', visual = 'prev_paste_mark'},
     {name = 'history_back', desc = 'Go backward in directory history', section = 'Navigation'},
     {name = 'history_forward', desc = 'Go forward in directory history', section = 'Navigation'},
 
@@ -48,8 +48,8 @@ M.ACTIONS = {
     {name = 'open_external', desc = 'Open in external program', section = 'Open', visual = 'open_external_visual'},
 
     -- File Operations
-    {name = 'add', desc = 'Add file', section = 'File Operations'},
-    {name = 'add_under', desc = 'Add file under directory', section = 'File Operations'},
+    {name = 'add', desc = 'Add file or folder', section = 'File Operations'},
+    {name = 'add_under', desc = 'Add file or folder under directory', section = 'File Operations'},
     {name = 'create_symlink', desc = 'Create symlink to file', section = 'File Operations'},
     {name = 'rename', desc = 'Rename file', section = 'File Operations'},
     {name = 'rename_empty', desc = 'Rename file with empty prompt', section = 'File Operations'},
@@ -69,7 +69,7 @@ M.ACTIONS = {
     {name = 'clear_filter', desc = 'Clear filter', section = 'View'},
     {name = 'file_info', desc = 'Show file info', section = 'View'},
     {name = 'toggle_hidden_files', desc = 'Toggle hidden files visible', section = 'View'},
-    {name = 'toggle_preview', desc = 'Toggle preview', section = 'View'},
+    {name = 'toggle_preview', desc = 'Toggle file preview', section = 'View'},
     {name = 'reload', desc = 'Reload tree view', section = 'View'},
 
     -- Yank

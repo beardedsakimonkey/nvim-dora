@@ -41,7 +41,7 @@ do
     assert_eq(config.keymaps.__dora_smoke_setup, 'help', 'setup should merge new keymaps')
     assert_eq(config.keymaps.q.desc, nil, 'setup should replace keymap specs instead of merging desc')
     local _, q_desc = keymaps.resolve(config.keymaps.q)
-    assert_eq(q_desc, 'Quit', 'table overrides without desc should inherit the action description')
+    assert_eq(q_desc, 'Quit dora', 'table overrides without desc should inherit the action description')
 
     dora.config.show_hidden_files = old_show_hidden_files
     dora.config.tree_indent = old_tree_indent

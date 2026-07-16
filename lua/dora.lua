@@ -77,7 +77,7 @@ M.config = {
     keymaps = {
         -- General
         ['g?'] = 'help', -- Show help
-        q      = 'quit', -- Quit
+        q      = 'quit', -- Quit dora
 
         -- Navigation
         ['-']     = 'up_dir',             -- Up directory
@@ -91,8 +91,8 @@ M.config = {
         I         = 'fold_in_recursive',  -- Fold in directory all the way
         ['<BS>']  = 'close_dir',          -- Close directory
         gh        = 'home_dir',           -- Go to home directory
-        [']m']    = 'next_paste_mark',    -- Move to next paste mark
-        ['[m']    = 'prev_paste_mark',    -- Move to previous paste mark
+        [']m']    = 'next_paste_mark',    -- Go to next paste mark
+        ['[m']    = 'prev_paste_mark',    -- Go to previous paste mark
         ['<']     = 'history_back',       -- Go backward in directory history
         ['>']     = 'history_forward',    -- Go forward in directory history
 
@@ -108,8 +108,8 @@ M.config = {
         gx        = 'open_external',    -- Open in external program
 
         -- File operations
-        a     = 'add',            -- Add file
-        A     = 'add_under',      -- Add file under directory
+        a     = 'add',            -- Add file or folder
+        A     = 'add_under',      -- Add file or folder under directory
         S     = 'create_symlink', -- Create symlink to file
         r     = 'rename',         -- Rename file
         R     = 'rename_empty',   -- Rename file with empty prompt
@@ -129,7 +129,7 @@ M.config = {
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
         ['g.']    = 'toggle_hidden_files', -- Toggle hidden files visible
-        gp        = 'toggle_preview',      -- Toggle preview
+        gp        = 'toggle_preview',      -- Toggle file preview
         ['<C-r>'] = 'reload',              -- Reload tree view
 
         -- Yank
