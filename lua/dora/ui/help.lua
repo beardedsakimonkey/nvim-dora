@@ -180,7 +180,7 @@ function M.open(config)
             pcall(api.nvim_set_current_win, origin_win)
         end
     end
-    for _, lhs in ipairs({'H', '?', 'q', '<Esc>', '<C-c>', '<CR>'}) do
+    for _, lhs in ipairs({'H', 'q', '<Esc>', '<C-c>', '<CR>'}) do
         vim.keymap.set('n', lhs, close, {buffer=buf, silent=true, nowait=true})
     end
 end
