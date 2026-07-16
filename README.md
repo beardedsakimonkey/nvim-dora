@@ -35,9 +35,9 @@ unsupported on Windows. (PRs welcome)
 
 <!-- panvimdoc-ignore-start -->
 
-## Demos
+## Demo
 
-<img width="637" height="570" alt="Dora screenshot" src="https://github.com/user-attachments/assets/d265a765-3e4f-49fb-9b63-678978bb1030" />
+https://github.com/user-attachments/assets/5a91c4a9-5d4f-4e14-ac04-f11df5df8953
 
 ## Contents
 
