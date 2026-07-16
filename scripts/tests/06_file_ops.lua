@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/06_file_ops.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local dora = h.dora
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local confirm_win = h.confirm_win
 local prompt = h.prompt
@@ -162,9 +163,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local dora_win = vim.api.nvim_get_current_win()
     local dora_buf = vim.api.nvim_get_current_buf()
-    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split without closing Dora')
-    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab without closing Dora')
+    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, descriptions.open_split_stay)
+    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, descriptions.open_vsplit_stay)
+    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, descriptions.open_tab_stay)
 
     set_cursor_line('split%.txt$')
     local existing_wins = vim.api.nvim_tabpage_list_wins(0)

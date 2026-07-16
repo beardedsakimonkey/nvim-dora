@@ -24,6 +24,7 @@ local function assert_match(str, pattern, msg)
 end
 
 local dora = require'dora'
+local actions = require'dora.actions'
 local history = require'dora.history'
 local fs = require'dora.fs'
 local config = dora.config
@@ -227,6 +228,7 @@ local H = {
     assert_eq = assert_eq,
     assert_match = assert_match,
     dora = dora,
+    actions = actions,
     history = history,
     fs = fs,
     config = config,

@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/12_help_folds.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local dora = h.dora
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local config = h.config
 local keymaps = h.keymaps
@@ -55,12 +56,12 @@ do
     assert(not find_line_index(help_lines, '^Other$'), 'help should omit empty sections')
     -- Every row carries a mode column ('n'/'nv') between the key and the
     -- description; %S+ matches it without coupling to the exact text.
-    local enter_line = find_line_index(help_lines, '^%s+<CR>%s+%S+%s+Open$')
-    local open_line = find_line_index(help_lines, '^%s+l%s+%S+%s+Open$')
+    local enter_line = find_line_index(help_lines, '^%s+<CR>%s+%S+%s+' .. vim.pesc(descriptions.open) .. '$')
+    local open_line = find_line_index(help_lines, '^%s+l%s+%S+%s+' .. vim.pesc(descriptions.open) .. '$')
     assert(enter_line < open_line,
         'help should sort mappings for the same action alphabetically')
     local general_line = find_line_index(help_lines, '^General$') - 1
-    local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+Quit dora$') - 1
+    local quit_line = find_line_index(help_lines, '^%s+q%s+%S+%s+' .. vim.pesc(descriptions.quit) .. '$') - 1
     local section_highlight, key_highlight = false, false
     for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(help_buf, -1, 0, -1, {details=true})) do
         if mark[2] == general_line and mark[4].hl_group == 'DoraHelpSection' then
@@ -162,19 +163,19 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('J', 'x', false, true).desc, 'Next sibling')
+    assert_eq(vim.fn.maparg('J', 'x', false, true).desc, descriptions.next_sibling)
     assert_eq(type(vim.fn.maparg('J', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('K', 'x', false, true).desc, 'Previous sibling')
+    assert_eq(vim.fn.maparg('K', 'x', false, true).desc, descriptions.prev_sibling)
     assert_eq(type(vim.fn.maparg('K', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, 'Go backward in directory history')
+    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, descriptions.history_back)
     assert_eq(type(vim.fn.maparg('<', 'n', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, 'Go forward in directory history')
+    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, descriptions.history_forward)
     assert_eq(type(vim.fn.maparg('>', 'n', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<', 'x'), '', 'visual history back should not be mapped')
     assert_eq(vim.fn.maparg('>', 'x'), '', 'visual history forward should not be mapped')
-    assert_eq(vim.fn.maparg('d', 'x', false, true).desc, 'Move file to trash (macOS/Linux)')
+    assert_eq(vim.fn.maparg('d', 'x', false, true).desc, descriptions.trash)
     assert_eq(type(vim.fn.maparg('d', 'x', false, true).callback), 'function')
-    assert_eq(vim.fn.maparg('D', 'x', false, true).desc, 'Delete file permanently')
+    assert_eq(vim.fn.maparg('D', 'x', false, true).desc, descriptions.delete)
     assert_eq(type(vim.fn.maparg('D', 'x', false, true).callback), 'function')
     assert_eq(vim.fn.maparg('<Tab>', 'x'), '', 'visual Tab should not be mapped')
 

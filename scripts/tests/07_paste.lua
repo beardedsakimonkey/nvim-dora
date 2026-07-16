@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/07_paste.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local dora = h.dora
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local confirm_win = h.confirm_win
 local prompt = h.prompt
@@ -37,10 +38,10 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, 'Go to next paste mark')
-    assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, 'Go to previous paste mark')
-    assert_eq(vim.fn.maparg(']m', 'x', false, true).desc, 'Go to next paste mark')
-    assert_eq(vim.fn.maparg('[m', 'x', false, true).desc, 'Go to previous paste mark')
+    assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, descriptions.next_paste_mark)
+    assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, descriptions.prev_paste_mark)
+    assert_eq(vim.fn.maparg(']m', 'x', false, true).desc, descriptions.next_paste_mark)
+    assert_eq(vim.fn.maparg('[m', 'x', false, true).desc, descriptions.prev_paste_mark)
 
     -- Mark non-adjacent rows with a mix of cut and copy.
     set_cursor_line('bravo%.txt$')
@@ -333,7 +334,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local reload_map = vim.fn.maparg('<C-r>', 'n', false, true)
-    assert_eq(reload_map.desc, 'Reload tree view')
+    assert_eq(reload_map.desc, descriptions.reload)
     assert_eq(type(reload_map.callback), 'function')
     set_cursor_line('alpha%.txt$')
     api.toggle_copy()
@@ -999,8 +1000,8 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    assert_eq(vim.fn.maparg('r', 'n', false, true).desc, 'Rename file')
-    assert_eq(vim.fn.maparg('R', 'n', false, true).desc, 'Rename file with empty prompt')
+    assert_eq(vim.fn.maparg('r', 'n', false, true).desc, descriptions.rename)
+    assert_eq(vim.fn.maparg('R', 'n', false, true).desc, descriptions.rename_empty)
     set_cursor_pos('alpha.txt')
     local cursor = vim.api.nvim_win_get_cursor(0)
     local row = state.rows[cursor[1]]

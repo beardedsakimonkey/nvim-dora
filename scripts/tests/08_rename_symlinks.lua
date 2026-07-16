@@ -2,6 +2,7 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/08_rename_symlinks.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local config = h.config
 local prompt = h.prompt
@@ -141,16 +142,16 @@ do
     set_cursor_line('^dir/$')
     api.fold_out()
     set_cursor_line('^dir/$')
-    for lhs, desc in pairs({
-        l = 'Open',
-        s = 'Open in split',
-        v = 'Open in vertical split',
-        t = 'Open in tab',
-        ['<C-s>'] = 'Open in split without closing Dora',
-        ['<C-v>'] = 'Open in vertical split without closing Dora',
-        ['<C-t>'] = 'Open in tab without closing Dora',
+    for lhs, action in pairs({
+        l = 'open',
+        s = 'open_split',
+        v = 'open_vsplit',
+        t = 'open_tab',
+        ['<C-s>'] = 'open_split_stay',
+        ['<C-v>'] = 'open_vsplit_stay',
+        ['<C-t>'] = 'open_tab_stay',
     }) do
-        assert_eq(vim.fn.maparg(lhs, 'x', false, true).desc, desc)
+        assert_eq(vim.fn.maparg(lhs, 'x', false, true).desc, descriptions[action])
     end
     vim.api.nvim_feedkeys('V3jl', 'xt', false)
 

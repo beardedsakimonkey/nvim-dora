@@ -2,6 +2,7 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/05_navigation.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local config = h.config
 local confirm_win = h.confirm_win
@@ -292,7 +293,7 @@ do
     assert(vim.loop.fs_mkdir(tmp .. '/root', tonumber('755', 8)))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
-    assert_eq(vim.fn.maparg('A', 'n', false, true).desc, 'Add file or folder under directory')
+    assert_eq(vim.fn.maparg('A', 'n', false, true).desc, descriptions.add_under)
     set_cursor_pos('root')
 
     local old_input = prompt.input
@@ -544,9 +545,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = fs.realpath(tmp)
-    assert_eq(vim.fn.maparg('<C-p>', 'n', false, true).desc, 'Parent directory')
-    assert_eq(vim.fn.maparg('<C-p>', 'x', false, true).desc, 'Parent directory')
-    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, 'Paste')
+    assert_eq(vim.fn.maparg('<C-p>', 'n', false, true).desc, descriptions.parent_dir)
+    assert_eq(vim.fn.maparg('<C-p>', 'x', false, true).desc, descriptions.parent_dir)
+    assert_eq(vim.fn.maparg('P', 'n', false, true).desc, descriptions.paste)
     set_cursor_pos('alpha')
     api.fold_out()
     set_cursor_pos('one')
@@ -594,8 +595,8 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local root = fs.realpath(tmp)
-    assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, 'Close directory')
-    assert_eq(vim.fn.maparg('<BS>', 'x', false, true).desc, 'Close directory')
+    assert_eq(vim.fn.maparg('<BS>', 'n', false, true).desc, descriptions.close_dir)
+    assert_eq(vim.fn.maparg('<BS>', 'x', false, true).desc, descriptions.close_dir)
     set_cursor_pos('alpha')
     api.fold_out()
     set_cursor_pos('one')

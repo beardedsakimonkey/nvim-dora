@@ -3,6 +3,7 @@
 -- its own with DORA_TEST_FILE=scripts/tests/11_sort_yank_info.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
 local dora = h.dora
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local keymaps = h.keymaps
 local api = h.api
@@ -191,9 +192,9 @@ do
     end
 
     local yank_filename_map = vim.fn.maparg('yf', 'n', false, true)
-    assert_eq(yank_filename_map.desc, 'Yank filename')
+    assert_eq(yank_filename_map.desc, descriptions.yank_filename)
     assert_eq(type(yank_filename_map.callback), 'function')
-    assert_eq(vim.fn.maparg('yn', 'n', false, true).desc, 'Yank name without extension')
+    assert_eq(vim.fn.maparg('yn', 'n', false, true).desc, descriptions.yank_name_stem)
     assert_eq(vim.fn.maparg('yb', 'n'), '', 'yb should remain available for users')
     assert_eq(vim.fn.maparg('yB', 'n'), '', 'yB should remain available for users')
     local yank_cursor = vim.api.nvim_win_get_cursor(0)
@@ -323,7 +324,7 @@ do
     set_cursor_line('^dir/$')
     api.fold_out()
     set_cursor_line('^dir/$')
-    assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, 'Open in external program')
+    assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, descriptions.open_external)
     vim.api.nvim_feedkeys('V4jgx', 'xt', false)
     assert_eq(#opened_paths, 5, 'visual gx should try to open every selected path')
     assert_eq(vim.api.nvim_get_mode().mode, 'n', 'visual gx should return to normal mode')

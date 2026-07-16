@@ -2,6 +2,7 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/13_filter.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local prompt = h.prompt
 local api = h.api
@@ -35,8 +36,8 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local origin_win = vim.api.nvim_get_current_win()
-    assert_eq(vim.fn.maparg('f', 'n', false, true).desc, 'Filter visible files')
-    assert_eq(vim.fn.maparg('F', 'n', false, true).desc, 'Clear filter')
+    assert_eq(vim.fn.maparg('f', 'n', false, true).desc, descriptions.filter)
+    assert_eq(vim.fn.maparg('F', 'n', false, true).desc, descriptions.clear_filter)
 
     set_cursor_pos('alpha')
     api.fold_out()

@@ -2,6 +2,7 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/10_keymap_hints.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
+local descriptions = h.actions.descriptions
 local config = h.config
 local keymaps = h.keymaps
 local api = h.api
@@ -163,14 +164,14 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('z', 'n', false, true)
-    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Reload tree view',
+    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, descriptions.reload,
         'named actions should inherit mapping descriptions')
     vim.defer_fn(function()
         vim.api.nvim_feedkeys('a', 't', false)
     end, 250)
     prefix_map.callback()
     assert_eq(vim.g.dora_smoke_named_keymap, 'reload', 'keymap hints should dispatch named api actions')
-    assert_eq(captured_rows[1].desc, 'Reload tree view',
+    assert_eq(captured_rows[1].desc, descriptions.reload,
         'named actions should inherit keymap hint descriptions')
     api.quit()
 

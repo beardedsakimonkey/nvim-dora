@@ -2,6 +2,7 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/09_history.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
+local descriptions = h.actions.descriptions
 local fs = h.fs
 local prompt = h.prompt
 local api = h.api
@@ -28,8 +29,8 @@ do
     local deep = project .. '/deep'
     local other = root .. '/other'
 
-    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, 'Go backward in directory history')
-    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, 'Go forward in directory history')
+    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, descriptions.history_back)
+    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, descriptions.history_forward)
     assert_eq(vim.fn.maparg('m', 'n'), '', 'm should be unassigned by dora')
     assert_eq(vim.fn.maparg("'", 'n'), '', "' should be unassigned by dora")
     assert_eq(api.set_bookmark, nil, 'set_bookmark should no longer be a public action')
