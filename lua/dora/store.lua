@@ -25,7 +25,7 @@ local M = {}
 ---@field filter_editing boolean
 ---@field filter_inverted boolean when true, the filter keeps non-matching rows
 ---@field marked_paths table<string, DoraPasteOperation>
----@field paste_in_progress? boolean Guards against starting a second async paste while one runs
+---@field paste_in_progress? boolean True on the state whose async paste is in flight; the session-wide second-paste guard lives in api.lua
 ---@field remove_in_progress? boolean Guards against starting a second async trash/delete while one runs
 ---@field removing_paths? table<string, true> Paths of the in-flight trash/delete; their rows render muted
 ---@field pasting_paths? table<string, true> Cut sources of the in-flight paste; set on every dora buffer (marks are shared), their rows render muted

@@ -37,6 +37,12 @@ local global_expanded_dirs = {}
 ---@type table<string, DoraPasteOperation>
 local global_marked_paths = {}
 
+-- Set while an async paste is in flight. Session-global rather than per-state:
+-- marks are shared across windows, so a second paste anywhere would race the
+-- first over the same sources, and module-local so the guard survives the
+-- pasting window being wiped mid-paste.
+local paste_in_progress = false
+
 local PROMPT_WIDTH = 32
 
 local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
@@ -1128,7 +1134,7 @@ end
 ---@param dest_dir string
 ---@param overwrite boolean Replace conflicting destinations instead of keeping both
 local function paste_entries(state, entries, dest_dir, overwrite)
-    if state.paste_in_progress then
+    if paste_in_progress then
         util.err('A paste is already in progress')
         return
     end
@@ -1174,10 +1180,12 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     local stop_spinner = start_spinner(function()
         return ('Pasting… %d items, %.1f MiB'):format(progress.files, progress.bytes / 1024 / 1024)
     end)
+    paste_in_progress = true
     state.paste_in_progress = true
     -- Drive the statusline's busy indicator.
     vim.o.busy = vim.o.busy + 1
     fs.paste_async(planned_ops, progress, overwrite, function(ok, result, completed)
+        paste_in_progress = false
         state.paste_in_progress = false
         store.each(function(other)
             other.pasting_paths = nil
@@ -1281,6 +1289,12 @@ local function paste_to_directory(state, row, dest_dir, entries)
         operations = operations,
         expanded = state.expanded_dirs,
     }
+    -- A second paste would race the in-flight one over the same shared marks.
+    if paste_in_progress then
+        opts.error = 'A paste is already in progress'
+        confirm_win.show(paste_paths, function() end, opts)
+        return
+    end
     if error_count > 0 then
         opts.error = paste_error_message(error_count)
         confirm_win.show(paste_paths, function() end, opts)

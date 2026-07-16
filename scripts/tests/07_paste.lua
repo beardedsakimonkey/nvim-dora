@@ -976,6 +976,26 @@ do
             'the destination should not be muted in ' .. checked.label)
     end
 
+    -- Pasting again while the first paste is still in flight is blocked: the
+    -- confirmation opens as a dismiss-only error, whichever window tries.
+    local tree_win = vim.api.nvim_get_current_win()
+    set_cursor_pos('dest')
+    api.paste_under()
+    local blocked_win = vim.api.nvim_get_current_win()
+    assert(blocked_win ~= tree_win, 'the blocked paste should open a confirmation window')
+    assert_match(win_title(blocked_win), 'Paste Error')
+    assert_match(buf_lines(vim.api.nvim_win_get_buf(blocked_win))[1],
+        'A paste is already in progress')
+    -- Nothing to confirm on a blocking error; 'y' just dismisses it.
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert(not vim.api.nvim_win_is_valid(blocked_win),
+        'the blocked paste should dismiss on the confirm key')
+    assert_eq(vim.api.nvim_get_current_win(), tree_win,
+        'dismissing the blocked paste should restore focus to the tree')
+    assert(paste_state.paste_in_progress,
+        'a blocked paste should not disturb the in-flight paste')
+    assert_eq(marked_path_count(paste_state), 2, 'a blocked paste should preserve the marks')
+
     wait_for_paste()
     assert(not paste_state.pasting_paths and not source_state.pasting_paths,
         'finishing the paste should clear the pending paths everywhere')
