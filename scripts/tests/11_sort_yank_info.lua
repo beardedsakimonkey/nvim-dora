@@ -117,6 +117,14 @@ do
     assert(not vim.tbl_contains(lines(), '.hidden'), 'hidden files should be hidden after toggling visibility')
 
     api.quit()
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    assert(not vim.tbl_contains(lines(), '.hidden'),
+        'new Dora windows should use the global hidden-file visibility')
+
+    api.toggle_hidden_files()
+    assert(vim.tbl_contains(lines(), '.hidden'), 'toggling again should restore global hidden-file visibility')
+
+    api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 

@@ -70,7 +70,7 @@ end
 ---@return DoraFile[]
 local function filter_and_sort(state, all_files, dir)
     local files = vim.tbl_filter(function(file)
-        if state.show_hidden_files then
+        if config.show_hidden_files then
             return true
         else
             return not config.is_hidden_file(file, all_files, dir)
@@ -221,13 +221,13 @@ end
 function M.visible_files(state, dir)
     local entry = state.listings[dir]
     if entry then
-        if entry.show_hidden ~= state.show_hidden_files or entry.sort_order ~= state.sort_order then
+        if entry.show_hidden ~= config.show_hidden_files or entry.sort_order ~= state.sort_order then
             -- Only the view settings changed; refilter and resort the
             -- listing we already have instead of rescanning.
             if entry.raw then
                 entry.files = filter_and_sort(state, entry.raw, dir)
             end
-            entry.show_hidden = state.show_hidden_files
+            entry.show_hidden = config.show_hidden_files
             entry.sort_order = state.sort_order
         end
         return entry.files, entry.placeholder_label
@@ -237,7 +237,7 @@ function M.visible_files(state, dir)
         raw = raw,
         files = files,
         placeholder_label = placeholder_label,
-        show_hidden = state.show_hidden_files,
+        show_hidden = config.show_hidden_files,
         sort_order = state.sort_order,
         unwatch = watch_directory(state, dir),
     }

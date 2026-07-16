@@ -1827,12 +1827,12 @@ end
 function M.toggle_hidden_files()
     local state = store.get()
     local row = view.current_row(state)
-    state.show_hidden_files = not state.show_hidden_files
+    config.show_hidden_files = not config.show_hidden_files
     view.render(state)
     if not row or not row.path or not view.set_cursor_path(state, row.path) then
         view.set_cursor_pos(state, row and row.display_name or nil)
     end
-    util.info(state.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
+    util.info(config.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
 end
 
 ---@param initial_prompt? string
@@ -1969,7 +1969,6 @@ function M.initialize(dir, from_au)
         cwd = cwd,
         ns = ns,
         cursor_ns = cursor_ns,
-        show_hidden_files = config.show_hidden_files,
         sort_order = sorter.normalize_order(config.sort_order),
         hovered_files = {},  -- map<realpath, cursor path/name>
         listings = {},  -- map<realpath, DoraListingEntry>
