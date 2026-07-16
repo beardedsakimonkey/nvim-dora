@@ -146,9 +146,9 @@ do
         s = 'Open in split',
         v = 'Open in vertical split',
         t = 'Open in tab',
-        ['<C-s>'] = 'Open in split (stay)',
-        ['<C-v>'] = 'Open in vertical split (stay)',
-        ['<C-t>'] = 'Open in tab (stay)',
+        ['<C-s>'] = 'Open in split without closing Dora',
+        ['<C-v>'] = 'Open in vertical split without closing Dora',
+        ['<C-t>'] = 'Open in tab without closing Dora',
     }) do
         assert_eq(vim.fn.maparg(lhs, 'x', false, true).desc, desc)
     end

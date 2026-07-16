@@ -34,10 +34,10 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
-    assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, 'Next paste mark')
-    assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, 'Previous paste mark')
-    assert_eq(vim.fn.maparg(']m', 'x', false, true).desc, 'Next paste mark')
-    assert_eq(vim.fn.maparg('[m', 'x', false, true).desc, 'Previous paste mark')
+    assert_eq(vim.fn.maparg(']m', 'n', false, true).desc, 'Move to next paste mark')
+    assert_eq(vim.fn.maparg('[m', 'n', false, true).desc, 'Move to previous paste mark')
+    assert_eq(vim.fn.maparg(']m', 'x', false, true).desc, 'Move to next paste mark')
+    assert_eq(vim.fn.maparg('[m', 'x', false, true).desc, 'Move to previous paste mark')
 
     -- Mark non-adjacent rows with a mix of cut and copy.
     set_cursor_line('bravo%.txt$')
@@ -330,7 +330,7 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     local reload_map = vim.fn.maparg('<C-r>', 'n', false, true)
-    assert_eq(reload_map.desc, 'Reload listing')
+    assert_eq(reload_map.desc, 'Reload tree view')
     assert_eq(type(reload_map.callback), 'function')
     set_cursor_line('alpha%.txt$')
     api.toggle_copy()

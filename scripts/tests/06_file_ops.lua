@@ -162,9 +162,9 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local dora_win = vim.api.nvim_get_current_win()
     local dora_buf = vim.api.nvim_get_current_buf()
-    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split (stay)')
-    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split (stay)')
-    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab (stay)')
+    assert_eq(vim.fn.maparg('<C-s>', 'n', false, true).desc, 'Open in split without closing Dora')
+    assert_eq(vim.fn.maparg('<C-v>', 'n', false, true).desc, 'Open in vertical split without closing Dora')
+    assert_eq(vim.fn.maparg('<C-t>', 'n', false, true).desc, 'Open in tab without closing Dora')
 
     set_cursor_line('split%.txt$')
     local existing_wins = vim.api.nvim_tabpage_list_wins(0)

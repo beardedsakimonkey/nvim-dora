@@ -85,16 +85,16 @@ M.config = {
         J         = 'next_sibling',       -- Next sibling
         K         = 'prev_sibling',       -- Previous sibling
         ['<C-p>'] = 'parent_dir',         -- Parent directory
-        o         = 'fold_out',           -- Fold out directory
-        O         = 'fold_out_recursive', -- Fold out directory recursively
-        i         = 'fold_in',            -- Fold in directory
-        I         = 'fold_in_recursive',  -- Fold in directory recursively
+        o         = 'fold_out',           -- Fold out directory one level
+        O         = 'fold_out_recursive', -- Fold out directory all the way
+        i         = 'fold_in',            -- Fold in directory one level
+        I         = 'fold_in_recursive',  -- Fold in directory all the way
         ['<BS>']  = 'close_dir',          -- Close directory
         gh        = 'home_dir',           -- Go to home directory
-        [']m']    = 'next_paste_mark',    -- Next paste mark
-        ['[m']    = 'prev_paste_mark',    -- Previous paste mark
-        ['<']     = 'history_back',       -- Back
-        ['>']     = 'history_forward',    -- Forward
+        [']m']    = 'next_paste_mark',    -- Move to next paste mark
+        ['[m']    = 'prev_paste_mark',    -- Move to previous paste mark
+        ['<']     = 'history_back',       -- Go backward in directory history
+        ['>']     = 'history_forward',    -- Go forward in directory history
 
         -- Open
         ['<CR>']  = 'open',             -- Open
@@ -102,18 +102,18 @@ M.config = {
         s         = 'open_split',       -- Open in split
         v         = 'open_vsplit',      -- Open in vertical split
         t         = 'open_tab',         -- Open in tab
-        ['<C-s>'] = 'open_split_stay',  -- Open in split (stay)
-        ['<C-v>'] = 'open_vsplit_stay', -- Open in vertical split (stay)
-        ['<C-t>'] = 'open_tab_stay',    -- Open in tab (stay)
-        gx        = 'open_external',    -- Open externally
+        ['<C-s>'] = 'open_split_stay',  -- Open in split without closing Dora
+        ['<C-v>'] = 'open_vsplit_stay', -- Open in vertical split without closing Dora
+        ['<C-t>'] = 'open_tab_stay',    -- Open in tab without closing Dora
+        gx        = 'open_external',    -- Open in external program
 
         -- File operations
         a     = 'add',            -- Add file
         A     = 'add_under',      -- Add file under directory
-        S     = 'create_symlink', -- Add symlink to file
+        S     = 'create_symlink', -- Create symlink to file
         r     = 'rename',         -- Rename file
         R     = 'rename_empty',   -- Rename file with empty prompt
-        d     = 'trash',          -- Move file to trash (Mac/Linux)
+        d     = 'trash',          -- Move file to trash (macOS/Linux)
         D     = 'delete',         -- Delete file permanently
         u     = 'undo_trash',     -- Restore the most recently trashed files
         x     = 'toggle_cut',     -- Toggle cut mark
@@ -122,15 +122,15 @@ M.config = {
         C     = 'clear_copy',     -- Clear all copy marks
         p     = 'paste_under',    -- Paste under directory
         P     = 'paste',          -- Paste
-        ['.'] = 'shell_cmd',      -- Shell command on file
+        ['.'] = 'shell_cmd',      -- Run shell command on file
 
         -- View
         f         = 'filter',              -- Filter visible files
         F         = 'clear_filter',        -- Clear filter
         gi        = 'file_info',           -- Show file info
-        ['g.']    = 'toggle_hidden_files', -- Toggle hidden files
+        ['g.']    = 'toggle_hidden_files', -- Toggle hidden files visible
         gp        = 'toggle_preview',      -- Toggle preview
-        ['<C-r>'] = 'reload',              -- Reload listing
+        ['<C-r>'] = 'reload',              -- Reload tree view
 
         -- Yank
         yy = 'yank_file_path',           -- Yank full path

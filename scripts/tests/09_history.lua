@@ -28,8 +28,8 @@ do
     local deep = project .. '/deep'
     local other = root .. '/other'
 
-    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, 'Back')
-    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, 'Forward')
+    assert_eq(vim.fn.maparg('<', 'n', false, true).desc, 'Go backward in directory history')
+    assert_eq(vim.fn.maparg('>', 'n', false, true).desc, 'Go forward in directory history')
     assert_eq(vim.fn.maparg('m', 'n'), '', 'm should be unassigned by dora')
     assert_eq(vim.fn.maparg("'", 'n'), '', "' should be unassigned by dora")
     assert_eq(api.set_bookmark, nil, 'set_bookmark should no longer be a public action')

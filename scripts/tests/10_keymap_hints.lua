@@ -50,9 +50,9 @@ do
     local buf, win = keymaps.open_hint_window(',', {
         {lhs=',n', key='n', desc='Sort by name'},
         {lhs=',s', key='s', desc='Sort by size'},
-        {lhs=',x', key='x', desc='Open externally'},
+        {lhs=',x', key='x', desc='Open in external program'},
         {lhs=',q', key='q', desc='Sort by name'},
-        {lhs=',.', key='.', desc='Toggle hidden files'},
+        {lhs=',.', key='.', desc='Toggle hidden files visible'},
     })
     local hint_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
     local mnemonics = {}
@@ -64,7 +64,7 @@ do
     end
     table.sort(mnemonics)
     assert_eq(#mnemonics, 3, 'hints without a matching word or an alphabetic key should not highlight a mnemonic')
-    assert_eq(mnemonics[1], 'externally', 'mnemonics should fall back to a word containing the key')
+    assert_eq(mnemonics[1], 'external', 'mnemonics should fall back to a word containing the key')
     assert_eq(mnemonics[2], 'name', 'mnemonics should highlight the word starting with the key')
     assert_eq(mnemonics[3], 'size', 'mnemonics should prefer the last word starting with the key')
     window.close(buf, win)
@@ -82,9 +82,9 @@ do
         {lhs='yd', desc='Yank parent directory'},
     })
     local hint_lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    assert_match(hint_lines[1], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
-    assert_match(hint_lines[2], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
-    assert_match(hint_lines[3], '^  yd%s+→%s+Yank parent directory%s+yD%s+→%s+Yank parent directory to clipboard$')
+    assert_match(hint_lines[1], '^  yy%s+→%s+Yank full path%s+yY%s+→%s+Yank full path to clipboard$')
+    assert_match(hint_lines[2], '^  yd%s+→%s+Yank parent directory%s+yD%s+→%s+Yank parent directory to clipboard$')
+    assert_match(hint_lines[3], '^  yf%s+→%s+Yank filename%s+yF%s+→%s+Yank filename to clipboard$')
     assert_match(hint_lines[4], '^  yn%s+→%s+Yank name without extension%s+yN%s+→%s+Yank name without extension to clipboard$')
     window.close(buf, win)
 end
@@ -163,14 +163,14 @@ do
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(cwd))
     local prefix_map = vim.fn.maparg('z', 'n', false, true)
-    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Reload listing',
+    assert_eq(vim.fn.maparg('za', 'n', false, true).desc, 'Reload tree view',
         'named actions should inherit mapping descriptions')
     vim.defer_fn(function()
         vim.api.nvim_feedkeys('a', 't', false)
     end, 250)
     prefix_map.callback()
     assert_eq(vim.g.dora_smoke_named_keymap, 'reload', 'keymap hints should dispatch named api actions')
-    assert_eq(captured_rows[1].desc, 'Reload listing',
+    assert_eq(captured_rows[1].desc, 'Reload tree view',
         'named actions should inherit keymap hint descriptions')
     api.quit()
 

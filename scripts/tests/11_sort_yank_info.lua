@@ -323,7 +323,7 @@ do
     set_cursor_line('^dir/$')
     api.fold_out()
     set_cursor_line('^dir/$')
-    assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, 'Open externally')
+    assert_eq(vim.fn.maparg('gx', 'x', false, true).desc, 'Open in external program')
     vim.api.nvim_feedkeys('V4jgx', 'xt', false)
     assert_eq(#opened_paths, 5, 'visual gx should try to open every selected path')
     assert_eq(vim.api.nvim_get_mode().mode, 'n', 'visual gx should return to normal mode')

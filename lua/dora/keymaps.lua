@@ -15,7 +15,7 @@ local HINT_COLUMN_GAP = '    '
 local HINT_KEY_ORDERS = {
     [','] = {n=1, m=2, c=3, s=4, e=5},
     g = {p=1, h=2, x=3, ['.']=4, ['?']=5},
-    y = {f=1, y=2, d=3, n=4},
+    y = {y=1, d=2, f=3, n=4},
 }
 
 ---@param rhs DoraKeymapSpec
