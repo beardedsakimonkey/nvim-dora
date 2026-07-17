@@ -25,6 +25,8 @@ local M = {}
 ---@field filter_editing boolean
 ---@field filter_inverted boolean when true, the filter keeps non-matching rows
 ---@field marked_paths table<string, DoraPasteOperation>
+---@field show_hidden_files boolean this session's hidden-file visibility, seeded from config
+---@field sort_order DoraSortOrder this session's sort order, seeded from config (always normalized)
 ---@field paste_in_progress? boolean True on the state whose async paste is in flight; the session-wide second-paste guard lives in api.lua
 ---@field remove_in_progress? boolean Guards against starting a second async trash/delete while one runs
 ---@field removing_paths? table<string, true> Paths of the in-flight trash/delete; their rows render muted

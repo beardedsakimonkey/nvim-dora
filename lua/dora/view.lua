@@ -64,18 +64,19 @@ local function is_permission_error(msg)
         or msg:lower():match('permission denied') ~= nil
 end
 
+---@param state DoraState
 ---@param all_files DoraFile[]
 ---@param dir string
 ---@return DoraFile[]
-local function filter_and_sort(all_files, dir)
+local function filter_and_sort(state, all_files, dir)
     local files = vim.tbl_filter(function(file)
-        if config.show_hidden_files then
+        if state.show_hidden_files then
             return true
         else
             return not config.is_hidden_file(file, all_files, dir)
         end
     end, all_files)
-    sorter.files(files, config.sort_order)
+    sorter.files(files, state.sort_order)
     return files
 end
 
@@ -210,7 +211,7 @@ function M.scan_directory(state, dir)
         util.warn(tostring(all_files))
         return nil, {}, nil
     end
-    return all_files, filter_and_sort(all_files, dir), nil
+    return all_files, filter_and_sort(state, all_files, dir), nil
 end
 
 ---@param state DoraState
@@ -219,16 +220,15 @@ end
 ---@return string? placeholder_label
 function M.visible_files(state, dir)
     local entry = state.listings[dir]
-    local sort_order = sorter.normalize_order(config.sort_order)
     if entry then
-        if entry.show_hidden ~= config.show_hidden_files or entry.sort_order ~= sort_order then
+        if entry.show_hidden ~= state.show_hidden_files or entry.sort_order ~= state.sort_order then
             -- Only the view settings changed; refilter and resort the
             -- listing we already have instead of rescanning.
             if entry.raw then
-                entry.files = filter_and_sort(entry.raw, dir)
+                entry.files = filter_and_sort(state, entry.raw, dir)
             end
-            entry.show_hidden = config.show_hidden_files
-            entry.sort_order = sort_order
+            entry.show_hidden = state.show_hidden_files
+            entry.sort_order = state.sort_order
         end
         return entry.files, entry.placeholder_label
     end
@@ -237,8 +237,8 @@ function M.visible_files(state, dir)
         raw = raw,
         files = files,
         placeholder_label = placeholder_label,
-        show_hidden = config.show_hidden_files,
-        sort_order = sort_order,
+        show_hidden = state.show_hidden_files,
+        sort_order = state.sort_order,
         unwatch = watch_directory(state, dir),
     }
     state.listings[dir] = entry

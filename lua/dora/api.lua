@@ -1841,12 +1841,15 @@ end
 function M.toggle_hidden_files()
     local state = store.get()
     local row = view.current_row(state)
-    config.show_hidden_files = not config.show_hidden_files
+    state.show_hidden_files = not state.show_hidden_files
+    -- Only this session changes; the config write makes future sessions
+    -- inherit the last toggle.
+    config.show_hidden_files = state.show_hidden_files
     view.render(state)
     if not row or not row.path or not view.set_cursor_path(state, row.path) then
         view.set_cursor_pos(state, row and row.display_name or nil)
     end
-    util.info(config.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
+    util.info(state.show_hidden_files and 'Showing hidden files' or 'Hiding hidden files')
 end
 
 ---@param initial_prompt? string
@@ -1890,7 +1893,10 @@ function M.sort_by(order)
     local state = store.get()
     local row = view.current_row(state)
     local path = row and row.path or nil
-    config.sort_order = sorter.normalize_order(order)
+    state.sort_order = sorter.normalize_order(order)
+    -- Only this session changes; the config write makes future sessions
+    -- inherit the last chosen order.
+    config.sort_order = state.sort_order
     view.render(state)
     if path then
         view.set_cursor_path(state, path)
@@ -1994,6 +2000,8 @@ function M.initialize(dir, from_au)
         filter_window = nil,
         filter_editing = false,
         filter_inverted = false,
+        show_hidden_files = config.show_hidden_files,
+        sort_order = sorter.normalize_order(config.sort_order),
         preview = nil,
         marked_paths = global_marked_paths,
         history = history.get(win),

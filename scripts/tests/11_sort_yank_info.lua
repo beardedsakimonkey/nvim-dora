@@ -101,7 +101,7 @@ do
     api.quit()
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert_line_before('^big%.log$', '^tiny%.bin$',
-        'new Dora windows should use the global sort order')
+        'new Dora windows should inherit the last chosen sort order')
     api.sort_by('name')
 
     api.quit()
@@ -124,11 +124,62 @@ do
     api.quit()
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     assert(not vim.tbl_contains(lines(), '.hidden'),
-        'new Dora windows should use the global hidden-file visibility')
+        'new Dora windows should inherit the last hidden-file toggle')
 
     api.toggle_hidden_files()
-    assert(vim.tbl_contains(lines(), '.hidden'), 'toggling again should restore global hidden-file visibility')
+    assert(vim.tbl_contains(lines(), '.hidden'), 'toggling again should restore hidden-file visibility')
 
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- Sort order and hidden-file visibility are per-window: changing them in
+    -- one session leaves other live sessions alone, while sessions opened
+    -- afterwards inherit the last chosen values.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    touch(tmp .. '/.hidden')
+    -- aaa.txt sorts first by name but last by descending size, so the two
+    -- orders are distinguishable.
+    write_file(tmp .. '/aaa.txt', 'x')
+    write_file(tmp .. '/zzz.txt', 'xxxxxxxxxx')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local first_win = vim.api.nvim_get_current_win()
+    local first_state = store.get()
+
+    vim.cmd('vsplit')
+    vim.cmd('enew')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local second_win = vim.api.nvim_get_current_win()
+    assert(store.get() ~= first_state, 'a second window on the same directory should get its own session')
+
+    api.toggle_hidden_files()
+    api.sort_by('size_desc')
+    assert(not vim.tbl_contains(lines(), '.hidden'), 'the toggled window should hide hidden files')
+    assert_line_before('^zzz%.txt$', '^aaa%.txt$', 'the sorted window should use its new order')
+
+    vim.api.nvim_set_current_win(first_win)
+    assert(vim.tbl_contains(lines(), '.hidden'), 'other live windows should keep their hidden-file visibility')
+    assert_line_before('^aaa%.txt$', '^zzz%.txt$', 'other live windows should keep their sort order')
+
+    vim.cmd('split')
+    vim.cmd('enew')
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local third_win = vim.api.nvim_get_current_win()
+    assert(not vim.tbl_contains(lines(), '.hidden'), 'new windows should inherit the last visibility toggle')
+    assert_line_before('^zzz%.txt$', '^aaa%.txt$', 'new windows should inherit the last sort order')
+
+    -- Restore the defaults for later test files, then tear the splits down.
+    api.toggle_hidden_files()
+    api.sort_by('name')
+    api.quit()
+    vim.api.nvim_win_close(third_win, true)
+    vim.api.nvim_set_current_win(second_win)
+    api.quit()
+    vim.api.nvim_win_close(second_win, true)
+    vim.api.nvim_set_current_win(first_win)
     api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
