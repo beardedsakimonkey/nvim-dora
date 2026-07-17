@@ -1,5 +1,5 @@
 *dora.txt*                                       Directory explorer for Neovim
-                                 For Neovim 0.12+    Last change: 2026 July 16
+                                 For Neovim 0.12+    Last change: 2026 July 17
 
 ==============================================================================
 Table of Contents                                     *dora-table-of-contents*
@@ -83,9 +83,11 @@ disable this, set:
 
 CONFIGURATION                                   *dora-nvim-dora-configuration*
 
+                                                            *dora.configure()*
+
 Dora works without configuration, but you can change the default config using
-`configure()`. The arguments are deeply merged with the defaults, so you only need
-to specify the options you want to add or change.
+`configure()`. The arguments are deeply merged with the defaults, so you only
+need to specify the options you want to add or change.
 
 Here are the defaults:
 

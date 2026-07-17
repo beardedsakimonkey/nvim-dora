@@ -80,6 +80,12 @@ vim.g.dora_disable_auto_open = true
 
 ## Configuration
 
+<!-- panvimdoc-include-comment
+```vimdoc
+                                                            *dora.configure()*
+```
+-->
+
 Dora works without configuration, but you can change the default config using
 `configure()`. The arguments are deeply merged with the defaults, so you only
 need to specify the options you want to add or change.
