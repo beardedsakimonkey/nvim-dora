@@ -155,6 +155,8 @@ do
     api.fold_out()
     set_cursor_line('existing%.txt$')
     local old_input = prompt.input
+    local old_icons = config.icons
+    config.icons = false
     ---@diagnostic disable-next-line: duplicate-set-field
     prompt.input = function(opts, cb)
         assert_eq(opts.initial_prompt, nil, 'create should not prefill the hovered file parent path')
@@ -164,6 +166,7 @@ do
     end
     api.add()
     prompt.input = old_input
+    config.icons = old_icons
 
     assert(fs.exists(tmp .. '/nvim-dora/foo/bar'), 'create should create nested paths inside expanded directories')
     assert(vim.tbl_contains(lines(), '│   └── bar'), 'create should expand the parent under expanded directories')

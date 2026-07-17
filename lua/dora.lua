@@ -56,7 +56,7 @@ local M = {}
 M.config = {
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
-    icons = false,
+    icons = true,
 
     -- Number of columns used for each level of tree indentation.
     tree_indent = 4,
