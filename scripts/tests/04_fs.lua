@@ -213,6 +213,21 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+-- On macOS libuv registers an fs-event handle synchronously, then rebuilds
+-- its process-wide FSEventStream on a separate CF thread. Produce probe
+-- changes until one is delivered so watcher assertions don't race startup.
+local function wait_for_watch_delivery(is_delivered, probe_prefix)
+    local probe_count = 0
+    return vim.wait(5000, function()
+        if is_delivered() then
+            return true
+        end
+        probe_count = probe_count + 1
+        touch(probe_prefix .. probe_count)
+        return false
+    end, 100)
+end
+
 -- watch_tree reports changes anywhere under the root as absolute paths and
 -- keeps watching after delivering a batch.
 if fs.HAS_RECURSIVE_WATCH then
@@ -222,13 +237,21 @@ if fs.HAS_RECURSIVE_WATCH then
     local root = fs.realpath(tmp)
 
     local got = {}
+    local delivered = false
     local cancel = assert(fs.watch_tree(root, function(paths)
+        delivered = true
         vim.list_extend(got, paths)
     end))
+    assert(wait_for_watch_delivery(function()
+        return delivered
+    end, tmp .. '/a/.watch-ready-'), 'watch_tree should start delivering changes')
+    got = {}
+
     touch(tmp .. '/a/nested.txt')
+    local nested_path = root .. '/a/nested.txt'
     assert(vim.wait(5000, function()
-        return vim.tbl_contains(got, root .. '/a/nested.txt')
-    end), 'watch_tree should report nested changes with absolute paths')
+        return vim.tbl_contains(got, nested_path)
+    end), 'watch_tree should report nested changes with absolute paths; got ' .. vim.inspect(got))
 
     touch(tmp .. '/a/second.txt')
     assert(vim.wait(5000, function()
@@ -252,6 +275,10 @@ do
     set_cursor_line('sub/$')
     api.fold_out()
     assert(find_line_index(lines(), 'before%.txt'), 'expanded dir should list its files')
+
+    assert(wait_for_watch_delivery(function()
+        return find_line_index(lines(), 'watch%-ready%-') ~= nil
+    end, tmp .. '/sub/watch-ready-'), 'session watcher should start delivering changes')
 
     touch(tmp .. '/sub/created-outside.txt')
     assert(vim.wait(5000, function()
