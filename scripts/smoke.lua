@@ -5,7 +5,7 @@
 -- DORA_TEST_FILE=scripts/tests/<file>.lua using the nvim invocation from
 -- scripts/smoke.sh.
 local test_files = {
-    'scripts/tests/01_setup.lua',
+    'scripts/tests/01_configure.lua',
     'scripts/tests/02_confirm_win.lua',
     'scripts/tests/03_prompt.lua',
     'scripts/tests/04_fs.lua',

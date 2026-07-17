@@ -11,9 +11,9 @@ local cases = {
         end,
     },
     {
-        name = "require'dora' + setup",
+        name = "require'dora' + configure",
         fn = function()
-            require'dora'.setup({show_hidden_files = false})
+            require'dora'.configure({show_hidden_files = false})
         end,
     },
     {

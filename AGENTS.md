@@ -20,7 +20,7 @@ re-render. The modules:
 
 - `plugin/dora.lua` — `:Dora`, highlight defaults, and the directory auto-open
   autocmd. Requires no dora module until a command or autocmd fires.
-- `lua/dora.lua` — the config table and `setup()`. Modules capture
+- `lua/dora.lua` — the config table and `configure()`. Modules capture
   `require'dora'.config` at require time, so the table is merged in place and
   never reassigned.
 - `lua/dora/api.lua` — every user-facing action (`M.*`), addressable by name

@@ -1,4 +1,4 @@
--- Public entry point: the plugin config and setup(). Everything else lives
+-- Public entry point: the plugin config and configure(). Everything else lives
 -- under lua/dora/ -- see AGENTS.md for a map of the modules.
 local M = {}
 
@@ -36,7 +36,7 @@ local M = {}
 ---@field lsp_timeout number
 
 -- NOTE: Other modules capture this table at require time
--- (`local config = require'dora'.config`), so setup() merges into it in
+-- (`local config = require'dora'.config`), so configure() merges into it in
 -- place; the table must never be reassigned.
 ---@type DoraConfig
 M.config = {
@@ -174,9 +174,11 @@ local function merge_config(dst, src)
 end
 
 ---@param opts table
-function M.setup(opts)
-    assert(type(opts) == 'table', 'dora.setup() expects a table')
+function M.configure(opts)
+    assert(type(opts) == 'table', 'dora.configure() expects a table')
     merge_config(M.config, opts)
 end
+
+M.setup = M.configure
 
 return M

@@ -80,15 +80,15 @@ vim.g.dora_disable_auto_open = true
 
 ## Configuration
 
-Dora works without setup, but you can change the default config using `setup()`.
-The arguments are deeply merged with the defaults, so you only need to specify
-the options you want to add or change.
+Dora works without configuration, but you can change the default config using
+`configure()`. The arguments are deeply merged with the defaults, so you only
+need to specify the options you want to add or change.
 
 Here are the defaults:
 
 <!-- dora-config:start -->
 ```lua
-require('dora').setup {
+require('dora').configure {
     -- Whether to show file icons. Set to true or 'nvim-web-devicons' to use
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
@@ -229,8 +229,8 @@ Example setup:
 ```lua
 local dora = require('dora')
 
--- `dora.setup` merges options into the default config.
-dora.setup({
+-- `dora.configure` merges options into the default config.
+dora.configure({
     icons = true,
     keymaps = {
         ['<2-LeftMouse>'] = 'open',
@@ -294,7 +294,7 @@ run this from a dora buffer:
 To map this action, use a function keymap and the current Dora context:
 
 ```lua
-require('dora').setup {
+require('dora').configure {
     keymaps = {
         ['gc'] = {
             function(ctx)
