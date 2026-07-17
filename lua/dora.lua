@@ -58,33 +58,31 @@ M.config = {
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
 
-    -- Whether <Esc> in insert mode closes prompts.
-    prompt_insert_esc_closes = true,
+    -- Number of columns used for each level of tree indentation.
+    tree_indent = 4,
 
     -- Whether to show the current browsed directory as the tree root.
     show_root = false,
 
-    -- Whether to show keymap hints for two-key normal mode mappings
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
+
+    -- Whether to show keymap hints for two-key normal mode mappings.
     show_keymap_hints = true,
 
-    -- Whether hidden files should be shown by default
+    -- Whether hidden files should be shown by default.
     show_hidden_files = true,
 
-    -- Function used to determine what files should be hidden. It receives the
-    -- current file, all files in its directory, and the absolute directory path.
+    -- Function used to determine what files should be hidden.
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
-    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    -- Which side of the window the preview opens on. ('left'|'right'|'above'|'below')
     preview_split = 'right',
 
-    -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
+    -- Default file sorting order. ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
 
-    -- Number of columns used for each level of tree indentation (minimum 1)
-    tree_indent = 4,
-
-    -- Timeout in milliseconds for LSP willRenameFiles requests.
-    -- Set to 0 to disable LSP rename/move integration.
+    -- Timeout in milliseconds for LSP willRenameFiles requests. (0 to disable)
     lsp_timeout = 1000,
 
     -- Key mappings

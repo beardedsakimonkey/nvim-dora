@@ -99,33 +99,31 @@ require('dora').configure {
     -- nvim-web-devicons, or 'mini.icons' to use mini.icons.
     icons = false,
 
-    -- Whether <Esc> in insert mode closes prompts.
-    prompt_insert_esc_closes = true,
+    -- Number of columns used for each level of tree indentation.
+    tree_indent = 4,
 
     -- Whether to show the current browsed directory as the tree root.
     show_root = false,
 
-    -- Whether to show keymap hints for two-key normal mode mappings
+    -- Whether <Esc> in insert mode closes prompts.
+    prompt_insert_esc_closes = true,
+
+    -- Whether to show keymap hints for two-key normal mode mappings.
     show_keymap_hints = true,
 
-    -- Whether hidden files should be shown by default
+    -- Whether hidden files should be shown by default.
     show_hidden_files = true,
 
-    -- Function used to determine what files should be hidden. It receives the
-    -- current file, all files in its directory, and the absolute directory path.
+    -- Function used to determine what files should be hidden.
     is_hidden_file = function(file) return vim.startswith(file.name, '.') end,
 
-    -- Which side of the window the preview opens on ('left'|'right'|'above'|'below')
+    -- Which side of the window the preview opens on. ('left'|'right'|'above'|'below')
     preview_split = 'right',
 
-    -- Default file sorting order ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
+    -- Default file sorting order. ('name'|'name_desc'|'modified'|'modified_desc'|'created'|'created_desc'|'size'|'size_desc'|'extension'|'extension_desc')
     sort_order = 'name',
 
-    -- Number of columns used for each level of tree indentation (minimum 1)
-    tree_indent = 4,
-
-    -- Timeout in milliseconds for LSP willRenameFiles requests.
-    -- Set to 0 to disable LSP rename/move integration.
+    -- Timeout in milliseconds for LSP willRenameFiles requests. (0 to disable)
     lsp_timeout = 1000,
 
     -- Key mappings
@@ -213,18 +211,6 @@ require('dora').configure {
 ```
 <!-- dora-config:end -->
 
-Setting `icons = true` is equivalent to selecting `"nvim-web-devicons"`.
-Selecting `"mini.icons"` expects `MiniIcons.setup()` to have run. If the
-selected provider is unavailable, Dora falls back to built-in Nerd Font
-glyphs.
-
-The `is_hidden_file` callback receives three arguments:
-
-- `file`: the current entry, with `name`, `type`, `size`, `mtime`, and
-  `birthtime` fields where available
-- `files`: all entries in the directory
-- `dir`: the absolute path of that directory
-
 > [!NOTE]
 > Visual mode mappings are installed automatically for built-in actions that
 > support them, including cursor movements, expanding/collapsing directories,
@@ -235,7 +221,7 @@ Example setup:
 ```lua
 local dora = require('dora')
 
--- `dora.configure` merges options into the default config.
+-- `dora.configure()` merges options into `dora.config`
 dora.configure({
     icons = true,
     keymaps = {
@@ -247,6 +233,11 @@ dora.configure({
 -- `dora.config` is mutable. To remove a keymap, set it to `nil`
 dora.config.keymaps.D = nil
 ```
+
+Setting `icons = true` is equivalent to selecting `"nvim-web-devicons"`.
+Selecting `"mini.icons"` expects `MiniIcons.setup()` to have run. If the
+selected provider is unavailable, Dora falls back to built-in Nerd Font
+glyphs.
 
 Keymaps may be action names, Vim RHS strings, Lua functions, or `{action,
 desc=...}` tables. Built-in action names automatically use Dora's description in
@@ -262,21 +253,39 @@ was triggered:
 `path` and `type` are omitted on rows without a file, such as the placeholder
 shown for empty directories.
 
+The `is_hidden_file` callback receives three arguments:
+
+- `file`: the current entry, with `name`, `type`, `size`, `mtime`, and
+  `birthtime` fields where available
+- `files`: all entries in the directory
+- `dir`: the absolute path of that directory
+
 ## Core workflow
 
 - Use `l` or `<CR>` to open an entry, and `h` or `-` to go up a directory.
-- Use `<` and `>` to move backward and forward through directory history.
-- Use `o` and `i` to expand and collapse the tree one level at a time; uppercase
-  `O` and `I` operate recursively.
+- Use `o` and `i` to expand and collapse the tree one level at a time (or all
+  the way with `O` and `I`).
 - Use `a` or `A` to create, `r` to rename, and `d` to move entries to the trash.
 - Use `x` or `c` to mark entries for cutting or copying, then `p` or `P` to paste.
+- Use `<` and `>` to move backward and forward through directory history.
 - Use `f` to filter the visible tree, `gp` to preview, and `g?` to see every
   configured mapping.
 
-Visual mode works with actions that accept multiple entries, including opening,
-expanding or collapsing, marking, trashing, and deleting.
-
 ## Features and behavior
+
+### Prompts and confirmation windows
+
+Text prompts (rename, create, symlink, and so on) are confirmed with `<CR>` in
+insert or normal mode. Cancel them with `<C-c>` in either mode, or with `<Esc>`
+or `q` in normal mode. By default, `<Esc>` also cancels from insert mode; set
+`prompt_insert_esc_closes = false` to make it leave insert mode instead. Prompt
+buffers use the `dora-prompt` filetype, so you can customize them with a
+`FileType` autocmd.
+
+Confirmation windows accept with `y`, `Y`, or `<CR>`, and cancel with `n`, `N`,
+`q`, `<Esc>`, or `<C-c>`. For convenience, they can also be toggled closed by
+pressing the action key again: for example, `p` or `P` closes a paste
+confirmation, while `d` or `D` closes a trash or delete confirmation.
 
 ### Creating files and directories
 
@@ -297,7 +306,7 @@ run this from a dora buffer:
 :cd %
 ```
 
-To map this action, use a function keymap and the current Dora context:
+To make a keymap for this, use a function keymap instead of a string:
 
 ```lua
 require('dora').configure {
@@ -319,12 +328,6 @@ string mappings are non-recursive, so a mapping such as
 `gc = '<Cmd>cd %<CR>'` bypasses Dora's special expansion and may use that unique
 buffer name instead. The function mapping above avoids that ambiguity.
 
-### Keymap hints
-
-Dora also shows a small hint window for two-character normal mode mappings.
-For example, pressing `y` shows configured mappings like `yy`, `yd`, and `yf`.
-Set `dora.config.show_keymap_hints = false` to disable these prefix hints.
-
 ### Preview window
 
 Press `gp` to toggle a preview split, which follows the entry under the cursor.
@@ -337,34 +340,6 @@ which can then be scrolled or edited normally.
 Directories are previewed as a snapshot of their entries using Dora's current
 sorting and hidden-file settings. Set `dora.config.preview_split` to `left`,
 `right`, `above`, or `below` to choose where the preview opens.
-
-### Sort order
-
-Files are sorted naturally by name by default, with directories always grouped
-before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
-time, creation time, size, or extension. Use uppercase variants such as `,N`,
-`,M`, `,C`, `,S`, and `,E` for the reversed order. Set
-`dora.config.sort_order` to choose the default order.
-
-### Borders
-
-Dora float windows use rounded borders by default. On Neovim 0.12+, set
-`vim.o.winborder` to customize the border style globally.
-
-### Prompts and confirmations
-
-Text prompts (rename, create, symlink, and so on) are confirmed with `<CR>` in
-insert or normal mode. Cancel them with `<C-c>` in either mode, or with `<Esc>`
-or `q` in normal mode. By default, `<Esc>` also cancels from insert mode; set
-`prompt_insert_esc_closes = false` to make it leave insert mode instead. Prompt
-buffers use the `dora-prompt` filetype, so you can customize them with a
-`FileType` autocmd.
-
-Confirmation windows accept with `y`, `Y`, or `<CR>`, and cancel with `n`, `N`,
-`q`, `<Esc>`, or `<C-c>`. They can also be toggled closed by pressing the action
-key again: for example, `p` or `P` closes a paste confirmation, while `d` or
-`D` closes a trash or delete confirmation. Toggling a confirmation closed
-cancels the operation.
 
 ### Filtering
 
@@ -388,6 +363,14 @@ remain available for undo-trash to restore; when traversal encounters one that
 is still missing or no longer a directory, it silently discards it and
 continues to the next valid entry.
 
+### Sort order
+
+Files are sorted naturally by name by default, with directories always grouped
+before files. Use `,n`, `,m`, `,c`, `,s`, or `,e` to sort by name, modified
+time, creation time, size, or extension. Use uppercase variants such as `,N`,
+`,M`, `,C`, `,S`, and `,E` for the reversed order. Set
+`dora.config.sort_order` to choose the default order.
+
 ### LSP rename integration
 
 File and directory renames and moves are LSP-aware. Before changing the
@@ -399,6 +382,11 @@ operations.
 `lsp_timeout` controls how long Dora waits for each synchronous
 `willRenameFiles` response and defaults to 1000 milliseconds. Set it to `0` to
 disable native LSP integration.
+
+### Borders
+
+Dora float windows use rounded borders by default. Set `vim.o.winborder` to
+customize the border style globally.
 
 ### Highlights
 
@@ -462,10 +450,4 @@ Run the headless smoke test with:
 
 ```sh
 sh scripts/smoke.sh
-```
-
-Benchmark Lua module load time with:
-
-```sh
-sh scripts/bench-require.sh
 ```
