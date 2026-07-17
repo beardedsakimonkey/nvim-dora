@@ -10,6 +10,16 @@
   filesystem watchers may repeatedly fire inside the sandbox and stall the run.
 - Regenerate README config docs with `PANVIMDOC_DIR=~/code/panvimdoc ./scripts/docs.sh`.
 - For ad hoc headless Neovim checks, set `NVIM_LOG_FILE=/dev/null` to avoid creating `nvim.log` in the repo and use `set noswapfile` to prevent swap-file errors.
+- When running `lua-language-server --check` directly, set `VIMRUNTIME` from
+  Neovim first. Otherwise `$VIMRUNTIME/lua` in `.luarc.json` does not resolve
+  and LuaLS reports spurious undefined Neovim/LSP types. For example:
+  ```sh
+  VIMRUNTIME="$(NVIM_LOG_FILE=/dev/null nvim --headless -u NONE -i NONE --noplugin \
+    -c 'set noswapfile' -c 'lua io.stdout:write(vim.env.VIMRUNTIME)' -c qa)" \
+    lua-language-server --check=. --checklevel=Hint --configpath=.luarc.json \
+    --logpath="${TMPDIR:-/tmp}/dora-luals-log" \
+    --metapath="${TMPDIR:-/tmp}/dora-luals-meta"
+  ```
 
 ## Architecture
 

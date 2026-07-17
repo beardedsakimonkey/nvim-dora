@@ -4,12 +4,11 @@
 local h = dofile('scripts/tests/helpers.lua')
 local fs = h.fs
 local config = h.config
-local confirm_win = h.confirm_win
+local confirm = h.confirm_win
 local prompt = h.prompt
 local api = h.api
 local store = h.store
 local window = h.window
-local cwd = h.cwd
 local assert_eq = h.assert_eq
 local assert_match = h.assert_match
 local touch = h.touch
@@ -33,7 +32,7 @@ do
     -- column 0 of the cursor line, not the cursor cell.
     local origin_pos = vim.fn.screenpos(origin_win, origin_cursor[1], 1)
 
-    confirm_win.show(paths, function(confirmed)
+    confirm.show(paths, function(confirmed)
         vim.g.dora_smoke_confirm_delete = confirmed
     end)
     local confirm_win = vim.api.nvim_get_current_win()
@@ -93,7 +92,7 @@ do
     assert(vim.loop.fs_symlink(tmp .. '/run.sh', tmp .. '/my-link'))
     touch(tmp .. '/plain.txt')
 
-    confirm_win.show({tmp .. '/run.sh', tmp .. '/my-fifo', tmp .. '/my-link', tmp .. '/plain.txt'}, function() end)
+    confirm.show({tmp .. '/run.sh', tmp .. '/my-fifo', tmp .. '/my-link', tmp .. '/plain.txt'}, function() end)
     local confirm_buf = vim.api.nvim_get_current_buf()
     local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
     assert_eq(confirm_lines[1], 'run.sh*', 'executables should carry the ls -F star marker')
@@ -141,7 +140,7 @@ do
     local anchor_col = math.max(0, vim.o.columns - 12)
     local anchor_pos = vim.fn.screenpos(anchor_win, 1, anchor_col + 1)
 
-    confirm_win.show({tmp .. '/' .. rel_path}, function() end, {
+    confirm.show({tmp .. '/' .. rel_path}, function() end, {
         anchor = {win = anchor_win, line = 1, col = anchor_col},
     })
     local confirm_win = vim.api.nvim_get_current_win()
@@ -179,7 +178,7 @@ do
     local path = tmp .. '/' .. long_file
     touch(path)
 
-    confirm_win.show({path}, function() end)
+    confirm.show({path}, function() end)
     local confirm_win = vim.api.nvim_get_current_win()
     local confirm_buf = vim.api.nvim_get_current_buf()
     local confirm_cfg = vim.api.nvim_win_get_config(confirm_win)
@@ -207,7 +206,7 @@ do
     touch(path)
     local rename = 'a-really-quite-long-file-name-that-will-never-fit-the-confirmation-window-at-all (1).txt'
 
-    confirm_win.show({path}, function() end, {
+    confirm.show({path}, function() end, {
         action = 'Paste',
         base = tmp,
         dest = tmp,
@@ -263,7 +262,7 @@ do
     assert_eq(vim.fn.mkdir(tmp .. '/' .. long_dir, 'p'), 1)
     touch(tmp .. '/' .. rel_path)
 
-    confirm_win.show({tmp .. '/' .. rel_path}, function() end, {base = tmp})
+    confirm.show({tmp .. '/' .. rel_path}, function() end, {base = tmp})
     local confirm_win = vim.api.nvim_get_current_win()
     local confirm_buf = vim.api.nvim_get_current_buf()
     local width = vim.api.nvim_win_get_config(confirm_win).width
@@ -296,7 +295,7 @@ do
         end,
     }
 
-    confirm_win.show({tmp .. '/icon.txt'}, function() end)
+    confirm.show({tmp .. '/icon.txt'}, function() end)
     local confirm_buf = vim.api.nvim_get_current_buf()
     local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
     assert_eq(confirm_lines[1], '[del] icon.txt', 'delete confirmation should render file icons when enabled')
@@ -330,13 +329,13 @@ do
     config.icons = true
 
     -- A directory left expanded in the tree keeps its open-folder icon.
-    confirm_win.show({dir}, function() end, {expanded = {[dir] = true}})
+    confirm.show({dir}, function() end, {expanded = {[dir] = true}})
     local expanded_line = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)[1]
     assert_eq(expanded_line, '\238\151\190 subdir/', 'delete confirmation should preserve the expanded directory icon')
     vim.api.nvim_feedkeys('n', 'xt', false)
 
     -- Without expansion it falls back to the collapsed icon.
-    confirm_win.show({dir}, function() end)
+    confirm.show({dir}, function() end)
     local collapsed_line = vim.api.nvim_buf_get_lines(vim.api.nvim_get_current_buf(), 0, -1, false)[1]
     assert_eq(collapsed_line, '\238\151\191 subdir/', 'delete confirmation should use the collapsed icon for unexpanded directories')
     vim.api.nvim_feedkeys('n', 'xt', false)
@@ -552,7 +551,7 @@ do
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/enter.txt')
 
-    confirm_win.show({tmp .. '/enter.txt'}, function(confirmed)
+    confirm.show({tmp .. '/enter.txt'}, function(confirmed)
         vim.g.dora_smoke_enter_confirm_delete = confirmed
     end)
 
@@ -570,7 +569,7 @@ do
     touch(tmp .. '/leave.txt')
 
     vim.g.dora_smoke_leave_confirm_delete = nil
-    confirm_win.show({tmp .. '/leave.txt'}, function(confirmed)
+    confirm.show({tmp .. '/leave.txt'}, function(confirmed)
         vim.g.dora_smoke_leave_confirm_delete = confirmed
     end)
     local confirm_win = vim.api.nvim_get_current_win()

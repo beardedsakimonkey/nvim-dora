@@ -8,7 +8,6 @@ local config = h.config
 local prompt = h.prompt
 local api = h.api
 local store = h.store
-local cwd = h.cwd
 local assert_eq = h.assert_eq
 local assert_match = h.assert_match
 local touch = h.touch

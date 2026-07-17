@@ -39,8 +39,8 @@ local TREE_VERTICAL = '│'
 ---@field icon_start_col? integer
 ---@field icon_end_col? integer
 ---@field icon_hl? string
----@field name_start_col? integer
----@field name_end_col? integer
+---@field name_start_col integer
+---@field name_end_col integer
 ---@field directory_suffix_col? integer
 ---@field filter_directory_start_col? integer
 ---@field filter_directory_end_col? integer

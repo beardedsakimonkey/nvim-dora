@@ -29,7 +29,7 @@ do
     assert_eq(vim.v.shell_error, 0, 'mkfifo should succeed')
     -- Closing the handle unlinks the socket file, so keep it open until the
     -- assertions below are done.
-    local sock = vim.loop.new_pipe(false)
+    local sock = assert(vim.loop.new_pipe(false), 'socket pipe should be created')
     assert(sock:bind(tmp .. '/my-socket'))
 
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))

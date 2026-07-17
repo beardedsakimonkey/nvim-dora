@@ -4,7 +4,6 @@ local dora_lsp = require'dora.lsp'
 local fs = h.fs
 local api = h.api
 local prompt = h.prompt
-local store = h.store
 local config = h.config
 local assert_eq = h.assert_eq
 local touch = h.touch

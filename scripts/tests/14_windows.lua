@@ -2,16 +2,13 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/14_windows.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
-local dora = h.dora
 local fs = h.fs
 local api = h.api
 local store = h.store
-local window = h.window
 local cwd = h.cwd
 local assert_eq = h.assert_eq
 local write_file = h.write_file
 local clear_persisted_view_state = h.clear_persisted_view_state
-local lines = h.lines
 local buf_lines = h.buf_lines
 local set_cursor_pos = h.set_cursor_pos
 

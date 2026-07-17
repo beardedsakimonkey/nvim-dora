@@ -5,7 +5,7 @@ local h = dofile('scripts/tests/helpers.lua')
 local descriptions = h.actions.descriptions
 local fs = h.fs
 local config = h.config
-local confirm_win = h.confirm_win
+local confirm = h.confirm_win
 local prompt = h.prompt
 local api = h.api
 local store = h.store
@@ -711,7 +711,7 @@ do
     -- type, but the restore destination's basename must drive icon selection.
     local original = tmp .. '/.gitignore'
     local trashed = trash_tmp .. '/.gitignore(1)'
-    confirm_win.show({original}, function() end, {types = {[original] = trashed}})
+    confirm.show({original}, function() end, {types = {[original] = trashed}})
     assert_eq(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1], '[git] .gitignore',
         'restore previews should not use a trash collision suffix for the icon')
     vim.api.nvim_feedkeys('n', 'xt', false)

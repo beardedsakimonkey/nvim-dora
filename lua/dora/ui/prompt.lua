@@ -25,10 +25,11 @@ local NS = api.nvim_create_namespace('dora/prompt')
 ---@return string? icon
 ---@return string? hl
 local function resolve_icon(opts, input)
-    if type(opts.icon) == 'function' then
-        return opts.icon(input)
+    local icon = opts.icon
+    if type(icon) == 'function' then
+        return icon(input)
     end
-    return opts.icon, opts.icon_hl
+    return icon, opts.icon_hl
 end
 
 ---@param opts DoraPromptOptions

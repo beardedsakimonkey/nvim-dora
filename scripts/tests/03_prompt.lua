@@ -2,11 +2,8 @@
 -- Part of the smoke suite (driven by scripts/smoke.lua). Run this file on
 -- its own with DORA_TEST_FILE=scripts/tests/03_prompt.lua (see scripts/smoke.sh).
 local h = dofile('scripts/tests/helpers.lua')
-local dora = h.dora
 local config = h.config
 local prompt = h.prompt
-local api = h.api
-local window = h.window
 local cwd = h.cwd
 local assert_eq = h.assert_eq
 

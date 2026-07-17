@@ -6,8 +6,6 @@ local dora = h.dora
 local descriptions = h.actions.descriptions
 local config = h.config
 local keymaps = h.keymaps
-local prompt = h.prompt
-local cwd = h.cwd
 local assert_eq = h.assert_eq
 
 assert_eq(config.lsp_timeout, 1000, 'LSP rename integration should default to a one-second timeout')
@@ -68,7 +66,5 @@ do
     assert(warnings[1][1]:find('no_such_option', 1, true), 'the warning should name the unknown key')
     assert_eq(warnings[1][2], vim.log.levels.WARN, 'unknown config keys should warn at WARN level')
 end
-
-local cwd = assert(vim.loop.cwd())
 
 assert_eq(vim.fn.synIDtrans(vim.fn.hlID('DoraPromptBorder')), vim.fn.synIDtrans(vim.fn.hlID('FloatBorder')), 'prompt border should default to FloatBorder')
