@@ -35,6 +35,20 @@ local M = {}
 ---@field preview_split 'left'|'right'|'above'|'below'
 ---@field lsp_timeout number
 
+-- NOTE: Keep fields synchronized with DoraConfig
+---@class DoraConfigOpts
+---@field keymaps? table<string, DoraKeymapSpec>
+---@field show_keymap_hints? boolean
+---@field show_hidden_files? boolean
+---@field is_hidden_file? fun(file: DoraFile, files: DoraFile[], dir: string): boolean
+---@field icons? DoraIconConfig
+---@field show_root? boolean
+---@field sort_order? DoraSortOrder
+---@field tree_indent? integer
+---@field prompt_insert_esc_closes? boolean
+---@field preview_split? 'left'|'right'|'above'|'below'
+---@field lsp_timeout? number
+
 -- NOTE: Other modules capture this table at require time
 -- (`local config = require'dora'.config`), so configure() merges into it in
 -- place; the table must never be reassigned.
@@ -173,9 +187,18 @@ local function merge_config(dst, src)
     end
 end
 
----@param opts table
+---@param opts DoraConfigOpts
 function M.configure(opts)
     assert(type(opts) == 'table', 'dora.configure() expects a table')
+    for key in pairs(opts) do
+        if M.config[key] == nil then
+            -- Deferred past startup: an echo during config sourcing is wiped
+            -- by the end-of-startup redraw before the user can see it.
+            vim.schedule(function()
+                vim.notify(("dora: unknown config key '%s'"):format(key), vim.log.levels.WARN)
+            end)
+        end
+    end
     merge_config(M.config, opts)
 end
 

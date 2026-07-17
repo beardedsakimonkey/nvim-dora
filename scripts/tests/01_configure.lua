@@ -50,6 +50,23 @@ do
     dora.config.keymaps.__dora_smoke_configure = old_smoke_key
 end
 
+do
+    local warnings = {}
+    local old_notify = vim.notify
+    vim.notify = function(msg, level) warnings[#warnings + 1] = {msg, level} end
+
+    dora.configure({no_such_option = true, keymaps = {__dora_smoke_unknown = 'help'}})
+    vim.wait(1000, function() return #warnings > 0 end)
+
+    vim.notify = old_notify
+    dora.config.no_such_option = nil
+    dora.config.keymaps.__dora_smoke_unknown = nil
+
+    assert_eq(#warnings, 1, 'configure should warn about unknown config keys but not keymap keys')
+    assert(warnings[1][1]:find('no_such_option', 1, true), 'the warning should name the unknown key')
+    assert_eq(warnings[1][2], vim.log.levels.WARN, 'unknown config keys should warn at WARN level')
+end
+
 local cwd = assert(vim.loop.cwd())
 
 assert_eq(vim.fn.synIDtrans(vim.fn.hlID('DoraPromptBorder')), vim.fn.synIDtrans(vim.fn.hlID('FloatBorder')), 'prompt border should default to FloatBorder')
