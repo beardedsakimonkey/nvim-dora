@@ -278,10 +278,10 @@ local function close_handle(handle)
     end
 end
 
--- Watch a directory for changes. `on_change` is called on the main loop
--- once a burst of events settles, and the watcher stops itself; watch again
--- for further changes. Returns a function that cancels the watch, or nil when
--- the directory can't be watched.
+-- Watch a directory for changes. `on_change` is called on the main loop one
+-- debounce window after the first event of a burst, and the watcher stops
+-- itself; watch again for further changes. Returns a function that cancels
+-- the watch, or nil when the directory can't be watched.
 ---@param dir string
 ---@param on_change fun()
 ---@return fun()? cancel
@@ -310,10 +310,14 @@ function M.watch_dir(dir, on_change)
             return
         end
         -- Coalesce this event with any others that arrive within the debounce
-        -- window so a burst (or storm) causes a single refresh rather than one
-        -- re-render per event.
+        -- window so a burst causes a single refresh rather than one re-render
+        -- per event. Fire a fixed delay after the first event rather than
+        -- restarting the delay per event: sustained churn (a build writing
+        -- into the directory) would postpone delivery indefinitely.
         timer = timer or assert(uv.new_timer())
-        timer:start(WATCH_DEBOUNCE_MS, 0, fire)
+        if not timer:is_active() then
+            timer:start(WATCH_DEBOUNCE_MS, 0, fire)
+        end
     end)
     if not ok then
         watcher:close()
@@ -366,10 +370,9 @@ function M.watch_tree(root, on_changes)
             return
         end
         pending[filename and base .. filename or root] = true
-        -- Flush on a fixed interval instead of watch_dir's restart-on-event
-        -- debounce: a wide root (e.g. $HOME) sees steady unrelated churn that
-        -- would otherwise postpone delivery indefinitely and grow the pending
-        -- set without bound.
+        -- Flush on a fixed interval like watch_dir: a wide root (e.g. $HOME)
+        -- sees steady unrelated churn that would otherwise postpone delivery
+        -- indefinitely and grow the pending set without bound.
         timer = timer or assert(uv.new_timer())
         if not timer:is_active() then
             timer:start(WATCH_DEBOUNCE_MS, 0, fire)
