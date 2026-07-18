@@ -45,52 +45,6 @@ local paste_in_progress = false
 
 local PROMPT_WIDTH = 32
 
-local SPINNER_FRAMES = {'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
-
--- Shows an updating, non-blocking progress line on the command line while an
--- async operation runs, and returns a function that stops it and clears the
--- line. Each tick updates a single native progress-message (see
--- :help progress-message), so ext-UIs and |Progress| autocmd consumers see
--- one running task instead of a stream of echoes. A timer drives the
--- animation so the spinner keeps moving even while a single large file copies
--- (which produces no per-file progress callbacks); `message` is re-evaluated
--- on every tick so it can report live progress.
----@param message fun(): string
----@return fun(failed?: boolean) stop
-local function start_spinner(message)
-    -- Nothing to render to without an attached UI (e.g. headless tests).
-    local timer = #api.nvim_list_uis() > 0 and uv.new_timer()
-    if not timer then
-        return function() end
-    end
-    local frame = 1
-    -- Reused across ticks; carrying the returned id forward makes every echo
-    -- update the same progress-message rather than create a new one.
-    local progress = {kind = 'progress', source = 'dora', title = 'dora', status = 'running'}
-    -- timer:stop() halts future ticks but cannot cancel a render that the timer
-    -- has already scheduled onto the main loop. A fast operation (e.g. a
-    -- directory rename, which finishes before the first tick fires) would
-    -- otherwise let that stale render repaint the line after we clear it.
-    local stopped = false
-    timer:start(0, 100, vim.schedule_wrap(function()
-        if stopped then
-            return
-        end
-        progress.id = api.nvim_echo({{('dora: %s %s'):format(SPINNER_FRAMES[frame], message())}}, false, progress)
-        frame = frame % #SPINNER_FRAMES + 1
-    end))
-    return function(failed)
-        stopped = true
-        timer:stop()
-        timer:close()
-        -- No tick fired, so there is no progress-message to conclude.
-        if progress.id then
-            progress.status = failed and 'failed' or 'success'
-            api.nvim_echo({{''}}, false, progress)
-        end
-    end
-end
-
 -- Drive the statusline's busy indicator for an async operation. 'busy' is
 -- buffer-local, so address the dora buffer explicitly: the user may focus a
 -- different buffer before the operation finishes, and `vim.o.busy` would then
@@ -1204,7 +1158,7 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     -- The copy runs off the main loop; keep the editor responsive and show a
     -- live spinner until it finishes.
     local progress = {files = 0, bytes = 0}
-    local stop_spinner = start_spinner(function()
+    local stop_spinner = util.start_spinner(function()
         return ('Pasting… %d items, %.1f MiB'):format(progress.files, progress.bytes / 1024 / 1024)
     end)
     paste_in_progress = true
@@ -1459,7 +1413,7 @@ local function remove_paths(state, paths, mode, action, anchor)
         -- mount, a macOS privacy consultation) or a large recursive delete
         -- doesn't freeze the editor with the confirmation still on screen.
         local results = {removed = {}, undo_batch = {}}
-        local stop_spinner = start_spinner(function()
+        local stop_spinner = util.start_spinner(function()
             return mode == 'trash' and 'Trashing…' or 'Deleting…'
         end)
         state.remove_in_progress = true
