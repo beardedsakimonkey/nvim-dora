@@ -21,6 +21,12 @@ local assert_line_before = h.assert_line_before
 local win_title = h.win_title
 
 do
+    local old_notify = vim.notify
+    local notification
+    ---@diagnostic disable-next-line: duplicate-set-field
+    vim.notify = function(msg, level)
+        notification = {msg = msg, level = level}
+    end
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dir10', tonumber('755', 8)))
@@ -44,12 +50,15 @@ do
 
     api.sort_by('name_desc')
     assert_eq(dora.config.sort_order, 'name_desc')
+    assert_eq(notification.msg, 'dora: Sorted by name (descending)')
+    assert_eq(notification.level, vim.log.levels.INFO)
     assert_line_before('^dir10/$', '^dir2/$', 'reversed natural sort should reverse directory names')
     assert_line_before('^dir2/$', '^tiny%.bin$', 'reversed natural sort should keep directories before files')
     assert_line_before('^file10%.txt$', '^file2%.txt$', 'reversed natural sort should reverse file names')
 
     api.sort_by('size')
     assert_eq(dora.config.sort_order, 'size')
+    assert_eq(notification.msg, 'dora: Sorted by size')
     assert_line_before('^dir10/$', '^tiny%.bin$', 'size sort should keep directories before files')
     assert_line_before('^tiny%.bin$', '^alpha%.md$', 'size sort should order files by size')
     assert_line_before('^file2%.txt$', '^file10%.txt$', 'size sort should order larger files later')
@@ -104,6 +113,7 @@ do
 
     api.quit()
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+    vim.notify = old_notify
 end
 
 do

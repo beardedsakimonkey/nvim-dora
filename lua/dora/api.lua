@@ -4,6 +4,7 @@
 -- DoraState from dora/store.lua, mutate it or the filesystem, and re-render
 -- through dora/view.lua.
 local fs = require'dora.fs'
+local actions = require'dora.actions'
 local buffer = require'dora.buffer'
 local help_win = require'dora.ui.help'
 local history = require'dora.history'
@@ -1880,6 +1881,8 @@ function M.sort_by(order)
     if path then
         view.set_cursor_path(state, path)
     end
+    local description = actions.descriptions['sort_by_' .. state.sort_order]
+    util.info(description:gsub('^Sort', 'Sorted'))
 end
 
 -- Generate the parameterless wrappers (sort_by_name, sort_by_size_desc, ...)
