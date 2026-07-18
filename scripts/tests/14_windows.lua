@@ -83,6 +83,35 @@ do
     assert_eq(vim.fn.delete(tmp, 'rf'), 0)
 end
 
+-- Regression: open_vsplit on a directory whose name contains pattern
+-- characters used to hit E95 (create_buf looked the directory buffer up with
+-- a bufnr() pattern, which never matched the name literally).
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/br[ack]et', tonumber('755', 8)))
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local left_win = vim.api.nvim_get_current_win()
+    local left_state = store.get()
+
+    set_cursor_pos('br[ack]et')
+    api.open_vsplit()
+    local right_win = vim.api.nvim_get_current_win()
+    local right_state = store.get()
+
+    assert(right_win ~= left_win, 'open_vsplit on a pattern-char directory should create a second window')
+    assert(right_state ~= left_state, 'open_vsplit on a pattern-char directory should create a separate Dora session')
+    assert_eq(right_state.cwd, fs.realpath(tmp .. '/br[ack]et'),
+        'open_vsplit on a pattern-char directory should browse that directory')
+
+    api.quit()
+    vim.api.nvim_win_close(right_win, true)
+    vim.api.nvim_set_current_win(left_win)
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 do
     local original_cwd = vim.fn.getcwd(-1, -1)
     local tmp = vim.fn.tempname()

@@ -33,10 +33,24 @@ local function create_buf_name(cwd)
     return new_name
 end
 
+-- `bufnr({name})` treats its argument as a pattern, so paths with regex
+-- characters (e.g. brackets) fail to match their own buffer; compare full
+-- names exactly instead.
+---@param name string
+---@return integer buf # -1 when no buffer has that exact name
+local function find_buf_by_name(name)
+    for _, buf in ipairs(api.nvim_list_bufs()) do
+        if api.nvim_buf_get_name(buf) == name then
+            return buf
+        end
+    end
+    return -1
+end
+
 ---@param cwd string
 ---@return integer buf
 function M.create_buf(cwd)
-    local existing_buf = vim.fn.bufnr('^' .. cwd .. '$')
+    local existing_buf = find_buf_by_name(cwd)
     local buf
     if existing_buf ~= -1 then
         if buf_has_var(existing_buf, 'is_dora') then
