@@ -81,6 +81,23 @@ local function start_spinner(message)
     end
 end
 
+-- Drive the statusline's busy indicator for an async operation. 'busy' is
+-- buffer-local, so address the dora buffer explicitly: the user may focus a
+-- different buffer before the operation finishes, and `vim.o.busy` would then
+-- decrement the wrong buffer, leaving the dora buffer stuck busy.
+---@param buf integer
+local function busy_start(buf)
+    vim.bo[buf].busy = vim.bo[buf].busy + 1
+end
+
+---@param buf integer
+local function busy_stop(buf)
+    -- The buffer may have been wiped while the operation ran.
+    if api.nvim_buf_is_valid(buf) then
+        vim.bo[buf].busy = vim.bo[buf].busy - 1
+    end
+end
+
 -- The root row stands for the browsed directory itself; actions that would
 -- mutate or mark it refuse with a message rather than acting on the cwd.
 ---@param state DoraState
@@ -1182,15 +1199,14 @@ local function paste_entries(state, entries, dest_dir, overwrite)
     end)
     paste_in_progress = true
     state.paste_in_progress = true
-    -- Drive the statusline's busy indicator.
-    vim.o.busy = vim.o.busy + 1
+    busy_start(state.buf)
     fs.paste_async(planned_ops, progress, overwrite, function(ok, result, completed)
         paste_in_progress = false
         state.paste_in_progress = false
         store.each(function(other)
             other.pasting_paths = nil
         end)
-        vim.o.busy = vim.o.busy - 1
+        busy_stop(state.buf)
         stop_spinner()
         local completed_moves = {}
         for _, op in ipairs(completed) do
@@ -1443,12 +1459,11 @@ local function remove_paths(state, paths, mode, action, anchor)
             state.removing_paths[path] = true
         end
         view.render(state)
-        -- Drive the statusline's busy indicator.
-        vim.o.busy = vim.o.busy + 1
+        busy_start(state.buf)
         fs.remove_async(paths, mode, results, function(ok, err)
             state.remove_in_progress = false
             state.removing_paths = nil
-            vim.o.busy = vim.o.busy - 1
+            busy_stop(state.buf)
             stop_spinner()
             -- Files moved to the trash before a mid-batch failure are real, so
             -- keep them undoable even though the batch was cut short.

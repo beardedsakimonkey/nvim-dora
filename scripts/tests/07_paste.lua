@@ -1010,6 +1010,39 @@ do
 end
 
 do
+    -- The async paste drives the buffer-local 'busy' option. The user may
+    -- focus another buffer while the paste runs, so both the increment and
+    -- the decrement must address the dora buffer, not the current one.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    local dora_buf = vim.api.nvim_get_current_buf()
+    set_cursor_line('alpha%.txt$')
+    api.toggle_copy()
+    set_cursor_pos('dest')
+    api.paste_under()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    assert_eq(vim.bo[dora_buf].busy, 1, 'an in-flight paste should mark the dora buffer busy')
+
+    vim.cmd('new')
+    local other_buf = vim.api.nvim_get_current_buf()
+    assert(vim.wait(5000, function()
+        return not state.paste_in_progress
+    end), 'paste did not finish')
+    assert(fs.exists(tmp .. '/dest/alpha.txt'), 'the paste should complete with focus elsewhere')
+    assert_eq(vim.bo[dora_buf].busy, 0, "finishing the paste should clear the dora buffer's busy counter")
+    assert_eq(vim.bo[other_buf].busy, 0, 'finishing the paste should not touch the focused buffer')
+
+    vim.cmd('close!')
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     touch(tmp .. '/alpha.txt')
