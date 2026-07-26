@@ -24,7 +24,7 @@ do
     touch(tmp .. '/foo.js')
     touch(tmp .. '/dir/bar.lua')
     local paths = {tmp .. '/foo.js', tmp .. '/dir', tmp .. '/dir/bar.lua'}
-    for i = 4, 12 do
+    for i = 4, 40 do
         paths[#paths+1] = tmp .. '/dir/file-' .. i .. '.txt'
     end
     local origin_cursor = vim.api.nvim_win_get_cursor(origin_win)
@@ -43,12 +43,19 @@ do
     local content_pos = vim.fn.screenpos(confirm_win, 1, 1)
     assert_eq(content_pos.row, origin_pos.row, 'delete confirmation should sit on the cursor line by default')
     assert_eq(content_pos.col, origin_pos.col, 'delete confirmation should align left of the text by default')
-    assert_match(win_title(confirm_win), 'Delete 12 files%?')
-    assert_eq(#confirm_lines, 11, 'delete confirmation should cap visible files')
+    assert_match(win_title(confirm_win), 'Delete 40 files%?')
+    -- The list is capped, but the cap is well past a dozen rows and never
+    -- outgrows the room the float gets.
+    local listed = #confirm_lines - 1
+    local more = confirm_lines[#confirm_lines]:match('^%.%.%. and (%d+) more$')
+    assert(more, 'delete confirmation should cap visible files with an overflow line')
+    assert_eq(listed + tonumber(more), #paths, 'the overflow count should cover the unlisted files')
+    assert(listed >= 12, ('delete confirmation should list more than a dozen files, listed %d'):format(listed))
+    assert_eq(#confirm_lines, vim.api.nvim_win_get_config(confirm_win).height,
+        'every listed line should fit the float, none clipped off the bottom')
     assert_eq(confirm_lines[1], 'foo.js')
     assert_eq(confirm_lines[2], 'dir/')
     assert_eq(confirm_lines[3], 'bar.lua')
-    assert_eq(confirm_lines[11], '... and 2 more')
 
     local marks = vim.api.nvim_buf_get_extmarks(confirm_buf, -1, 0, -1, {details=true})
     local has_path, has_file, has_dir, has_dir_suffix, has_more = false, false, false, false, false
@@ -64,7 +71,7 @@ do
         has_dir_suffix = has_dir_suffix
             or row == 1 and col == 3 and details.end_col == 4 and details.hl_group == 'DoraVirtText'
         has_more = has_more
-            or row == 10 and details.hl_group == 'DoraMutedText'
+            or row == #confirm_lines - 1 and details.hl_group == 'DoraMutedText'
     end
     assert(not has_path, 'delete confirmation should not dim the path portion')
     assert(has_file, 'delete confirmation should highlight file names by type')
@@ -244,6 +251,54 @@ do
     assert(find_line(' (overwrite)'), 'overwrite mode should tag the conflict row')
     assert(find_line('…'), 'a too-long overwrite row should be elided')
     fits('overwrite')
+
+    vim.api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(vim.api.nvim_get_current_win(), origin_win)
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
+    -- A paste too long to list in full leads with its conflicts: they are the
+    -- rows the mode keys retag, so truncation drops the unconflicting entries
+    -- instead, however late in the list the conflicts sit.
+    local origin_win = vim.api.nvim_get_current_win()
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    local paths, renames = {}, {}
+    for i = 1, 40 do
+        local path = tmp .. '/file-' .. i .. '.txt'
+        touch(path)
+        paths[#paths+1] = path
+    end
+    -- The one conflict is the very last mark, well past any cap.
+    local conflict = paths[#paths]
+    renames[conflict] = 'file-40 (1).txt'
+
+    confirm.show(paths, function() end, {
+        action = 'Paste',
+        base = tmp,
+        dest = tmp,
+        allow_overwrite = true,
+        renames = renames,
+        operations = {[conflict] = 'copy'},
+    })
+    local confirm_win = vim.api.nvim_get_current_win()
+    local confirm_buf = vim.api.nvim_get_current_buf()
+    local confirm_lines = vim.api.nvim_buf_get_lines(confirm_buf, 0, -1, false)
+
+    assert_match(confirm_lines[1], '1 conflict')
+    -- Header (conflict count, key hint, divider), then the conflict at the head
+    -- of the list.
+    assert_match(confirm_lines[4], '^file%-40%.txt → file%-40 %(1%)%.txt %(rename%)$')
+    local overflow
+    for _, line in ipairs(confirm_lines) do
+        overflow = overflow or line:match('^%.%.%. and (%d+) more$')
+    end
+    assert(overflow, 'a 40-file paste should overflow')
+    assert_eq(#confirm_lines, vim.api.nvim_win_get_config(confirm_win).height,
+        'every listed line should fit the float, none clipped off the bottom')
+    -- The destination still trails the list, below the overflow line.
+    assert_eq(confirm_lines[#confirm_lines - 1], '↓')
 
     vim.api.nvim_feedkeys('n', 'xt', false)
     assert_eq(vim.api.nvim_get_current_win(), origin_win)

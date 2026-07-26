@@ -10,7 +10,7 @@ local config = require'dora'.config
 
 local M = {}
 
-local MAX_CONFIRM_PATHS = 10
+local MAX_CONFIRM_PATHS = 20
 local RIGHT_PADDING = 1
 -- Arrow joining a conflicting name to the free name a keep-both paste would use.
 local RENAME_ARROW = ' → '
@@ -288,14 +288,13 @@ end
 ---@param operations? table<string, DoraPasteOperation>
 ---@param expanded? table<string, boolean>
 ---@param types? table<string, string> Path -> existing path whose file type to use
----@param limit integer Maximum number of paths to render before overflowing
 ---@param overwrite boolean Current mode, deciding which suffix and preview each line carries
 ---@param target? integer Display columns each line may occupy; names are elided to fit
 ---@return DoraConfirmItem[]
-local function items(paths, base, renames, operations, expanded, types, limit, overwrite, target)
+local function items(paths, base, renames, operations, expanded, types, overwrite, target)
     local ret = {}
-    for i = 1, math.min(#paths, limit) do
-        local parts = item_parts(paths[i], base, renames, operations, expanded, types)
+    for _, path in ipairs(paths) do
+        local parts = item_parts(path, base, renames, operations, expanded, types)
         if target then
             parts = truncate_parts(parts, overwrite, target)
         end
@@ -305,23 +304,55 @@ local function items(paths, base, renames, operations, expanded, types, limit, o
 end
 
 -- How many paths to list before overflowing into "... and N more". A
--- superimposed confirmation aligns one line per removed row, so it lists every
--- path that fits; it only overflows when the float (including its border)
--- genuinely cannot show them all. Other confirmations (paste, undo) keep the
--- fixed cap.
----@param anchor? DoraFloatAnchor
+-- confirmation superimposed on its own anchor aligns one line per removed row,
+-- so it lists every path that fits; it only overflows when the float genuinely
+-- cannot show them all. Other confirmations (paste, undo) keep the fixed cap.
+-- Either way the list never outgrows the rows the float gets: the lines it
+-- shares the window with claim theirs first.
+---@param capacity integer? Rows the float can show, nil when it will be centered instead
+---@param capped boolean Keep the fixed cap rather than listing every path that fits
 ---@param count integer Number of paths to confirm
+---@param chrome integer Non-path lines sharing the window (header block, destination)
 ---@return integer
-local function path_limit(anchor, count)
-    local capacity = window.superimpose_capacity(anchor)
-    if not capacity then
-        return MAX_CONFIRM_PATHS
+local function path_limit(capacity, capped, count, chrome)
+    -- A centered float is clamped to the editor height by window.layout.
+    local rows = (capacity or math.max(1, vim.o.lines - 4)) - chrome
+    local limit = math.min(capped and MAX_CONFIRM_PATHS or count, rows)
+    if count > limit then
+        -- Reserve the final visible row for the overflow line.
+        limit = math.min(limit, rows - 1)
     end
-    if count <= capacity then
-        return count
+    return math.max(1, limit)
+end
+
+-- The paths to list when `limit` cannot fit them all. Conflicting entries are
+-- what a paste confirmation exists to surface -- they are the rows the mode keys
+-- retag, and the only ones an overwrite would destroy -- so they lead the list
+-- and are never the ones dropped. When every path fits, they keep their original
+-- (tree) order.
+---@param paths string[]
+---@param renames? table<string, string> Source path -> free name, keyed on the conflicting entries
+---@param limit integer
+---@return string[]
+local function listed_paths(paths, renames, limit)
+    if #paths <= limit then
+        return paths
     end
-    -- Reserve the final visible row for the overflow line.
-    return capacity - 1
+    local conflicting, rest = {}, {}
+    for _, path in ipairs(paths) do
+        local bucket = renames and renames[path] and conflicting or rest
+        bucket[#bucket+1] = path
+    end
+    local ret = {}
+    for _, bucket in ipairs({conflicting, rest}) do
+        for _, path in ipairs(bucket) do
+            if #ret >= limit then
+                return ret
+            end
+            ret[#ret+1] = path
+        end
+    end
+    return ret
 end
 
 ---@param count integer
@@ -665,8 +696,20 @@ function M.show(paths, cb, opts)
     -- Render the destination like a listed entry: relative to base, or by its
     -- own name when it is base itself.
     local dest_item = opts.dest and item(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded) or nil
-    local max_paths = path_limit(opts.anchor, #paths)
-    local confirm_items = items(paths, base, renames, operations, expanded, types, max_paths, overwrite)
+    -- Rows the list shares the window with: the header block (warning, hint,
+    -- divider) and the destination (its arrow and the directory).
+    local chrome = ((warning and 1 or 0) + (hint and 1 or 0)
+        + ((warning or hint) and 1 or 0) + (dest_item and 2 or 0))
+    local origin_win = api.nvim_get_current_win()
+    -- Only a confirmation given a superimposing anchor of its own lists one line
+    -- per removed row; the rest keep the fixed cap.
+    local capped = window.superimpose_capacity(opts.anchor) == nil
+    -- Budget the list against the anchor the float will actually use: lacking one
+    -- of its own it superimposes on the cursor line, so the room below the cursor
+    -- bounds it just the same.
+    local capacity = window.superimpose_capacity(opts.anchor or cursor_anchor(origin_win))
+    local shown = listed_paths(paths, renames, path_limit(capacity, capped, #paths, chrome))
+    local confirm_items = items(shown, base, renames, operations, expanded, types, overwrite)
     local overflow = math.max(0, #paths - #confirm_items)
     local confirm_title = get_title(#paths, opts.action, err)
     -- Size the window to fit either mode (overwrite tags are shorter than the
@@ -688,7 +731,6 @@ function M.show(paths, cb, opts)
             item_parts(opts.dest, opts.dest ~= base and base or nil, nil, nil, expanded), false, target))
     end
     local rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
-    local origin_win = api.nvim_get_current_win()
     local guicursor = vim.o.guicursor
     local autocmds = {}
     local closed = false
@@ -699,7 +741,7 @@ function M.show(paths, cb, opts)
     vim.bo[buf].bufhidden = 'wipe'
     vim.bo[buf].modifiable = true
     local function refresh()
-        confirm_items = items(paths, base, renames, operations, expanded, types, max_paths, overwrite, target)
+        confirm_items = items(shown, base, renames, operations, expanded, types, overwrite, target)
         -- win_width is fixed for the window's lifetime, so the centered header
         -- never moves as the mode (and the list content) changes.
         rendered_lines = lines(confirm_items, overflow, dest_item, overwrite, warning, hint, win_width)
