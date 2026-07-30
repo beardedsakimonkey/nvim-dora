@@ -1229,7 +1229,7 @@ local function paste_error_message(count)
 end
 
 ---@param state DoraState
----@param row DoraTreeRow
+---@param row DoraTreeRow? the row the confirmation anchors to, if any
 ---@param dest_dir string
 ---@param entries DoraMarkedPathEntry[]
 local function paste_to_directory(state, row, dest_dir, entries)
@@ -1299,11 +1299,9 @@ local function paste_at(resolve_dest)
         return
     end
     local row = view.current_row(state)
-    local dest_dir = row and resolve_dest(row)
-    if not row or not dest_dir then
-        util.err('No paste destination')
-        return
-    end
+    -- An empty directory (or a filter matching nothing) renders no rows at all
+    -- without show_root; with no row to resolve against, paste targets the cwd.
+    local dest_dir = row and resolve_dest(row) or state.cwd
     paste_to_directory(state, row, dest_dir, entries)
 end
 

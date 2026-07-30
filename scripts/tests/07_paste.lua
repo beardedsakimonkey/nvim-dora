@@ -349,6 +349,50 @@ do
 end
 
 do
+    -- An empty directory renders no rows at all without show_root, so both
+    -- paste actions have to fall back to the cwd for their destination.
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/empty', tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/hollow', tonumber('755', 8)))
+    touch(tmp .. '/alpha.txt')
+    touch(tmp .. '/bravo.txt')
+
+    vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
+    local state = store.get()
+    set_cursor_line('alpha%.txt$')
+    api.toggle_copy()
+    set_cursor_pos('empty')
+    api.open()
+    assert_match(state.cwd, '/empty$', 'opening a directory should browse it')
+    assert_eq(#state.rows, 0, 'an empty directory should render no rows')
+
+    api.paste()
+    assert_match(win_title(vim.api.nvim_get_current_win()), 'Paste%?',
+        'paste in an empty directory should still confirm')
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+    assert(fs.exists(tmp .. '/empty/alpha.txt'),
+        'paste in an empty directory should copy into the browsed directory')
+
+    api.up_dir()
+    set_cursor_line('bravo%.txt$')
+    api.toggle_cut()
+    set_cursor_pos('hollow')
+    api.open()
+    assert_eq(#state.rows, 0, 'an empty directory should render no rows')
+    api.paste_under()
+    vim.api.nvim_feedkeys('y', 'xt', false)
+    wait_for_paste()
+    assert(fs.exists(tmp .. '/hollow/bravo.txt'),
+        'paste_under in an empty directory should move into the browsed directory')
+    assert(not fs.exists(tmp .. '/bravo.txt'), 'a cut paste should leave no source behind')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
+do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
     assert(vim.loop.fs_mkdir(tmp .. '/dest', tonumber('755', 8)))
