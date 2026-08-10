@@ -163,7 +163,7 @@ local function item_parts(path, base, renames, operations, expanded, types)
     -- symlink target after the '@' (it would collide with the rename arrow).
     local hl, marker = icons.decoration(file.type, type_path)
     local is_expanded = expanded and expanded[path] or nil
-    local icon, icon_hl = icons.get(config.icons, file, path, is_expanded)
+    local icon, icon_hl = icons.get(config.icons, file, file.type == 'link' and type_path or path, is_expanded)
     return {
         icon = icon,
         icon_hl = icon_hl or 'DoraIcon',

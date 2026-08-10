@@ -5,6 +5,7 @@ local h = dofile('scripts/tests/helpers.lua')
 local descriptions = h.actions.descriptions
 local fs = h.fs
 local config = h.config
+local confirm_win = h.confirm_win
 local prompt = h.prompt
 local api = h.api
 local store = h.store
@@ -16,6 +17,8 @@ local set_cursor_line = h.set_cursor_line
 local current_line = h.current_line
 local find_line_index = h.find_line_index
 local set_cursor_pos = h.set_cursor_pos
+
+local icons = require'dora.icons'
 
 do
     local tmp = vim.fn.tempname()
@@ -93,6 +96,44 @@ do
     vim.cmd('Dora ' .. vim.fn.fnameescape(tmp))
     local state = store.get()
     assert_eq(vim.fn.maparg('gf', 'n'), '', 'gf should remain available for users')
+
+    -- Symlinks to directories take the directory glyph (the icon module's
+    -- built-in one here: directories never consult an icon provider), still
+    -- colored as a symlink.
+    local dir_icon = icons.get(true, {name = 'target-dir', type = 'directory'}, tmp .. '/target-dir')
+    local link_icon, link_hl = icons.get(true, {name = 'dir-link', type = 'link'}, tmp .. '/dir-link')
+    assert_eq(link_icon, dir_icon, 'symlinks to directories should take the directory glyph')
+    assert_eq(link_hl, 'DoraSymlink', 'symlinked directory icons should keep the symlink highlight')
+
+    -- The rename prompt's live icon is looked up by the typed name, which
+    -- cannot resolve a symlink, so the glyph must not revert while typing.
+    set_cursor_pos('dir-link')
+    local old_input = prompt.input
+    local old_icons = config.icons
+    local typed_icon, typed_hl
+    -- Cancel rather than confirm: confirming would rename the symlink away.
+    ---@diagnostic disable-next-line: duplicate-set-field
+    prompt.input = function(opts, cb)
+        typed_icon, typed_hl = opts.icon('other-name')
+        cb(nil)
+    end
+    config.icons = true
+    api.rename()
+    config.icons = old_icons
+    prompt.input = old_input
+    assert_eq(typed_icon, dir_icon, 'renaming a symlinked directory should keep the directory glyph')
+    assert_eq(typed_hl, 'DoraSymlink', 'the rename prompt should keep the symlink highlight')
+
+    -- A restore preview lists the entry at the location it will return to,
+    -- which is still empty, so its icon has to resolve the copy that exists.
+    local restored = tmp .. '/restored-link'
+    config.icons = true
+    confirm_win.show({restored}, function() end, {types = {[restored] = tmp .. '/dir-link'}})
+    local preview_line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+    config.icons = old_icons
+    vim.api.nvim_feedkeys('n', 'xt', false)
+    assert_eq(preview_line:sub(1, #dir_icon), dir_icon,
+        'restore previews should take the directory glyph for a symlinked directory')
 
     set_cursor_line('dir%-link$')
     api.open()

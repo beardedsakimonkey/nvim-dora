@@ -146,12 +146,23 @@ end
 function M.get(provider, file, path, expanded)
     if provider == false or provider == nil then
         return nil, nil
-    elseif provider == true or provider == 'nvim-web-devicons' then
-        return web_devicon(file, path, expanded)
-    elseif provider == 'mini.icons' then
-        return mini_icon(file, path)
     end
-    return nil, nil
+    -- A symlink to a directory takes the directory glyph.
+    local stat = file.type == 'link' and uv.fs_stat(path)
+    local link_dir = stat and stat.type == 'directory'
+    if link_dir then
+        file = vim.tbl_extend('force', file, {type = 'directory'})
+    end
+    local icon, hl
+    if provider == true or provider == 'nvim-web-devicons' then
+        icon, hl = web_devicon(file, path, expanded)
+    elseif provider == 'mini.icons' then
+        icon, hl = mini_icon(file, path)
+    end
+    if icon and link_dir then
+        hl = 'DoraSymlink'
+    end
+    return icon, hl
 end
 
 return M

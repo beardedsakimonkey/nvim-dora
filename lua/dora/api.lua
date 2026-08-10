@@ -1632,6 +1632,7 @@ local function rename(prefill)
     -- rename cannot change it, so there is no trailing-slash rule like the
     -- add prompt's, and an expanded directory keeps its open icon.
     local expanded = row.is_root or file_type == 'directory' and state.expanded_dirs[path] or nil
+    local icon_path = file_type == 'link' and fs.is_dir(path) and path or nil
     prompt.input({
         prompt = 'Rename',
         cwd = fs.get_parent_dir(path),
@@ -1639,7 +1640,7 @@ local function rename(prefill)
         width = math.max(PROMPT_WIDTH, #basename + 4),
         anchor = current_name_anchor(row, {superimpose = true}),
         icon = config.icons and function(input)
-            return icons.get(config.icons, {name = input, type = file_type}, input, expanded)
+            return icons.get(config.icons, {name = input, type = file_type}, icon_path or input, expanded)
         end or nil,
         validate = function(input)
             return fs.validate_rename(input, path)
