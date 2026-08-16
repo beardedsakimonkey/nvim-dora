@@ -34,13 +34,19 @@ local function create_buf_name(cwd)
 end
 
 -- `bufnr({name})` treats its argument as a pattern, so paths with regex
--- characters (e.g. brackets) fail to match their own buffer; compare full
--- names exactly instead.
+-- characters (e.g. brackets) fail to match their own buffer. Also compare
+-- real paths because Neovim can name a startup directory buffer after a
+-- symlink while treating its resolved path as the same buffer name.
 ---@param name string
----@return integer buf # -1 when no buffer has that exact name
+---@return integer buf # -1 when no buffer has the same path
 local function find_buf_by_name(name)
+    -- dora.fs requires this module, so require it lazily to avoid a load-time
+    -- cycle. Buffer lookup only runs after module initialization is complete.
+    local fs = require'dora.fs'
+    local resolved_name = fs.try_realpath(name)
     for _, buf in ipairs(api.nvim_list_bufs()) do
-        if api.nvim_buf_get_name(buf) == name then
+        local buf_name = api.nvim_buf_get_name(buf)
+        if buf_name == name or resolved_name and fs.try_realpath(buf_name) == resolved_name then
             return buf
         end
     end

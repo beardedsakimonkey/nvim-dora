@@ -12,6 +12,27 @@ local clear_persisted_view_state = h.clear_persisted_view_state
 local buf_lines = h.buf_lines
 local set_cursor_pos = h.set_cursor_pos
 
+-- Regression: a startup directory buffer can keep a symlink path as its name,
+-- although Dora resolves the browsed directory to its real path. Reuse that
+-- buffer instead of creating a second buffer whose resolved name causes E95.
+do
+    local tmp = vim.fn.tempname()
+    assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
+    assert(vim.loop.fs_mkdir(tmp .. '/target', tonumber('755', 8)))
+    assert(vim.loop.fs_symlink(tmp .. '/target', tmp .. '/link'))
+
+    vim.cmd('edit ' .. vim.fn.fnameescape(tmp .. '/link'))
+    local state = store.get()
+    assert(vim.api.nvim_buf_get_var(0, 'is_dora'), 'editing a symlinked directory should open Dora')
+    assert_eq(state.cwd, fs.realpath(tmp .. '/target'),
+        'editing a symlinked directory should browse its real path')
+    assert_eq(vim.api.nvim_buf_get_name(0), state.cwd,
+        'a symlinked directory buffer should take the canonical name')
+
+    api.quit()
+    assert_eq(vim.fn.delete(tmp, 'rf'), 0)
+end
+
 do
     local tmp = vim.fn.tempname()
     assert(vim.loop.fs_mkdir(tmp, tonumber('755', 8)))
